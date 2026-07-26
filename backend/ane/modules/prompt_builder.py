@@ -1076,7 +1076,8 @@ class PromptBuilder:
 
         # \u2500\u2500 \u4fee\u4e3a / \u8eab\u4efd / \u4f4d\u7f6e \u2500\u2500
         sec.append(f"\u4fee\u4e3a\uff1a{npc.cultivation}")
-        sec.append(f"\u8eab\u4efd\uff1a{npc.identity or '\u6563\u4fee'}")
+        _default_id = "\u6563\u4fee"
+        sec.append(f"\u8eab\u4efd\uff1a{npc.identity or _default_id}")
         sec.append(f"\u4f4d\u7f6e\uff1a{npc.location}")
 
         # \u2500\u2500 \u5f53\u524d\u72b6\u6001 \u2500\u2500
