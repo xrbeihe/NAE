@@ -1,0 +1,691 @@
+
+AI Narrative Engine (ANE)
+
+Software Architecture Specification v2.2
+
+
+---
+
+修订说明（v2.1 → v2.2）
+
+本轮更新反映 Phase 1 代码实际状态（2026-07）：
+
+  新增模块与变更：
+    ✅ NPC Modeler — 新增模块（替代 HTEM Phase 2），用于重要人物的结构化角色建模
+    ✅ Token Usage Tracker — 内置于 ModelAdapter，所有 LLM 调用记录用量
+    ✅ Prompt Builder 已完整 Htem 化（结构化 Context + 10+ 板块独立 builder）
+    ✅ `_llm_nameget` — NPC 姓名提取（替代旧硬编码正则）
+    ✅ `llm_summary` — 场景事实提取（已实际运行）
+    ✅ Auto-summary（suggest_summary 触发）
+    ✅ conversation/prevent 重要 NPC 记忆保护
+
+  架构调整（2026-07-25 代码审查后）：
+    - Event Bus handler 当前为日志级别（DB 写入在主管线直接执行）
+    - NPC 不做预生成——玩家不接触则不创建，接触后通过 ⭐ 建模才生成完整档案
+    - 虚拟环境位于项目根 .venv/（以 anaconda 为 base）
+    - 内容模板清理：移除 87 个顶层区域 + 97 个建筑，仅保留 42 宗门 + 30 城市
+    - 硬编码位置列表全部替换为动态读取 JSON 模板
+    - LLM 命名统一：LLM0→_llm_nameget, LLM1→llm_main, LLM2→llm_summary
+    - JSON 输出质量控制：json_repair 修复 + LLM 重试 + 前端 HO 提醒
+    - is_important 修复：建模确认时正确标记（原缺失导致【重要人物】面板显示"（无）"）
+
+---
+
+1. Project Vision（项目愿景）
+
+AI Narrative Engine（以下简称 ANE）不是聊天机器人，也不是传统角色扮演软件，而是一个持续运行（Persistent）、状态一致（Consistent）、可扩展（Extensible）的 AI 世界引擎。
+
+系统目标不是"让 AI 编故事"，而是建立一个真实存在的世界：
+
+  世界拥有自己的历史。
+  NPC 拥有自己的生活。
+  玩家只是世界中的一个角色。
+  AI 是故事讲述者，而不是世界管理者。
+
+整个项目最高原则：
+
+  > AI is the narrator, Program is the engine, Database is the memory.
+
+
+---
+
+2. Core Principles（核心设计原则）
+
+整个项目遵循以下不可违反的原则：
+
+  1. AI 不负责维护世界状态 —— 世界状态的变化由程序控制，AI 只负责讲述变化的过程。
+  2. AI 不直接修改数据库。
+  3. 数据库是真实世界唯一数据来源（Single Source of Truth）。
+  4. 程序负责规则、状态、计算。
+  5. AI 负责文学、描写、对话。
+  6. Prompt 永远保持最小化。
+  7. 所有长期信息必须来自数据库，而不是 Prompt。
+  8. 世界按需加载，不一次性加载全部内容。
+  9. 世界时间由玩家行动驱动，状态随每次输入推进。
+  10. 每个模块职责单一，禁止模块间直接耦合。
+  11. NPC_MODELING：重要人物由玩家主动标记后，通过独立 LLM 生成结构化人物档案。
+
+补充说明：
+  原则 1 中的"世界状态"特指运行时产生的动态变化（NPC 位置移动、修为突破、关系变更等），
+  不排斥开局时的静态模板数据（宗门列表、城市描述、NPC 名字池等）。
+  静态模板是程序搭好的舞台——属于原则 4"程序负责"的范畴，不是 AI 需要维护的"世界状态"。
+  玩家进入游戏后，所有状态变更才进入"AI 不负责维护"的范围。
+
+
+---
+
+3. World Session（世界存档）
+
+整个世界以 World Session 为单位运行。
+
+每创建一个新对话（Session）：
+
+  → 创建新的世界。
+  → 创建新的数据库记录。
+  → 从世界模板加载初始区域（宗门 + 城市），作为世界中立背景信息存储。
+  → 创建玩家 stub。
+  → NPC 不做预生成——玩家接触到谁、标记谁为重要人物，才创建对应 NPC 记录。
+    初始状态下的世界只有静态地名，没有预先放置的 NPC。
+    这是"按需加载"原则（第 8 条）的体现。
+
+不同 Session 之间完全独立。
+
+例如：
+  Session A：NPC001 = 林雨凝
+  Session B：NPC001 = 柳如烟
+  允许完全不同。
+
+任何 Session 不允许共享 NPC 数据。
+
+整个 Session 生命周期中：
+  所有 NPC 保持唯一身份。
+  不会重新随机生成。
+
+
+---
+
+4. Overall Architecture（总体架构）
+
+系统采用模块化设计。
+
+  Frontend（vanilla JS SPA + Canvas 世界地图）
+      ↓
+  API（FastAPI + JWT 认证）
+      ↓
+  Game Engine（17 步 turn 管线）
+      ↓  ┌──────────────┐
+      ├─→│ NPC Modeler   │← 重要人物标记时触发，替代旧 HTEM 方案
+      │  └──────────────┘
+      ├─→ N narrative modules
+      │     └→ Prompt Builder（唯一生成 Prompt 的模块）
+      ↓
+  Database（SQLite + SQLAlchemy async）
+      ↓
+  LLM（6 Provider + Ollama，Token Usage Tracking）
+
+Game Engine 是整个系统核心。
+所有模块围绕 Game Engine 工作。
+LLM 永远位于最后。
+任何数据必须先经过程序。
+
+
+---
+
+5. Core Modules（核心模块）
+
+每个模块标注可行性评级：
+  ✅ 可行        — 技术成熟，直接可实施
+  ⚠️ 可行但需细化 — 方向正确，但有工程细节需逐步解决
+  🔮 远期目标     — 暂不实施，架构预留扩展点
+
+
+5.1 Player Manager   ✅ 可行
+
+负责维护玩家数据。
+
+包含：
+  （姓名）
+  （修为）
+  （当前位置）
+  （背包）
+  （长期能力）
+  （状态）
+  attributes JSON 包含出身/性别/身份/灵根/金手指/身高/体重/外貌/心性/经济等
+
+Player Manager 不负责剧情。
+只负责数据。
+
+自定义身份（identity="custom"）和自定义金手指（golden_finger_id="custom"）支持。
+
+
+5.2 NPC Manager   ✅ 可行
+
+负责 NPC 生命周期。
+
+每个 NPC 必须拥有：
+  NPC ID、Session ID
+  （姓名）、（身份）、（外貌）、（性格）、（关系）
+  （能力）、（装备）、（位置）、（行为）
+  （长期状态 — 含 NPC_MODELING 数据）
+  （短期状态 — 含场景临时属性：姿势/意图/距离/感知）
+
+NPC 永远属于当前 Session。
+NPC 不因离开场景而删除。
+
+初始 NPC 不做预生成。玩家通过 ⭐ 标记后由 NPC_MODELING 生成完整档案。
+
+
+5.3 World Manager   ✅ 可行
+
+负责世界静态信息。
+
+包括：
+  （地图）
+  （地区）
+  （城市）
+  （宗门）
+  （组织）
+  （建筑）
+  （资源）
+
+静态世界尽量不交给 AI。
+
+区域模板从 world_templates.json 加载（通过 world_templates.py 封装层）。
+
+【当前状态】
+  已清理：移除 87 个顶层区域 + 97 个建筑。仅保留 42 宗门 + 30 城市作为地图随机生成的素材池。
+  attributes 字段已全部移除（含小说剧情、角色名等）。
+  parent 引用字段已全部移除（区域层级关系已删除）。
+
+
+5.4 Time Manager   ✅ 可行
+
+维护：
+  世界时间（当前时刻）。
+  日期。
+  季节。
+  时间推进逻辑。
+  Phase 1 内联 Scheduler（NPC 状态增量）。
+
+所有时间变化必须由程序完成。
+
+【核心设计决策】
+时间 100% 由用户输入驱动，不与真实时钟挂钩。
+  - 玩家不输入 → 世界时间停滞
+  - 玩家行动 → 程序根据行动内容计算时间推进量
+  - 玩家离线 → 世界冻结，不做任何后台推进
+
+时间推进量由场景决定：
+  - 闲聊/对话 → 片刻（几分钟到一炷香）
+  - 坊市逛街/交易 → 一炷香到半个时辰
+  - 短途移动（同城）→ 半个时辰
+  - 长途移动（跨城/跨域）→ 数日
+  - 闭关修炼 → 数月至数年
+  - NPC 描述的时间跨度 → 程序据此更新该 NPC 状态
+
+Phase 1 Scheduler（内联在 Time Manager）：
+  只处理 core NPC。闭关 NPC 累积 seclusion_progress（每 720 ticks 修为微涨）。
+  空闲 NPC 超过 720 ticks 有 20% 概率触发随机事件。
+  短时间间隔无变化。
+
+
+5.5 Narrative Constraints（叙事约束层）   ✅ 可行
+
+架构评级的当前状态：已完成 Phase 1 目标，达到 ✅ 可行。
+
+负责约束 AI 输出的边界。输出格式为 Htem 的 [场景约束] 三块结构：
+
+  （硬限制）不可违反 —— 修为限制/性格一致性/位置限制/世界观限定
+  （软引导）建议遵守 —— 场景多样化/对话体现性格
+  （条件触发）强制触发 —— NSFW 意图时要求完整描写
+
+本质是白名单/黑名单约束条件，注入 Prompt Builder 让 AI 遵守。
+以文言/修仙用语表述（如"此方天地灵气虽充沛"而非"规则：..."）。
+
+【远期目标  🔮】
+  完整修炼规则、战斗规则、经济规则、宗门规则、法律系统
+  规则计算结果与 AI 叙事的融合机制，当前架构已预留扩展点。
+
+
+5.6 Retrieval Engine   ✅ 可行
+
+负责数据库检索。
+
+原则：按需加载。
+
+例如：
+  玩家在青云城 → 只读取同位置的已标记重要 NPC + nearby NPC。
+  位置层级匹配：shared token parts between player_location and npc_location。
+
+Prompt 不允许出现无关信息。
+
+【当前阶段范围】
+检索策略：位置匹配。core_npcs 永远全量返回 + 同位置 NPC + related_absent（从 Facts 检索）。
+不要求 Embedding / RAG（远期可加入）。
+
+
+5.7 Memory Manager   ✅ 可行
+
+架构评级的当前状态：已超过 Phase 1 目标，包含多项 Phase 2 功能。
+
+记忆采用三层：
+
+  Conversation  → 最近聊天（20 轮滑动窗口，llm_summary 压缩版存 compact）。
+      ↓
+  Summary       → 剧情总结（手动 / suggest_summary 自动触发）。
+      ↓
+  Facts         → 永久事实（优先级排序，自动/手动添加）。
+
+Facts 永远不能压缩。
+
+【当前状态】
+  ✅ Conversation：滑动窗口 20 轮 + 重要 NPC 条目保护（不会被裁剪）
+  ✅ Summary：手动触发（/summary）+ LLM suggest_summary 自动触发
+  ✅ Facts：手动（/addfact）+ 自动（state_changes + time-skip 端点写入）
+  ✅ Prompt 全量保留（memory_type="prompt"，永不裁剪）
+  ✅ memory_type 扩展：conversation/compact/summary/prompt/htem_directory/llm_log
+
+【Phase 2 补充】
+  ✅ Facts 自动提取（已实现，通过 state_changes 和 time-skip 端点）
+  待做：引入 Facts 优先级分层（核心 Facts 永久保留，边缘 Facts 在过长时压缩为 Summary）
+
+
+5.8 Prompt Builder   ✅ 可行
+
+整个项目只有 Prompt Builder 可以生成 Prompt。
+其它模块禁止拼接 Prompt。
+
+Prompt 顺序（当前代码实现，含 Htem 格式）：
+
+  System  → World → Player → Scene → Important NPCs →
+  Interactive NPC → Constraints → NSFW/NTR Material →
+  Agentic State → Facts → Summary → Conversation →
+  Related Characters → Action Suggestions → User Input
+
+任何模块不得跳过 Prompt Builder。
+
+【当前状态】
+  ✅ 结构化 Context 类（WorldContext/PlayerContext/NPCContext/SceneContext/AgenticContext）
+  ✅ npc_to_context() 和 player_to_context() 转换函数
+  ✅ 每个板块独立 _build_*_block() 方法
+  ✅ 建模登场轮强制完整外貌描写块
+  ✅ NSFW/NTR/未成年材料注入
+  ✅ 孕期安全规则（Rule 37-40）
+  ✅ inject_cached_htem() / simplify_prompt()
+
+
+5.9 World Scheduler（世界调度器）   ✅ 可行
+
+在 Time Manager 完成时间推进后，对 Active Set 内的 NPC 做状态更新。
+
+【当前 Phase 1 范围 — 内置于 Time Manager】
+每次用户输入 → Time Manager 计算时间推进量 → 直接遍历 core NPC：
+  - 闭关中的 NPC + 时间 → 累积 seclusion_progress，每 720 ticks 修为微涨
+  - 与主角无关的 NPC → 无变化（仅 20% 概率在超过 720 ticks 后生成事件）
+  - 无独立 Scheduler 模块，逻辑在 TimeManager.update_active_npcs()
+
+【Phase 2 范围 — 独立模块】
+  - 从 Time Manager 中分离为独立 Scheduler 模块
+  - 随机事件池扩展
+  - 天气/季节对 NPC 状态的影响
+
+【远期目标  🔮】
+  - NPC 之间的事件网络（不涉及主角的 NPC 互动）
+  - NPC 经济、社交、竞争等复杂模拟
+  当前阶段不做。
+
+
+5.10 Event Bus   ✅ 可行（当前为轻度实现）
+
+所有数据修改都必须经过 Event。
+
+【当前状态】
+  GameEngine 注册 handler 订阅事件类型（location_change, cultivation_change 等）。
+  所有 event handler 当前为 logging-only（不打开 DB session 避免锁冲突）。
+  实际 DB 写入在 process_turn() 主管线中按步骤顺序直接执行。
+  npc_nearby 事件由专门的 _handle_npc_nearby() 处理（NPCManager.create background NPC）。
+
+这是已知的架构简化，不改变长期目标——Phase 2 将改为真正的异步事件驱动 DB 写入。
+
+
+5.11 Output Parser   ✅ 可行
+
+AI 输出必须解析。
+禁止直接相信 AI。
+
+Output Parser：
+  读取正文。
+  读取结构化数据。
+  返回前端。
+
+【当前状态】
+  ✅ 三种 JSON 提取策略：json 代码块 → 平衡花括号提取 → 纯文本回退
+  ✅ state_changes 验证：类型白名单 + target 必填，无效项丢弃
+  ✅ 套话移除：指甲掐进掌心/指节发白/喉咙发紧
+  ✅ json_repair 修复（2026-07-25 新增）：标准 json.loads 失败后自动用 json_repair 修复截断/缺引号/尾随逗号等常见 LLM 格式问题
+  ✅ LLM 重试机制（2026-07-25 新增）：解析失败时重试一次 LLM，带上格式错误提醒
+  ✅ 前端 HO 提醒（2026-07-25 新增）：NSFW 关键词 ≥2 个且无 HO 时红色提示
+  ✅ character_model 字段预留（当前 llm_main 不直接输出，建模在 pre-llm_main 完成）
+
+
+5.12 Model Adapter   ✅ 可行
+
+统一模型接口。
+
+支持：
+  OpenAI、Claude（Anthropic）、DeepSeek、SenseNova、Google Gemini、Ollama
+
+【新增功能】
+  ✅ Token Usage Tracker — 每次调用记录 TokenUsage（provider/model/label/user_id/prompt_tokens/completion_tokens/elapsed），内存存储
+  ✅ get_usage() / get_usage_summary() — 按用户/标签查询
+  ✅ Anthropic：thinking: {"type": "adaptive"} + prompt-caching-2024-07-31
+  ✅ Gemini：安全过滤检测
+
+未来更换模型不得修改业务逻辑。
+
+
+5.13 Input Validator   ✅ 可行
+
+用户输入的入口层。职责：
+
+  1. 安全检查：过滤敏感/有害/注入类输入。
+  2. 意图分类：判定用户输入属于哪种类型（对话 / 移动 / 战斗 / 修炼 / 系统命令 等）。
+  3. 字数解析：从中文字符串中提取字数目标（如"500字"、"三百五十字"）。
+  4. 玩家信息提取：从输入中自动提取姓名/修为/师尊关系。
+
+【当前状态】
+  ✅ 安全检查：正则过滤 + 注入检测（30+ 条中英文正则，替换为 [内容已过滤] + 放行）
+  ✅ 意图分类：关键词匹配 + 正则混合，11 种意图
+  ✅ 上下文降级系统：NSFW/NTR 出现于第三人称语境时降级回 dialogue
+  ✅ 强行保留模式："干你/干她/干我/操死/当着XX的面"等强制保留原始意图
+  ✅ Cultivate 排除模式：修炼关键词出现在被动语境时降级
+  ✅ NTR 独立检测：is_ntr 标记（独立于 intent）
+  ✅ extract_player_info：从"我是XXX""我修为是X""师尊叫XXX"提取玩家声明的属性
+
+
+5.14 NPC Modeler   ✅ 可行（新增模块 v2.2）
+
+**职责**：在玩家标记重要人物时，用独立 LLM 生成 90+ 字段的结构化人物档案。
+
+**核心流程**：
+  mark_important_npc=True 且 NPC 尚无 model_data
+    → LLM 生成 JSON 人物档案
+    → parse_modeling_response() 验证
+    → 保存到 NPC.long_term_state["model"]
+    → 注入 PromptContext 供 llm_main 本轮使用
+    → 标记 ctx.is_modeling_turn=True（登场轮强制完整外貌描写）
+
+**档案维度（16 个）**：
+  basic / appearance(10+ 子维度) / voice / clothing / jewelry / equipment /
+  behavior / speech_style / combat_style / personality / background /
+  knowledge_bounds / attitude_to_player / relationships / nsfw
+
+**替代关系**：完全替代文档 v2.1 中的 HTEM Phase 2 方案。
+
+
+---
+
+6. Data Flow（数据流）
+
+  用户输入
+      ↓
+  Input Validator（输入校验 + 意图分类 + NTR检测 + 字数解析 + 注入检测）
+      ↓
+  System Command 检测（/status /summary /facts etc. → 绕过 LLM 直接返回）
+      ↓
+  Extract Player Info（从输入提取姓/修为/师尊 → 写 DB）
+      ↓
+  Time Manager（根据意图计算时间推进量，更新世界时间）
+      ↓
+  Narrative Constraints（加载当前场景的约束条件）
+      ↓
+  Retrieval Engine（按需加载世界数据、相关 NPC + related_absent）
+      ↓
+  Memory Manager（加载 Facts / Summary / Conversation）
+      ↓
+  NPC_MODELING（仅 mark_important_npc=True 且无已有模型时 → 预生成人物档案）
+      ↓
+  Prompt Builder（按 Htem 顺序组装完整 Prompt）
+      ↓
+  llm_main（叙事生成）
+      ↓
+  Output Parser（分离 narrative 与 state_changes）
+      ↓
+  Event Bus（发布 state_changes 事件 — 当前 handler 为日志级别）
+  Database（DB 写入在主管线中直接执行）
+      ↓
+  llm_summary（场景事实提取 — 容错，失败不影响主流程）
+  Save Conversation（三种 memory_type）
+      ↓
+  Auto-summary（suggest_summary=True 时触发）
+  Post-processing（npc_important / npc_nearby 事件）
+      ↓
+  Build Panels + Return（主角面板 + 重要人物面板 + TurnResult）
+
+
+---
+
+7. Prompt Philosophy（Prompt 原则）
+
+Prompt 不是数据库。
+Prompt 只是当前上下文。
+
+Prompt 必须：
+  最小化。
+  按需加载。
+
+禁止：
+  世界全部信息。
+  全部 NPC。
+  全部地图。
+  全部历史。
+
+长期设定全部来自数据库。
+
+
+---
+
+8. Database Philosophy（数据库原则）
+
+数据库是真实世界。
+
+数据库保存：
+  Player、NPC、World、Inventory、Event、Facts、Memory、Session
+
+数据库不保存 Prompt 的内容（但每轮完整 Prompt 以 memory_type="prompt" 保留）。
+Prompt 每轮重新生成。
+
+
+---
+
+9. Token Optimization（Token 优化）
+
+程序负责：
+  HTML / CSS / UI / 状态栏 / 人物面板 / 地图 / 背包 / 关系树 / NPC 状态 / 约束生成。
+
+AI 负责：
+  正文 / 环境 / 动作 / 心理 / 对话 / NPC_MODELING 档案生成 / 场景事实提取。
+
+减少 AI 输出非必要信息。
+
+世界采用按需加载。
+NPC 采用 Active Set（仅加载与当前场景相关的 NPC）。
+**nearby_characters 永不回流**：llm_main 输出的场景路人 NPC 数据只用于前端渲染，
+不在 compact 版本中保留，**防止一次性装饰数据膨胀 LLM 上下文**。
+历史采用 Summary。
+永久事实采用 Facts（按优先级分层注入）。
+Prompt 尽可能短。
+
+Token Usage Tracker 监控所有 LLM 调用开销。
+
+
+---
+
+10. Coding Convention（开发规范）
+
+所有模块独立。
+禁止循环依赖。
+禁止跨模块修改数据库。
+禁止硬编码 Prompt。
+禁止 AI 修改世界状态。
+所有状态必须来自数据库。
+所有 Prompt 必须由 Prompt Builder 生成。
+所有 Retrieval 必须通过 Retrieval Engine。
+所有 LLM 调用通过 ModelAdapter（含 Token 用量记录）。
+
+
+---
+
+11. Implementation Roadmap（分阶段实施路线）
+
+Phase 1 — 核心回路（MVP）  ✅ 已完成
+
+  目标：玩家可以与世界中相关 NPC 进行有状态的对话和简单交互
+
+  已完成内容：
+    ✅ Input Validator（安全检查 + 意图分类 + NTR检测 + 注入检测 + 字数解析）
+    ✅ API 层（所有 REST 端点 + JWT 认证）
+    ✅ Player Manager（基础属性 CRUD + apply_character + 自定义身份/金手指）
+    ✅ NPC Manager（按需生成，玩家 ⭐ 标记后由 NPC_MODELING 建模）
+    ✅ World Manager（静态世界数据，已清理小说内容，仅保留通用宗门+城市）
+    ✅ Time Manager（纯用户输入驱动 + Phase 1 内联 Scheduler）
+    ✅ Narrative Constraints（Htem 三块结构：hard/soft/triggers）
+    ✅ Retrieval Engine（Active Set 驱动 + related_absent 检索）
+    ✅ Memory Manager（三层记忆 + llm_summary + 重要NPC保护 + Prompt 全量保留）
+    ✅ Prompt Builder（完整 Htem 化，10+ 板块独立 builder）
+    ✅ Output Parser（三种 JSON 提取策略 + json_repair 修复 + 套话移除）
+    ✅ Event Bus（内存路由，handler 日志级别）
+    ✅ Model Adapter（6 Provider + Ollama + Token Usage Tracker）
+    ✅ Database Schema（8 张表 + ORM）
+    ✅ NPC Modeler（结构化角色建模，90+ 字段）
+    ✅ _llm_nameget（NPC 姓名提取）
+    ✅ llm_summary（场景事实提取）
+    ✅ Auto-summary（suggest_summary 触发）
+    ✅ Token Usage Tracking
+    ✅ is_important 正确标记（建模确认时设置）
+    ✅ 地图系统（Canvas 2D fBm + 泊松圆盘 + HiDPI + 宗门坐标配对城市）
+    ✅ 前端完整 SPA（认证/角色创建/聊天/地图/Prompt调试面板/建模弹窗）
+    ✅ 内容模板规范化（JSON 存储 + Python 封装层）
+    ✅ 三级 HO 保障（Prompt 指令 + json_repair + 前端提醒）
+    ✅ JSON 质量控制（json_repair 修复 + LLM 重试）
+    ✅ 全局原则正确注释（静态模板≠AI 维护的世界状态）
+
+
+Phase 1+ — 增强阶段（当前进度）
+
+  实施内容：
+    ✅ NPC Modeler 预置建模
+    ✅ Schema 版本标记（model_version: "1.0"）
+    ✅ portrait_templates.json 外貌参考补充
+    ✅ 前端附近人物卡片可点击对话
+    ✅ 前端 Prompt 调试面板轮次翻页
+    ✅ 硬编码位置列表全部替换为动态读取 JSON 模板
+    ✅ 世界模板内容清理（删除小说/区域/建筑，保留宗门+城市）
+    ✅ JSON 输出质量控制（json_repair + LLM 重试 + HO 提醒）
+    ✅ is_important 修复
+    ✅ per-user dump 移除 world_regions 表
+    ✅ 原则补充说明（静态模板≠AI 维护的世界状态）
+
+  进行中：
+    ⚙️ NSFW/未成年/孕期的完整描述规范（已在 System Prompt 中扩展至 40+ 条规则）
+
+
+Phase 2 — 世界生命（待开始）
+
+  目标：世界有基本的时间感和生命感
+
+  实施内容：
+    ⚠️ World Scheduler 独立为模块（从 Time Manager 中分离 NPC 状态更新逻辑）
+    ⚠️ 天气系统（简单循环，影响场景描写）
+    ⚠️ 随机事件池扩展（相关 NPC 可能触发简单事件）
+    ⚠️ 合法性校验（Input Validator 中检查玩家状态与操作的合法性）
+    ⚠️ 真正的 Event Bus 异步 DB 写入
+
+
+Phase 3 — 深度叙事（远期规划）
+
+  目标：更丰富的叙事体验
+
+  实施内容：
+    ⚠️ 修炼系统（简化为数值门槛 + AI 叙事包装）
+    ⚠️ NPC 关系网络动态演化（好感度等）
+    ⚠️ 事件链（前后关联的多步事件）
+    ⚠️ Facts 优先级分层（核心 Facts vs 边缘 Facts）
+
+
+Phase 4 — 扩展（长期，按需实施）  🔮
+
+  未来支持：
+    🔮 Embedding 检索 / RAG
+    🔮 完整修炼规则、战斗规则、经济规则
+    🔮 NPC 全自主行为
+    🔮 Director 导演系统（自动剧情规划）
+    🔮 多世界
+    🔮 插件系统
+    🔮 多人世界
+    🔮 MOD 支持
+    🔮 战斗模拟
+    🔮 经济模拟
+
+  整个架构必须保证：
+  新增功能不修改已有模块，仅通过新增模块或扩展接口实现。
+
+
+---
+
+12. Key Design Decisions（关键设计决策，已确认）
+
+以下决策已确认，作为 Phase 1 实施的基准：
+
+  1. 「与主角相关」的判定标准  ✅ 已确认
+     方案：Active Set（core NPC 永远 + 同位置 nearby + related_absent）。
+     Phase 1 无需自动打分逻辑。
+
+  2. 时间推进机制  ✅ 已确认
+     原则：100% 由用户输入驱动，不与真实时钟挂钩。
+       - 玩家不输入 → 世界时间停滞
+       - 玩家离线 → 世界冻结，不做后台推进
+       - 玩家行动 → 程序根据行动内容计算时间推进量（片刻/时辰/数日/数月）
+     明确：不使用系统时钟，不设定时任务，一切推进以用户输入为唯一触发器。
+
+  3. AI 输出格式  ✅ 已确认
+     AI 返回 JSON：
+       { narrative, state_changes, nearby_characters, suggest_summary }
+     Output Parser 解析 state_changes，经过 Event Bus 路由。
+     容错策略：
+       - JSON 解析失败 → 回退纯文本模式，本轮不更新状态
+       - state_changes 引用非法 ID → 丢弃该条，其余正常处理
+
+  4. NPC 数量上限  ✅ 已确认
+     NPC 不做预生成。玩家通过 ⭐ 标记后由 NPC_MODELING 生成完整档案。
+     Phase 1 默认不限制 NPC 数量上限（按需生成）。
+
+  5. 重要人物标记机制  ✅ 已确认（v2.2 更新）
+     替代旧的硬编码正则提取方案：
+       - `_llm_nameget` 从玩家输入提取/生成人物真实姓名
+       - NPC_MODELING（pre-llm_main）生成 90+ 字段的完整人物档案
+       - 模型保存到数据库后每轮 Prompt 直接渲染
+
+  6. 注入处理策略  ✅ 已确认（v2.2 更新）
+     检测到 Prompt Injection → 替换为 [内容已过滤] + 继续放行。
+     不阻断对话流程。
+
+  7. Event Bus 实现策略  ✅ 已确认（v2.2 补充）
+     当前 handler 为日志级别。DB 写入在主管线中直接执行。
+     这是架构简化，不改变"所有数据修改必须经过 Event Bus"的长期目标。
+     Phase 2 将改为真正的异步事件驱动。
+
+
+---
+
+Final Statement（最终原则）
+
+ANE 的核心思想可以概括为一句话：
+
+  > 程序维护世界，数据库保存事实，AI 讲述故事。
+
+v2.2 补充：
+
+  > 程序提供边界，AI 在边界内创作。
+  > NPC_MODELING 让重要人物在第一轮登场时就拥有完整画像。
+  > 不试图模拟整个世界——只模拟与故事相关的部分。

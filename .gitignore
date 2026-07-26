@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Node
+node_modules/
+frontend/dist/
+
+# Virtual environment
+.venv/
+
+# IDE
+.idea/
+.vscode/
+
+# Testing
+.pytest_cache/
+
+# Database
+data/*.db-shm
+data/*.db-wal
+
+# Environment
+.env
+
+# Logs
+*.log
+user_logs/
+
+# OS
+Thumbs.db
+.DS_Store
+"nul" 
+"nul" 

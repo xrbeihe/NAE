@@ -1,0 +1,20 @@
+{
+  "version": "0.0.1",
+  "autoPort": true,
+  "configurations": [
+    {
+      "name": "ANE Frontend",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", "--host"],
+      "cwd": "D:/ANE/frontend",
+      "port": 5173
+    },
+    {
+      "name": "ANE Backend",
+      "runtimeExecutable": "D:/ANE/.venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "ane.main"],
+      "cwd": "D:/ANE/backend",
+      "port": 8002
+    }
+  ]
+}

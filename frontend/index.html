@@ -1,0 +1,2412 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Narrative Engine</title>
+<style>
+  :root {
+    --bg: #1a1410;
+    --panel: #231d16;
+    --border: #3a3026;
+    --text: #d4c8b8;
+    --accent: #c9a96e;
+    --accent-dim: #6b5a3e;
+    --danger: #8b4545;
+    --input-bg: #2a2218;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: "Microsoft YaHei", "SimSun", serif;
+    background: var(--bg); color: var(--text);
+    height: 100vh; display: flex; flex-direction: column;
+  }
+  /* ── app main wrapper ── */
+  #app-main { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+
+  /* ── header ── */
+  #header {
+    background: var(--panel); border-bottom: 1px solid var(--border);
+    padding: 10px 20px; display: flex; align-items: center; gap: 16px;
+    flex-shrink: 0;
+  }
+  #header h1 { font-size: 18px; color: var(--accent); white-space: nowrap; }
+  #header .status-item {
+    font-size: 13px; color: var(--accent-dim);
+    background: var(--bg); padding: 3px 10px; border-radius: 3px;
+  }
+  #header .status-item span { color: var(--text); }
+  #map-toggle-btn { cursor: pointer; }
+  #map-toggle-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── world map ── */
+  #map-panel {
+    display: none; flex-direction: column; overflow: hidden;
+    border-bottom: 1px solid var(--border); background: var(--panel);
+    flex-shrink: 0; align-items: center; padding: 10px;
+  }
+  #map-panel.visible { display: flex; }
+  #map-panel canvas { max-width: 100%; border-radius: 4px; cursor: pointer; }
+  #map-panel canvas:active { cursor: grabbing; }
+  #map-gen-controls { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; flex-wrap: wrap; justify-content: center; }
+  #map-gen-controls label { color: var(--text); font-size: 13px; }
+  #map-gen-controls input { width: 60px; background: #1e1e1e; color: var(--text); border: 1px solid var(--border); padding: 4px 8px; border-radius: 3px; font-size: 13px; }
+  #map-gen-controls button { background: var(--accent); color: #1a1410; border: none; padding: 5px 14px; border-radius: 3px; cursor: pointer; font-weight: bold; font-size: 13px; }
+  #map-gen-controls button:hover { background: #d4b87a; }
+  #map-close { position: absolute; top: 8px; right: 12px; background: none; border: none; color: var(--accent-dim); cursor: pointer; font-size: 16px; }
+
+  /* ── chat area ── */
+  #chat {
+    flex: 1; overflow-y: auto; padding: 16px 20px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .msg {
+    max-width: 85%; padding: 8px 12px; border-radius: 6px;
+    font-size: 13px; line-height: 1.6; white-space: pre-wrap;
+  }
+  .msg.user {
+    align-self: flex-end; background: var(--accent-dim);
+    color: #e8dcc8;
+  }
+  .msg.ai {
+    align-self: flex-start; background: var(--panel);
+    border: 1px solid var(--border);
+  }
+  .msg.system {
+    align-self: flex-start; background: transparent;
+    color: var(--accent-dim); font-size: 13px; font-style: italic;
+    border: 1px dashed var(--border);
+  }
+  .msg .time-tag {
+    font-size: 11px; color: var(--accent-dim); margin-bottom: 4px;
+  }
+
+  /* ── input area ── */
+  #input-area {
+    background: var(--panel); border-top: 1px solid var(--border);
+    padding: 10px 20px; flex-shrink: 0;
+  }
+  #input-row {
+    display: flex; gap: 10px;
+  }
+  #user-input {
+    flex: 1; background: var(--input-bg); border: 1px solid var(--border);
+    color: var(--text); padding: 10px 14px; border-radius: 4px;
+    font-size: 15px; font-family: inherit; resize: none;
+    outline: none; min-height: 80px; max-height: 200px;
+  }
+  #user-input:focus { border-color: var(--accent); }
+  #send-btn {
+    background: var(--accent); color: #1a1410; border: none;
+    padding: 10px 24px; border-radius: 4px; font-size: 15px;
+    cursor: pointer; font-weight: bold; font-family: inherit;
+  }
+  #send-btn:hover { opacity: 0.9; }
+  #send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── session sidebar ── */
+  #main-layout { display: flex; flex: 1; overflow: hidden; }
+  #session-sidebar {
+    width: 140px; min-width: 140px; background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  #sidebar-header {
+    padding: 12px 14px; border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  #sidebar-header h2 {
+    font-size: 14px; color: var(--accent); font-weight: normal;
+  }
+  #new-session-btn {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--accent); color: #1a1410; border: none;
+    font-size: 18px; line-height: 1; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #new-session-btn:hover { opacity: 0.85; }
+  #session-list {
+    flex: 1; overflow-y: auto; padding: 6px 0;
+  }
+  .session-card {
+    padding: 10px 14px; margin: 2px 8px; border-radius: 4px;
+    cursor: pointer; display: flex; justify-content: space-between;
+    align-items: center; transition: background 0.15s;
+  }
+  .session-card:hover { background: var(--input-bg); }
+  .session-card.active { background: var(--input-bg); border-left: 3px solid var(--accent); }
+  .session-card .info { flex: 1; min-width: 0; }
+  .session-card .name {
+    font-size: 14px; color: var(--text); white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .session-card .meta {
+    font-size: 11px; color: var(--accent-dim); margin-top: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .session-card .delete-btn {
+    visibility: hidden; background: none; border: none; color: var(--danger);
+    cursor: pointer; font-size: 16px; padding: 2px 6px; border-radius: 3px;
+    flex-shrink: 0; margin-left: 6px;
+  }
+  .session-card:hover .delete-btn { visibility: visible; }
+  .session-card .delete-btn:hover { background: rgba(139,69,69,0.2); }
+  .session-card .sel-check {
+    flex-shrink: 0; margin-right: 8px; accent-color: var(--accent);
+    width: 16px; height: 16px; cursor: pointer;
+  }
+
+  /* ── character creation modal ── */
+  #char-modal-overlay {
+    display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.7); z-index: 1000;
+    align-items: center; justify-content: center;
+  }
+  #char-modal-overlay.visible { display: flex; }
+
+  /* ── sect selection modal ── */
+  #sect-select-overlay {
+    display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.7); z-index: 1100;
+    align-items: center; justify-content: center;
+  }
+  #sect-select-overlay.visible { display: flex; }
+  #sect-select-modal {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    max-width: 480px;
+    width: 90%;
+    color: var(--text);
+  }
+  #sect-select-list { display:flex;flex-direction:column;gap:6px; }
+  .sect-option {
+    display:block; width:100%; text-align:left;
+    padding:10px 12px;
+    border:1px solid var(--border);
+    border-radius:6px;
+    background:var(--input-bg);
+    color:var(--text);
+    cursor:pointer; font-size:14px;
+    transition:border-color .2s,background .2s;
+  }
+  .sect-option:hover { border-color:var(--accent);background:rgba(255,255,255,.04); }
+  .sect-option.selected { border-color:var(--accent);background:rgba(201,169,110,0.15); }
+  .sect-option .sect-name { font-weight:600; }
+  .sect-option .sect-desc { font-size:12px;color:var(--accent-dim);margin-top:3px; }
+  #char-modal {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 8px; padding: 32px; width: 520px; max-height: 90vh; overflow-y: auto;
+  }
+  #char-modal h2 { color: var(--accent); font-size: 20px; margin-bottom: 24px; text-align: center; }
+  #char-modal label { display: block; color: var(--accent-dim); font-size: 12px; margin-bottom: 4px; margin-top: 14px; }
+  #char-modal input[type=text], #char-modal input[type=number], #char-modal select {
+    width: 100%; padding: 8px 12px; background: var(--input-bg); border: 1px solid var(--border);
+    border-radius: 4px; color: var(--text); font-family: inherit; font-size: 14px;
+    appearance: none; -webkit-appearance: none;
+  }
+  #char-modal select {
+    width: 100%; padding: 8px 12px; background: var(--input-bg); border: 1px solid var(--border);
+    border-radius: 4px; color: var(--text); font-family: inherit; font-size: 14px;
+    appearance: auto; -webkit-appearance: auto;
+    background-image: none;
+  }
+  #char-modal .hint { font-size: 11px; color: var(--accent-dim); margin-top: 2px; }
+  #char-modal .btn-row { display: flex; gap: 10px; margin-top: 24px; justify-content: center; }
+  #char-modal .btn-primary {
+    padding: 10px 32px; background: var(--accent); color: #1a1410;
+    border: none; border-radius: 4px; cursor: pointer; font-family: inherit; font-size: 15px;
+  }
+  #char-modal .btn-primary:hover { opacity: 0.85; }
+  #char-modal .btn-skip {
+    padding: 10px 20px; background: transparent; color: var(--accent-dim); border: 1px solid var(--border);
+    border-radius: 4px; cursor: pointer; font-family: inherit; font-size: 13px;
+  }
+
+  /* ── batch toolbar ── */
+  #sidebar-toolbar {
+    padding: 6px 14px; border-bottom: 1px solid var(--border);
+    display: none; gap: 6px; align-items: center;
+  }
+  #sidebar-toolbar.visible { display: flex; }
+  #sidebar-toolbar .bar-btn {
+    background: transparent; border: 1px solid var(--border); color: var(--accent-dim);
+    padding: 2px 8px; border-radius: 3px; cursor: pointer; font-size: 11px;
+    font-family: inherit;
+  }
+  #sidebar-toolbar .bar-btn:hover { border-color: var(--accent); color: var(--accent); }
+  #sidebar-toolbar .bar-btn.danger { color: var(--danger); border-color: var(--danger); }
+  #sidebar-toolbar .bar-btn.danger:hover { background: rgba(139,69,69,0.15); }
+  #batch-count { font-size: 11px; color: var(--accent-dim); }
+
+  /* ── chat panel ── */
+  #chat-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* ── session bar ── */
+  #session-bar {
+    padding: 8px 20px; background: var(--bg); border-bottom: 1px solid var(--border);
+    display: flex; gap: 8px; align-items: center; flex-shrink: 0;
+  }
+  #session-id-display { font-size: 12px; color: var(--accent-dim); }
+  .cmd-btn {
+    background: transparent; border: 1px solid var(--border); color: var(--accent-dim);
+    padding: 4px 10px; border-radius: 3px; cursor: pointer; font-size: 12px;
+    font-family: inherit;
+  }
+  .cmd-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* time skip popup */
+  #time-skip-wrap { position: relative; }
+  #time-skip-popup {
+    display: none; position: absolute; top: 100%; right: 0; background: var(--panel);
+    border: 1px solid var(--border); border-radius: 4px; padding: 8px; z-index: 100;
+    flex-direction: column; gap: 4px; min-width: 120px;
+  }
+  #time-skip-popup.visible { display: flex; }
+  #time-skip-popup button {
+    background: transparent; border: none; color: var(--text); padding: 6px 10px;
+    border-radius: 3px; cursor: pointer; font-family: inherit; font-size: 13px; text-align: left;
+  }
+  #time-skip-popup button:hover { background: rgba(107,90,62,0.2); color: var(--accent); }
+
+  #model-select {
+    background: transparent; border: 1px solid var(--border); color: var(--accent-dim);
+    padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 12px;
+    font-family: inherit; min-width: 150px;
+    appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b5a3e'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 8px center;
+    padding-right: 24px;
+  }
+  #model-select:hover { border-color: var(--accent); color: var(--accent); }
+  #model-select:focus { outline: none; border-color: var(--accent); }
+
+  /* ── loading ── */
+  #loading-indicator {
+    display: none; text-align: center; color: var(--accent-dim);
+    font-size: 13px; padding: 8px;
+  }
+  #loading-indicator.active { display: block; }
+
+  /* ── recommendation carousel ── */
+  #rec-area {
+    background: var(--panel); border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    padding: 6px 20px 8px; flex-shrink: 0;
+  }
+  #rec-area:empty { display: none; }
+  #rec-label {
+    font-size: 11px; color: var(--accent-dim);
+    margin-bottom: 4px; flex-shrink: 0;
+  }
+  #rec-grid {
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+  }
+  .rec-card {
+    background: var(--input-bg); border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 10px; cursor: pointer;
+    font-size: 13px; color: var(--text); line-height: 1.4;
+    transition: border-color 0.15s, opacity 0.15s;
+    user-select: none; min-height: 32px;
+  }
+  .rec-card:hover { border-color: var(--accent); }
+  .rec-card:empty { display: none; }
+  #rec-count { font-size: 11px; color: var(--accent-dim); margin-top: 4px; }
+
+  /* ── scrollbar ── */
+  #chat::-webkit-scrollbar { width: 6px; }
+  #chat::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div id="char-modal-overlay">
+  <div id="char-modal">
+    <h2>🗻 创建你的角色</h2>
+    <label>姓名</label>
+    <div style="display:flex;gap:6px">
+      <input type="text" id="char-name" placeholder="输入你的道号或姓名" value="张二狗" maxlength="20" style="flex:1;padding:8px 12px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:inherit;font-size:14px;appearance:none;-webkit-appearance:none">
+      <button onclick="randomName()" title="随机生成姓名" style="padding:8px 14px;background:var(--accent);color:#1a1410;border:none;border-radius:4px;cursor:pointer;font-size:16px;white-space:nowrap">🎲</button>
+    </div>
+    <label>年龄</label>
+    <input type="number" id="char-age" value="19" min="12" max="999">
+    <label>性别</label>
+    <select id="char-gender"></select>
+    <label>出身背景</label>
+    <select id="char-background"></select>
+    <div class="hint" id="char-background-hint"></div>
+    <label>修为</label>
+    <select id="char-cultivation"></select>
+    <div class="hint" id="char-cultivation-hint"></div>
+    <label>性格</label>
+    <select id="char-personality"></select>
+    <div class="hint" id="char-personality-hint"></div>
+    <label>身份</label>
+    <select id="char-identity"></select>
+    <div class="hint" id="char-identity-hint"></div>
+    <div id="identity-custom-wrap" style="display:none;margin-top:8px">
+      <label>自定义身份描述</label>
+      <textarea id="identity-custom" placeholder="描述你的身份背景：来历、出身、宗门（如有）、衣着风格、灵根资质等…" maxlength="300" style="width:100%;padding:8px 12px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px;font-family:inherit;resize:vertical;min-height:60px;box-sizing:border-box"></textarea>
+    </div>
+
+    <hr style="border:none;border-top:1px solid var(--border);margin:20px 0">
+
+    <label style="color:var(--accent);font-size:14px;margin-top:0">✨ 金手指 — 你的天命所在</label>
+    <div id="gf-grid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px"></div>
+    <div id="gf-custom-wrap" style="display:none;margin-top:10px">
+      <label>自定义描写</label>
+      <textarea id="gf-custom" placeholder="详细描写你的金手指：它的来历、能力、限制、以及你希望它在故事中如何体现…" maxlength="500" style="width:100%;padding:10px 14px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px;font-family:inherit;resize:vertical;min-height:80px;box-sizing:border-box"></textarea>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-skip" onclick="skipCharacter()">先用默认，以后再说</button>
+      <button class="btn-primary" onclick="applyCharacter()">踏入修仙世界</button>
+    </div>
+  </div>
+</div>
+
+<div id="header">
+  <h1>⚔ AI Narrative Engine</h1>
+  <div class="status-item">⏳ <span id="world-time">--</span></div>
+  <div class="status-item">📍 <span id="player-loc">--</span></div>
+  <div class="status-item">⚡ <span id="player-cult">--</span></div>
+  <button id="map-toggle-btn" onclick="toggleMapPanel()" title="世界地图">🗺 地图</button>
+</div>
+
+<div id="map-panel">
+  <div id="map-gen-controls">
+    <label>宗门数量 (10-20):</label>
+    <input type="number" id="map-faction-count" value="12" min="10" max="20">
+    <button onclick="generateWorldMap()">🔄 随机生成</button>
+    <button id="map-save-btn" onclick="saveCurrentMap()" style="display:none">💾 保存地图</button>
+    <button onclick="closeMap()">✕</button>
+  </div>
+  <canvas id="world-map" width="1200" height="825"></canvas>
+</div>
+
+<div id="app-main" style="display:none">
+
+<!-- ── Sect Selection Modal ── -->
+<div id="sect-select-overlay">
+  <div id="sect-select-modal">
+    <h3>🏯 选择你的宗门</h3>
+    <p style="color:var(--accent-dim);font-size:13px;margin:4px 0 12px">世界已生成，选择一个宗门作为你的出身。</p>
+    <div id="sect-select-list" style="max-height:300px;overflow-y:auto"></div>
+    <div style="margin-top:12px;text-align:center">
+      <button id="sect-select-confirm" onclick="confirmSectChoice()" style="padding:8px 24px;background:var(--accent);color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px">确认选择</button>
+    </div>
+  </div>
+</div>
+
+<div id="main-layout">
+  <div id="session-sidebar">
+    <div id="sidebar-header">
+      <h2>📜 世界</h2>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="bar-btn" id="sel-toggle-btn" onclick="toggleSelectMode()" title="批量选择">☑</button>
+        <button id="new-session-btn" onclick="createSession()" title="创建新世界">+</button>
+      </div>
+    </div>
+    <div id="sidebar-toolbar">
+      <button class="bar-btn" onclick="selectAll()">全选</button>
+      <button class="bar-btn" onclick="deselectAll()">取消</button>
+      <button class="bar-btn danger" onclick="batchDelete()">删除选中</button>
+      <span id="batch-count"></span>
+    </div>
+    <div id="session-list"></div>
+    <div style="padding:12px;border-top:1px solid var(--border);text-align:center">
+      <button onclick="handleLogout()" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:6px 16px;border-radius:4px;cursor:pointer;font-size:12px">退出登录</button>
+    </div>
+  </div>
+  <div id="chat-panel">
+    <div id="session-bar">
+      <span id="session-id-display">未创建会话</span>
+      <select id="model-select" onchange="onModelChange()"></select>
+          <button class="cmd-btn" onclick="sendCommand('/status')">状态</button>
+          <!-- 回顾按钮暂不可用 -->
+          <button class="cmd-btn" style="opacity:0.5;pointer-events:none">回顾</button>
+          <!-- 事实按钮暂不可用 -->
+          <button class="cmd-btn" style="opacity:0.5;pointer-events:none">事实</button>
+          <span style="display:inline-flex;align-items:center;margin-left:6px" title="勾选重要人物发送后一般需三十秒进行建模，但是与主响应接口不冲突，建议您等待建模完成后载入建模使用，当然您也可以在这之前就发送对话">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:var(--input-bg);color:var(--accent-dim);border-radius:50%;font-size:13px;cursor:default">❗</span>
+          </span>
+      <span id="time-skip-wrap" style="position:relative">
+        <button class="cmd-btn" id="time-skip-btn" onclick="toggleTimeSkip()">⏩ 时间快进</button>
+        <div id="time-skip-popup">
+          <button onclick="skipTime('1_month')">📅 一个月</button>
+          <button onclick="skipTime('3_months')">📅 三个月</button>
+          <button onclick="skipTime('6_months')">📅 半年</button>
+          <button onclick="skipTime('1_year')">📅 一年</button>
+          <button onclick="skipTime('2_years')">📅 两年</button>
+          <button onclick="skipTime('5_years')">📅 五年</button>
+        </div>
+      </span>
+      <button class="cmd-btn" onclick="clearLogs()" title="清空前后端日志文件">🗑 清空日志</button>
+    </div>
+    <div id="chat">
+      <div class="msg system">欢迎来到 AI Narrative Engine。<br>点击左侧 "+" 创建一个修仙世界，或选择已有世界继续冒险。</div>
+    </div>
+    <div id="loading-indicator">天道运转中，请稍候...</div>
+    <div id="input-area">
+      <div id="input-row">
+        <textarea id="user-input" rows="1" placeholder="输入你的行动或对话..."
+                  onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendTurn();}"></textarea>
+        <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:var(--accent-dim);user-select:none;white-space:nowrap;margin-left:auto" title="勾选后在输入中提及NPC姓名，系统将自动建立或更新该人物的完整模型（含身份/外貌/性格/关系网等），已有NPC的关系数据也会持久化到关系网">
+            <input type="checkbox" id="important-npc-check" style="accent-color:var(--accent);width:13px;height:13px;cursor:pointer;" onchange="document.getElementById('load-model-check').checked = false;">
+            ⭐重要人物
+          </label>
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:var(--accent-dim);user-select:none;white-space:nowrap;margin-left:auto" title="勾选后，系统将识别你输入中提到的已建模人物，加载其建模用于本轮叙事，注意名字需严格匹配">
+            <input type="checkbox" id="load-model-check" style="accent-color:var(--accent);width:13px;height:13px;cursor:pointer;" checked onchange="document.getElementById('important-npc-check').checked = false;">
+            📦加载建模
+          </label>
+          <div id="ho-hint" style="display:none;font-size:11px;color:var(--danger);text-align:right;white-space:nowrap">💡 需要直白描写请在末尾加 HO</div>
+          <button id="send-btn" onclick="sendTurn()">发送</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="rec-area">
+      <div style="display:flex;align-items:center;gap:4px;margin-bottom:4px">
+        <div id="rec-label" style="font-size:11px;color:var(--accent-dim)">💡推荐行动</div>
+        <span id="rec-count" style="font-size:11px;color:var(--accent-dim)"></span>
+        <span style="margin-left:auto;display:flex;align-items:center;gap:4px">
+          <span style="cursor:default;font-size:13px;opacity:0.4" title="记忆面板暂不可用">💭</span>
+          <span onclick="showRelationshipGraph()" style="cursor:pointer;font-size:13px" title="关系网图谱">🚻</span>
+        </span>
+      </div>
+      <div id="rec-grid">
+        <div class="rec-card" onclick="recClick(0)"></div>
+        <div class="rec-card" onclick="recClick(1)"></div>
+        <div class="rec-card" onclick="recClick(2)"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── Auth Page ── -->
+</div>
+
+<div id="auth-page" style="display:flex;position:fixed;inset:0;z-index:9999;background:var(--bg);align-items:center;justify-content:center">
+  <div id="auth-box" style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:40px;width:340px;text-align:center">
+    <h2 id="auth-title" style="margin:0 0 8px;color:var(--accent)">登录</h2>
+    <p id="auth-error" style="color:#c66;font-size:13px;min-height:1.2em"></p>
+    <input id="auth-username" type="text" placeholder="用户名" autocomplete="username"
+      style="width:100%;padding:10px 14px;margin:6px 0;background:var(--input-bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;box-sizing:border-box">
+    <input id="auth-password" type="password" placeholder="密码" autocomplete="current-password"
+      style="width:100%;padding:10px 14px;margin:6px 0;background:var(--input-bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;box-sizing:border-box">
+    <div id="auth-adult-wrap" style="display:none;margin:10px 0;text-align:left;font-size:13px;color:var(--text)">
+      <label style="display:block;margin-bottom:6px;color:var(--accent-dim)">你是否已满18周岁？</label>
+      <select id="auth-adult" onchange="onAdultChange()" style="width:100%;padding:8px 12px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:inherit;font-size:13px;appearance:auto">
+        <option value="no" selected>否，我未满18岁</option>
+        <option value="yes" disabled style="color:#666">是，我已成年（暂时关闭）</option>
+      </select>
+      <div id="auth-adult-hint" style="margin-top:8px;padding:8px 10px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;font-size:12px;color:var(--accent-dim);line-height:1.5;display:none">
+        你可以在发送内容的末尾添加 <strong>HO</strong>（意思是 H is Open）来标记该轮为成人内容。
+        注意：HO 必须是输入内容最后的两个字母，空格和额外字符会被忽略。
+        例如：<em>我要和她双修HO</em>
+      </div>
+      <div id="auth-minor-hint" style="margin-top:8px;padding:8px 10px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;font-size:12px;color:var(--accent-dim);display:none">
+        欢迎你，小朋友！🖐
+      </div>
+    </div>
+    <button id="auth-submit-btn" onclick="handleAuthSubmit()"
+      style="width:100%;padding:10px;margin-top:10px;background:var(--accent);color:#1a1410;border:none;border-radius:6px;font-size:15px;cursor:pointer">登录</button>
+    <p id="auth-toggle-text" style="margin-top:14px;font-size:13px;color:var(--accent-dim)">
+      没有账号？<a href="#" onclick="toggleAuthMode();return false" style="color:var(--accent)">注册</a>
+    </p>
+  </div>
+</div>
+
+<script src="/worldmap.js"></script>
+
+<script>
+// ── Frontend logger ──
+function frontendLog(level, message) {
+  console.log(`[${level}] ${message}`);
+  const payload = {level, message, source: 'browser'};
+  // Include user_id so the backend can route to per-user log files
+  try {
+    const token = getToken();
+    if (token) {
+      // Decode JWT payload (middle part) to get user_id without an API call
+      const parts = token.split('.');
+      if (parts.length === 3) {
+        const data = JSON.parse(atob(parts[1]));
+        if (data.sub) payload.user_id = data.sub;
+      }
+    }
+  } catch(e) { /* ignore parse errors */ }
+  fetch('/api/log', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload),
+  }).catch(() => {}); // fire-and-forget
+}
+
+// ── Auth — JWT token management ──
+function getToken() { return localStorage.getItem('ane_token'); }
+function setToken(t) { localStorage.setItem('ane_token', t); }
+function clearToken() { localStorage.removeItem('ane_token'); localStorage.removeItem('ane_user'); }
+
+function isLoggedIn() { return !!getToken(); }
+
+/** Wrapped fetch that auto-injects auth header and handles 401. */
+async function apiFetch(url, opts = {}) {
+  const token = getToken();
+  const headers = opts.headers || {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  opts.headers = headers;
+  opts.credentials = 'same-origin';
+  const res = await fetch(url, opts);
+  if (res.status === 401 && token) {
+    clearToken();
+    showAuthPage();
+    throw new Error('Unauthorized');
+  }
+  return res;
+}
+
+// ── Auth UI ──
+function showAuthPage() {
+  document.getElementById('auth-page').style.display = 'flex';
+  document.getElementById('app-main').style.display = 'none';
+  document.getElementById('auth-error').textContent = '';
+}
+
+function showApp() {
+  document.getElementById('auth-page').style.display = 'none';
+  document.getElementById('app-main').style.display = '';
+}
+
+async function handleLogin() {
+  const un = document.getElementById('auth-username').value.trim();
+  const pw = document.getElementById('auth-password').value;
+  const errEl = document.getElementById('auth-error');
+  errEl.textContent = '';
+  if (!un || !pw) { errEl.textContent = '请输入用户名和密码'; return; }
+  try {
+    const res = await fetch('/auth/login', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:un, password:pw})});
+    if (!res.ok) { const d = await res.json(); errEl.textContent = d.detail || '登录失败'; return; }
+    const data = await res.json();
+    setToken(data.token);
+    showApp();
+    await initApp();
+  } catch(e) { errEl.textContent = '网络错误'; }
+}
+
+async function handleRegister() {
+  const un = document.getElementById('auth-username').value.trim();
+  const pw = document.getElementById('auth-password').value;
+  const errEl = document.getElementById('auth-error');
+  errEl.textContent = '';
+  if (!un || !pw) { errEl.textContent = '请输入用户名和密码'; return; }
+  if (pw.length < 4) { errEl.textContent = '密码至少4位'; return; }
+  const isAdult = document.getElementById('auth-adult').value === 'yes';
+  try {
+    const res = await fetch('/auth/register', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:un, password:pw, display_name:un, is_adult:isAdult})});
+    if (!res.ok) { const d = await res.json(); errEl.textContent = d.detail || '注册失败'; return; }
+    const data = await res.json();
+    setToken(data.token);
+    showApp();
+    await initApp();
+  } catch(e) { errEl.textContent = '网络错误'; }
+}
+
+function handleAuthSubmit() {
+  const isLogin = document.getElementById('auth-submit-btn').textContent === '登录';
+  if (isLogin) {
+    handleLogin();
+  } else {
+    handleRegister();
+  }
+}
+
+function onAdultChange() {
+  const val = document.getElementById('auth-adult').value;
+  document.getElementById('auth-adult-hint').style.display = val === 'yes' ? 'block' : 'none';
+  document.getElementById('auth-minor-hint').style.display = val === 'no' ? 'block' : 'none';
+}
+
+function handleLogout() {
+  clearToken();
+  showAuthPage();
+}
+
+function toggleAuthMode() {
+  const btn = document.getElementById('auth-submit-btn');
+  const toggle = document.getElementById('auth-toggle-text');
+  const title = document.getElementById('auth-title');
+  const adultWrap = document.getElementById('auth-adult-wrap');
+  const isLogin = btn.textContent === '登录';
+  if (isLogin) {
+    btn.textContent = '注册';
+    toggle.innerHTML = '已有账号？<a href="#" onclick="toggleAuthMode();return false">登录</a>';
+    title.textContent = '注册新账号';
+    adultWrap.style.display = 'block';
+  } else {
+    btn.textContent = '登录';
+    toggle.innerHTML = '没有账号？<a href="#" onclick="toggleAuthMode();return false">注册</a>';
+    title.textContent = '登录';
+    adultWrap.style.display = 'none';
+  }
+}
+
+// Reset all per-world mutable state — must be called before creating/switching/deleting a world
+function resetWorldState() {
+  // Save sessionId before nulling it — needed for localStorage cleanup
+  const prevSessionId = sessionId;
+  sessionId = null;
+  clearChat();
+  mapRenderer = null;
+  mapVisible = false;
+  mapGenerating = false;
+  document.getElementById('map-panel')?.classList.remove('visible');
+  document.getElementById('map-toggle-btn')?.classList.remove('active');
+  // Re-enable map controls (may have been disabled by previous session's save)
+  const mapCountInput = document.getElementById('map-faction-count');
+  if (mapCountInput) mapCountInput.disabled = false;
+  const mapGenBtn = document.querySelector('#map-gen-controls button');
+  if (mapGenBtn) mapGenBtn.disabled = false;
+  document.getElementById('map-save-btn') ? document.getElementById('map-save-btn').style.display = '' : null;
+  selectMode = false;
+  document.getElementById('sidebar-toolbar')?.classList.remove('visible');
+  charTemplates = null;
+  _abandon_sent = false;
+  _pending_opening = false;
+  _opening_data = null;
+  window._player_char_data = null;
+  try { localStorage.removeItem('ane_last_prompt_' + prevSessionId); } catch(e) {}
+}
+let sessionId = null;
+let selectedModel = null;
+let _currentTurnNumber = 1;  // tracks next turn number for 📕 hover on AI messages
+frontendLog('INFO', 'Frontend loaded');
+
+// ── Model Selector ──
+async function loadModels() {
+  const select = document.getElementById('model-select');
+  try {
+    const res = await apiFetch('/api/models');
+    const data = await res.json();
+    select.innerHTML = '';
+    for (const m of data.models) {
+      const opt = document.createElement('option');
+      opt.value = m.id;
+      let label = m.provider + ':' + m.name;
+      if (!m.available) label += ' (不可用)';
+      opt.textContent = label;
+      if (!m.available) opt.disabled = true;
+      select.appendChild(opt);
+    }
+    if (data.default_model) {
+      for (const opt of select.options) {
+        if (opt.value === data.default_model) { select.value = opt.value; selectedModel = opt.value; break; }
+      }
+      if (!selectedModel) {
+        for (const opt of select.options) {
+          if (!opt.disabled) { select.value = opt.value; selectedModel = opt.value; break; }
+        }
+      }
+    } else if (select.options.length > 0) {
+      for (const opt of select.options) {
+        if (!opt.disabled) { select.value = opt.value; selectedModel = opt.value; break; }
+      }
+    }
+    frontendLog('INFO', `Models loaded: ${data.models.length} total, default=${selectedModel}`);
+  } catch(e) {
+    frontendLog('ERROR', 'Failed to load models: ' + e.message);
+    select.innerHTML = '<option value="">(加载失败)</option>';
+  }
+}
+
+function onModelChange() {
+  selectedModel = document.getElementById('model-select').value;
+  frontendLog('INFO', 'Model changed to: ' + selectedModel);
+}
+
+// ── Session List ──
+async function loadSessionList() {
+  const list = document.getElementById('session-list');
+  try {
+    const res = await apiFetch('/sessions');
+    if (!res.ok) throw new Error(res.statusText);
+    const sessions = await res.json();
+    list.innerHTML = '';
+    if (sessions.length === 0) {
+      list.innerHTML = '<div style="padding:16px;color:var(--accent-dim);font-size:13px;text-align:center">暂无世界<br>点击 + 创建</div>';
+      return;
+    }
+    for (const s of sessions) {
+      const card = document.createElement('div');
+      card.className = 'session-card' + (s.session_id === sessionId ? ' active' : '');
+      card.dataset.sid = s.session_id;
+      card.onclick = (e) => {
+        if (e.target.closest('.delete-btn')) return;
+        if (selectMode) {
+          if (!e.target.closest('.sel-check')) {
+            const cb = card.querySelector('.sel-check');
+            cb.checked = !cb.checked;
+            updateBatchCount();
+          }
+          return;
+        }
+        switchSession(s.session_id);
+      };
+      card.innerHTML =
+        `<input type="checkbox" class="sel-check" style="display:none" onclick="event.stopPropagation();updateBatchCount()">` +
+        `<div class="info">` +
+          `<div class="name">${escHtml(s.name)} — ${escHtml(s.player_name||'无名修士')}</div>` +
+          `<div class="meta">${escHtml(s.world_time)} · ${escHtml(s.player_cultivation||'?')}</div>` +
+        `</div>` +
+        `<button class="delete-btn" title="删除此世界" onclick="deleteSession(event, '${s.session_id}', '${escHtml(s.name)}')">🗑</button>`;
+      list.appendChild(card);
+    }
+    if (sessionId && !sessions.find(s => s.session_id === sessionId)) {
+      sessionId = null;
+      document.getElementById('session-id-display').textContent = '未创建会话';
+    }
+  } catch(e) {
+    frontendLog('ERROR', 'Failed to load sessions: ' + e.message);
+    list.innerHTML = '<div style="padding:16px;color:var(--accent-dim);font-size:13px;text-align:center">加载失败</div>';
+  }
+}
+
+async function deleteSession(event, sid, name) {
+  event.stopPropagation();
+  if (!confirm(`确定要删除世界「${name}」吗？\n所有 NPC、故事进度、记忆将被永久删除，无法恢复。`)) return;
+  frontendLog('INFO', `Deleting session: ${sid}`);
+  try {
+    const res = await apiFetch(`/sessions/${sid}`, { method: 'DELETE' });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.detail || res.statusText); }
+    frontendLog('INFO', `Session deleted: ${sid}`);
+    if (sessionId === sid) {
+      resetWorldState();
+      document.getElementById('session-id-display').textContent = '未创建会话';
+      addMsg('system', `世界「${name}」已被删除。请选择或创建其他世界。`);
+    }
+    await loadSessionList();
+  } catch(e) {
+    frontendLog('ERROR', 'Delete failed: ' + e.message);
+    alert('删除失败: ' + e.message);
+  }
+}
+
+async function switchSession(sid) {
+  if (sid === sessionId) return;
+  resetWorldState();
+  frontendLog('INFO', `Switching to session: ${sid}`);
+  try {
+    const res = await apiFetch(`/sessions/${sid}`);
+    if (!res.ok) throw new Error(res.statusText);
+    const data = await res.json();
+    sessionId = data.session_id;
+    document.getElementById('session-id-display').textContent =
+      `会话: ${data.session_id.substring(0,8)}... | ${data.name}`;
+    updateStatus(data);
+    clearChat();
+    if (data.conversation && data.conversation.length > 0) {
+      addMsg('system',
+        `已进入「${data.name}」\n` +
+        `时间: ${data.world_time} · 修士: ${data.player_name || '无名修士'} · ${data.player_cultivation || '?'}\n` +
+        `核心人物: ${(data.npc_names||[]).join('、') || '无'}`);
+      for (const entry of data.conversation) {
+        // content format: "【玩家】xxx\n【AI】yyy\n【附近人物】[...]"
+        const lines = entry.content.split('\n');
+        let lastAiDiv = null;
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          if (line.startsWith('【玩家】')) {
+            // Collect subsequent non-prefix lines (same as AI — multi-paragraph input)
+            let userText = line.slice(4);
+            while (i + 1 < lines.length && !lines[i + 1].startsWith('【玩家】') && !lines[i + 1].startsWith('【AI】') && !lines[i + 1].startsWith('【附近人物】')) {
+              i++;
+              userText += '\n' + lines[i];
+            }
+            addMsg('user', userText);
+          } else if (line.startsWith('【附近人物】')) {
+            try {
+              const nearby = JSON.parse(line.slice(6));
+              if (Array.isArray(nearby) && nearby.length > 0) {
+                addNearbyCards(nearby);
+              }
+            } catch(e) {}
+          } else if (line.startsWith('【AI】')) {
+            // Collect subsequent non-prefix lines (multi-paragraph AI output)
+            let aiText = line.slice(4);
+            while (i + 1 < lines.length && !lines[i + 1].startsWith('【玩家】') && !lines[i + 1].startsWith('【AI】') && !lines[i + 1].startsWith('【附近人物】')) {
+              i++;
+              aiText += '\n' + lines[i];
+            }
+            addMsg('ai', aiText);
+          }
+        }
+      }
+    }
+    // ── Restore world_intro if available (persistent across refresh) ──
+    if (data.world_intro && data.conversation && data.conversation.length === 0) {
+      addMsg('system', data.world_intro);
+    }
+    // ── Restore recommendations on session reload ──
+    updateRecs(data.recommendations);
+    // ── Save last active session id for refresh recovery ──
+    try { localStorage.setItem('ane_last_session', sessionId); } catch(e) {};
+    loadSessionList();
+    document.getElementById('user-input').focus();
+  } catch(e) {
+    frontendLog('ERROR', 'Switch failed: ' + e.message);
+    addMsg('system', '加载世界失败: ' + e.message);
+  }
+}
+
+function loadSessionInfo(sid) {
+  return apiFetch(`/sessions/${sid}`).then(r => { if (!r.ok) throw r; return r.json(); });
+}
+
+// ── Batch select ──
+let selectMode = false;
+
+function toggleSelectMode() {
+  selectMode = !selectMode;
+  const toolbar = document.getElementById('sidebar-toolbar');
+  const checks = document.querySelectorAll('#session-list .sel-check');
+  if (selectMode) {
+    toolbar.classList.add('visible');
+    checks.forEach(c => c.style.display = '');
+  } else {
+    toolbar.classList.remove('visible');
+    checks.forEach(c => { c.style.display = 'none'; c.checked = false; });
+    updateBatchCount();
+  }
+}
+
+function selectAll() {
+  document.querySelectorAll('#session-list .sel-check').forEach(c => { c.checked = true; });
+  updateBatchCount();
+}
+
+function deselectAll() {
+  document.querySelectorAll('#session-list .sel-check').forEach(c => { c.checked = false; });
+  updateBatchCount();
+}
+
+function updateBatchCount() {
+  const count = document.querySelectorAll('#session-list .sel-check:checked').length;
+  document.getElementById('batch-count').textContent = count ? `已选 ${count} 个` : '';
+}
+
+async function batchDelete() {
+  const checked = document.querySelectorAll('#session-list .sel-check:checked');
+  if (checked.length === 0) { alert('请先勾选要删除的世界'); return; }
+  if (!confirm(`确定要删除选中的 ${checked.length} 个世界吗？\n所有 NPC、故事进度、记忆将被永久删除，无法恢复。`)) return;
+  const cards = Array.from(checked).map(c => c.closest('.session-card'));
+  const names = cards.map(c => c.querySelector('.name').textContent);
+  let ok = 0, fail = 0;
+  for (const card of cards) {
+    const sid = card.dataset.sid;
+    try {
+      const res = await apiFetch(`/sessions/${sid}`, { method: 'DELETE' });
+      if (!res.ok) { fail++; continue; }
+      ok++;
+      if (sessionId === sid) {
+        sessionId = null;
+        document.getElementById('session-id-display').textContent = '未创建会话';
+        clearChat();
+      }
+    } catch(e) { fail++; }
+  }
+  frontendLog('INFO', `Batch delete: ${ok} ok, ${fail} failed`);
+  if (ok > 0 && !sessionId) addMsg('system', `已删除 ${ok} 个世界。请选择或创建其他世界。`);
+  await loadSessionList();
+  selectMode = false;
+  document.getElementById('sidebar-toolbar').classList.remove('visible');
+}
+
+// ── Session ──
+let charTemplates = null;
+async function loadCharTemplates() {
+  try {
+    const res = await apiFetch('/sessions/__any__/templates');
+    if (!res.ok) return;
+    charTemplates = await res.json();
+  } catch(e) { frontendLog('WARN', 'Failed to load char templates: ' + e.message); }
+}
+loadCharTemplates();
+
+async function showCharacterModal(sid) {
+  if (!charTemplates) await loadCharTemplates();
+  if (!charTemplates) {
+    // Templates not available — skip
+    skipCharacter();
+    return;
+  }
+  // Populate dropdowns
+  const gSel = document.getElementById('char-gender');
+  if (charTemplates.genders) {
+    gSel.innerHTML = charTemplates.genders.map(g =>
+      `<option value="${escAttr(g.value)}">${escHtml(g.label)}</option>`
+    ).join('');
+  }
+  // Background selector
+  const bgSel = document.getElementById('char-background');
+  if (charTemplates.backgrounds) {
+    bgSel.innerHTML = charTemplates.backgrounds.map(b =>
+      `<option value="${escAttr(b.value)}">${escHtml(b.label)}</option>`
+    ).join('');
+  }
+  updateCharHints();
+  const cSel = document.getElementById('char-cultivation');
+  cSel.innerHTML = charTemplates.cultivations.map(c =>
+    `<option value="${escAttr(c.value)}">${escHtml(c.label)} — ${escHtml(c.desc)}</option>`
+  ).join('');
+  const pSel = document.getElementById('char-personality');
+  pSel.innerHTML = charTemplates.personalities.map(p =>
+    `<option value="${escAttr(p.value)}">${escHtml(p.label)}</option>`
+  ).join('');
+  const iSel = document.getElementById('char-identity');
+  const ids = charTemplates.identities;
+  iSel.innerHTML = Object.keys(ids).map(k =>
+    `<option value="${escAttr(k)}">${escHtml(ids[k].label)} — ${escHtml(ids[k].desc)}</option>`
+  ).join('');
+  updateCharHints();
+
+  // ── Populate golden finger grid ──
+  const gfContainer = document.getElementById('gf-grid');
+  const gfs = charTemplates.golden_fingers || [];
+  gfContainer.innerHTML = gfs.map(gf =>
+    `<div class="gf-card" data-gf-id="${escAttr(gf.id)}" onclick="selectGoldenFinger('${escAttr(gf.id)}')"
+      style="padding:8px;border:1px solid var(--border);border-radius:6px;cursor:pointer;text-align:center;transition:all .15s;background:var(--input-bg)">
+      <div style="font-size:20px;margin-bottom:4px">${gf.icon}</div>
+      <div style="font-size:12px;color:var(--text)">${escHtml(gf.name)}</div>
+    </div>`
+  ).join('');
+  // Reset selection
+  document.getElementById('gf-grid').querySelectorAll('.gf-card').forEach(c => c.style.borderColor = 'var(--border)');
+  document.getElementById('gf-custom-wrap').style.display = 'none';
+  document.getElementById('gf-custom').value = '';
+
+  // Show modal
+  document.getElementById('char-modal-overlay').classList.add('visible');
+  // Store pending session id
+  document.getElementById('char-modal-overlay').dataset.sid = sid;
+}
+
+function randomName() {
+  // Use NPCTemplate data already available via charTemplates
+  // (loaded from player_templates.json which shares same naming data as character creation)
+  // Fallback: combine surname + given name from npc_templates.json
+  const surnames = ["林","苏","柳","沈","慕容","萧","叶","云","白","墨","韩","楚","卫","顾","陆","谢","秦","洛","温","裴","唐","姜","薛","岳","段","钟","任","花","风","龙","上官","欧阳","司徒","夏侯","东方","西门","南宫","诸葛"];
+  const givenM = ["寒渊","无极","辰逸","子墨","昊天","云霆","凌霄","长风","星河","千帆","青玄","夜澜","玄策","无垢","剑心","逸尘","少游","道玄","惊鸿","玉衡","苍梧","归云","渡寒","怀瑾","孤城","鹤鸣","松溪","月白"];
+  const givenF = ["雨凝","如烟","清漪","若雪","霜华","月瑶","灵素","含烟","锦瑟","素衣","揽月","画屏","清霜","流萤","紫苏","雪见","兰因","碧落"];
+  const allGiven = [...givenM, ...givenF];
+  const sur = surnames[Math.floor(Math.random() * surnames.length)];
+  const given = allGiven[Math.floor(Math.random() * allGiven.length)];
+  document.getElementById('char-name').value = sur + given;
+}
+
+function selectGoldenFinger(id) {
+  // Highlight selected
+  document.getElementById('gf-grid').querySelectorAll('.gf-card').forEach(c => {
+    c.style.borderColor = c.dataset.gfId === id ? 'var(--accent)' : 'var(--border)';
+    c.style.background = c.dataset.gfId === id ? 'rgba(201,169,110,0.15)' : 'var(--input-bg)';
+  });
+  // Show/hide custom textarea
+  document.getElementById('gf-custom-wrap').style.display = id === 'custom' ? 'block' : 'none';
+}
+
+function updateCharHints() {
+  const cVal = document.getElementById('char-cultivation').value;
+  const pVal = document.getElementById('char-personality').value;
+  const iVal = document.getElementById('char-identity').value;
+  const bgVal = document.getElementById('char-background').value;
+  const idCustomWrap = document.getElementById('identity-custom-wrap');
+  if (charTemplates) {
+    // Background hint
+    const bg = charTemplates.backgrounds ? charTemplates.backgrounds.find(b => b.value === bgVal) : null;
+    if (bg) {
+      document.getElementById('char-background-hint').textContent =
+        `${bg.desc} ｜ 初始资源：${bg.initial_resource} ｜ 性格倾向：${bg.personality_tendency}`;
+    }
+    const ci = charTemplates.cultivations.find(c => c.value === cVal);
+    if (ci) document.getElementById('char-cultivation-hint').textContent = ci.desc;
+    const pi = charTemplates.personalities.find(p => p.value === pVal);
+    if (pi) document.getElementById('char-personality-hint').textContent = pi.desc;
+    if (iVal === 'custom') {
+      idCustomWrap.style.display = 'block';
+      document.getElementById('char-identity-hint').textContent = '填写你的自定义身份描述';
+    } else {
+      idCustomWrap.style.display = 'none';
+      const idData = charTemplates.identities[iVal];
+      if (idData) document.getElementById('char-identity-hint').textContent = `衣物：${idData.clothing} ｜ 月入：${idData.monthly_income} ｜ ${idData.background}`;
+    }
+  }
+}
+
+function escAttr(s) { return (s||'').replace(/"/g, '&quot;').replace(/</g,'&lt;'); }
+
+async function applyCharacter() {
+  const sid = document.getElementById('char-modal-overlay').dataset.sid;
+  const name = document.getElementById('char-name').value.trim() || '无名修士';
+  const age = parseInt(document.getElementById('char-age').value) || 19;
+  const gender = document.getElementById('char-gender').value;
+  const background = document.getElementById('char-background').value;
+  const cultivation = document.getElementById('char-cultivation').value;
+  const personality = document.getElementById('char-personality').value;
+  const identity = document.getElementById('char-identity').value;
+
+  // Pick golden finger
+  const selectedGf = document.querySelector('#gf-grid .gf-card[style*="var(--accent)"]');
+  const golden_finger_id = selectedGf ? selectedGf.dataset.gfId : '';
+  const golden_finger_custom = document.getElementById('gf-custom').value.trim();
+  const identity_custom = document.getElementById('identity-custom').value.trim();
+
+  try {
+    const res = await apiFetch(`/sessions/${sid}/character`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ name, age, gender, background, cultivation, personality, identity, golden_finger_id, golden_finger_custom, identity_custom })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.golden_finger_name) {
+        frontendLog('INFO', `Chosen golden finger: ${data.golden_finger_name}`);
+      }
+    }
+  } catch(e) { frontendLog('ERROR', 'Character apply failed: ' + e.message); }
+  document.getElementById('char-modal-overlay').classList.remove('visible');
+  // Store character data so saveCurrentMap can include it in the world intro
+  window._player_char_data = {
+    name: name,
+    age: age,
+    gender: gender,
+    background: background,
+    cultivation: cultivation,
+    personality: personality,
+    identity: identity,
+    golden_finger_id: golden_finger_id,
+    golden_finger_custom: golden_finger_custom,
+    identity_custom: identity_custom,
+  };
+  if (selectedGf && charTemplates) {
+    const gfData = (charTemplates.golden_fingers || []).find(g => g.id === golden_finger_id);
+    if (gfData) {
+      window._player_char_data.gf_name = gfData.name;
+      window._player_char_data.gf_desc = gfData.desc;
+    }
+  }
+  if (sid === sessionId) {
+    document.getElementById('player-loc').textContent = name;
+    document.getElementById('player-cult').textContent = cultivation;
+  }
+  // Pre-fill input — guide player to open map, generate world
+  const defaultMsg = `生成你的世界吧！点击顶部🗺 地图按钮，随机生成几次后点击💾 保存地图。`;
+  document.getElementById('user-input').value = defaultMsg;
+  // Refresh session list to show new name
+  loadSessionList();
+}
+
+function skipCharacter() {
+  document.getElementById('char-modal-overlay').classList.remove('visible');
+}
+
+// Wire dropdown change events
+document.getElementById('char-cultivation').addEventListener('change', updateCharHints);
+document.getElementById('char-personality').addEventListener('change', updateCharHints);
+document.getElementById('char-identity').addEventListener('change', updateCharHints);
+document.getElementById('char-background').addEventListener('change', updateCharHints);
+
+async function createSession() {
+  const btn = document.getElementById('new-session-btn');
+  btn.disabled = true; btn.textContent = '···';
+  const t0 = performance.now();
+  frontendLog('INFO', 'Creating new session...');
+  resetWorldState();
+  try {
+    const res = await apiFetch('/sessions', {
+  method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({name: '修仙世界'})
+    });
+    const data = await res.json();
+    sessionId = data.session_id;
+    document.getElementById('session-id-display').textContent =
+      `会话: ${data.session_id.substring(0,8)}... | ${data.name}`;
+    updateStatus(data);
+    document.getElementById('player-loc').textContent = data.player_name;
+    document.getElementById('player-cult').textContent = data.player_cultivation || '?';
+    const elapsed = (performance.now() - t0).toFixed(0);
+    console.log(`Session created: ${data.session_id} (${elapsed}ms)`);
+    clearChat();
+    showCharacterModal(data.session_id);
+    await loadSessionList();
+  } catch(e) {
+    frontendLog('ERROR', 'Session creation failed: ' + e.message);
+    addMsg('system', '创建失败: ' + e.message);
+  }
+  btn.disabled = false; btn.textContent = '+';
+}
+
+// ── World intro state ──
+let _pending_world_intro = null;  // stored world overview text, injected before player's first input
+
+// ── Turn ──
+async function sendTurn() {
+  const input = document.getElementById('user-input');
+  const text = input.value.trim();
+  if (!text || !sessionId) return;
+
+  // Show HO hint if NSFW keywords detected but HO is missing
+  const hoHintEl = document.getElementById('ho-hint');
+  const _NSFW_CHECK_WORDS = [
+    // 核心性器
+    "肉棒", "小穴", "蜜穴", "嫩穴", "阴道", "阴茎", "鸡巴", "龟头",
+    "阴蒂", "阴唇", "花蕊", "子宫", "乳房", "乳尖", "臀",
+    // 体液
+    "精液", "爱液", "淫水", "淫液", "白浊", "精",
+    // 动作描写（多字短语，非单字）
+    "干你", "干她", "干我", "肏",
+    "插入", "抽送", "抽插", "进出", "挺进", "挺入",
+    "吸允", "吸奶子", "吸奶头", "吸乳头", "吸得", "吸干", "吸吮", "吮吸",
+    "射精", "射在", "射进", "射到", "射嘴里", "射满", "内射",
+    "舔弄", "舔舐", "舔阴", "舔穴", "舔",
+    "抚摸", "揉捏", "抓揉", "把玩", "搓", "揉",
+    "进入", "顶入", "挺入", "深入", "顶",
+    "套弄", "撸动", "把弄", "握",
+    "掰开", "撑开", "分开",
+    "含住", "吞吐", "深喉", "含",
+    "吻痕", "亲吻", "吻",
+    "打炮", "做爱", "交合", "性交", "交欢",
+    // 体位
+    "后入", "传教士", "观音坐莲", "老汉推车", "69",
+    // 偷情/淫乱
+    "偷情", "通奸", "出轨", "奸",
+    // 反应描写
+    "呻吟", "喘息", "娇喘", "淫叫", "浪叫",
+    "高潮", "颤抖", "痉挛", "泄身",
+    // 状态
+    "赤裸", "一丝不挂", "全裸", "裸体",
+    "淫荡", "风骚", "放荡", "淫秽", "淫",
+    "骚", "浪",
+    // 修仙特色
+    "双修", "采补", "炉鼎", "合欢", "春药", "媚药",
+    "淫术", "催情",
+    // 催情/中毒
+    "情毒", "媚毒", "合欢散", "春毒",
+    "解毒", "欲火焚身", "欲火",
+    "情欲", "春情", "春意",
+  ];
+  const matchCount = _NSFW_CHECK_WORDS.filter(w => text.includes(w)).length;
+  const hasHo = text.endsWith('HO') || text.endsWith('HO ');
+  if (matchCount >= 2 && !hasHo) {
+    hoHintEl.style.display = 'block';
+    // Don't block — user can still send
+  } else {
+    hoHintEl.style.display = 'none';
+  }
+
+  const isModelingNpc = document.getElementById('important-npc-check').checked;
+
+  // If NPC modeling checkbox is checked, run modeling FIRST, then send the turn
+  if (isModelingNpc) {
+    document.getElementById('important-npc-check').checked = false;
+    addMsg('system', '⏳ 正在分析人物，请稍候…');
+    frontendLog('INFO', 'Starting NPC modeling for input: ' + text.substring(0, 60));
+    try {
+      const modelRes = await apiFetch(`/sessions/${sessionId}/npc-modeling`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({input: text}),
+      });
+      if (!modelRes.ok) {
+        const errData = await modelRes.json().catch(() => ({}));
+        addMsg('system', '❌ 人物构建失败: ' + (errData.detail || '未知错误'));
+        return;
+      }
+      const modelData = await modelRes.json();
+
+      // Display updated NPCs
+      if (modelData.updated && modelData.updated.length) {
+        for (const u of modelData.updated) {
+          const detail = formatNpcModel(u.model_data, u.npc_name, '（已更新档案）');
+          addMsg('system', `【人物档案更新】\n${detail}`);
+        }
+      }
+
+      // Handle new NPCs — ask user to confirm each
+      if (modelData.new_names && modelData.new_names.length) {
+        const confirmResult = await showNpcConfirmDialog(modelData.new_names, text);
+        if (confirmResult.canceled) {
+          addMsg('system', '人物建模已取消。');
+          return;
+        }
+        // Model confirmed names one by one
+        for (const name of confirmResult.confirmed) {
+          addMsg('system', `⏳ 正在为「${name}」构建人物档案（约30秒）…`);
+          try {
+            const cRes = await apiFetch(`/sessions/${sessionId}/npc-modeling/confirm`, {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({input: text, name: name}),
+            });
+            if (cRes.ok) {
+              const cData = await cRes.json();
+              const detail = formatNpcModel(cData.model_data, cData.npc_name, '（新人物已生成）');
+              addMsg('system', `【人物建模完成】\n${detail}\n\n现在你可以发送正文了。`);
+            } else {
+              addMsg('system', `❌ 「${name}」建模失败`);
+            }
+          } catch(e) {
+            frontendLog('ERROR', `NPC modeling confirm failed for ${name}: ` + e.message);
+            addMsg('system', `❌ 「${name}」建模请求失败: ` + e.message);
+          }
+        }
+      } else if (!modelData.updated || !modelData.updated.length) {
+        addMsg('system', '系统未能识别人物姓名，请在输入中明确写出名字。');
+      }
+    } catch(e) {
+      frontendLog('ERROR', 'NPC modeling request failed: ' + e.message);
+      addMsg('system', '❌ 人物构建请求失败: ' + e.message);
+    }
+    return; // Don't send the turn yet — wait for user to write next
+  }
+
+  input.value = '';
+  input.style.height = 'auto';
+
+  addMsg('user', text);
+  frontendLog('USER_INPUT', text);
+
+  const sendBtn = document.getElementById('send-btn');
+  const loader = document.getElementById('loading-indicator');
+  sendBtn.disabled = true;
+  loader.classList.add('active');
+
+  const t0 = performance.now();
+  try {
+    const res = await apiFetch(`/sessions/${sessionId}/turn`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({input: text, model: selectedModel, load_model_data: document.getElementById('load-model-check').checked})
+    });
+    const data = await res.json();
+    const elapsed = (performance.now() - t0).toFixed(0);
+
+    // Handle server error responses (e.g. LLM call failed)
+    if (data.detail) {
+      frontendLog('ERROR', `Server error: ${data.detail}`);
+      addMsg('system', '天道运转出错: ' + data.detail);
+      sendBtn.disabled = false;
+      loader.classList.remove('active');
+      document.getElementById('user-input').focus();
+      return;
+    }
+
+    addMsg('ai', data.narrative, _currentTurnNumber);
+    _currentTurnNumber++;
+
+    // ── World intro: prepend world overview + player info before this turn's input ──
+    if (_pending_world_intro) {
+      const intro = _pending_world_intro;
+      _pending_world_intro = null;
+      // Inject the intro into the input for the user to edit, explain what happened
+      addMsg('system', intro);
+      // Also inject into the input box so the user can edit before sending
+      document.getElementById('user-input').value = intro;
+    }
+
+    // System commands (e.g. /status, /summary, /facts) return response in system_response
+    if (data.is_system_command && data.system_response) {
+      addMsg('system', data.system_response);
+    }
+    if (data.nearby_characters && data.nearby_characters.length > 0) {
+      addNearbyCards(data.nearby_characters);
+    }
+    // ── Player panel ──
+    if (data.player_panel) {
+      addMsg('system', data.player_panel);
+    }
+    // ── Important NPCs panel ──
+    if (data.important_npcs_panel) {
+      addMsg('system', data.important_npcs_panel);
+    }
+    // ── Modeled NPCs buttons ──
+    if (data.modeled_npcs && data.modeled_npcs.length > 0) {
+      renderModeledNpcs(data.modeled_npcs);
+    }
+    // ── Update recommendation carousel ──
+    updateRecs(data.recommendations);
+    if (data.npc_updates && data.npc_updates.length > 0) {
+      const notes = data.npc_updates.map(u => '• ' + u.description).join('\n');
+      addMsg('system', '【世界动态】\n' + notes);
+    }
+  } catch(e) {
+    frontendLog('ERROR', 'Turn request failed: ' + e.message);
+    addMsg('system', '请求失败: ' + e.message);
+  }
+
+  sendBtn.disabled = false;
+  loader.classList.remove('active');
+  document.getElementById('important-npc-check').checked = false;
+  document.getElementById('user-input').focus();
+}
+
+async function sendCommand(cmd) {
+  document.getElementById('user-input').value = cmd;
+  frontendLog('INFO', 'Sending command: ' + cmd);
+  await sendTurn();
+}
+
+// ── Time skip ──
+function toggleTimeSkip() {
+  const popup = document.getElementById('time-skip-popup');
+  popup.classList.toggle('visible');
+}
+// Close popup on outside click
+document.addEventListener('click', function(e) {
+  const wrap = document.getElementById('time-skip-wrap');
+  if (wrap && !wrap.contains(e.target)) {
+    document.getElementById('time-skip-popup').classList.remove('visible');
+  }
+});
+
+async function skipTime(duration) {
+  document.getElementById('time-skip-popup').classList.remove('visible');
+  if (!sessionId) return;
+  const labelMap = { '1_month': '一个月', '3_months': '三个月', '6_months': '半年',
+                     '1_year': '一年', '2_years': '两年', '5_years': '五年' };
+  const tickMap = { '1_month': 240, '3_months': 720, '6_months': 1440,
+                    '1_year': 2880, '2_years': 5760, '5_years': 14400 };
+  const ticks = tickMap[duration];
+  try {
+    const res = await apiFetch(`/sessions/${sessionId}/time-skip`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ticks: ticks})
+    });
+    if (!res.ok) throw new Error(res.statusText);
+    const data = await res.json();
+    updateStatus(data);
+    addMsg('system', `⏩ 时间快进：${labelMap[duration]} → 当前时间：${data.world_time}`);
+  } catch(e) {
+    addMsg('system', '时间快进失败: ' + e.message);
+  }
+}
+
+// ── Clear logs ──
+async function clearLogs() {
+  if (!confirm('确定要清空前后端日志文件吗？')) return;
+  try {
+    const res = await apiFetch('/api/clear-logs', { method: 'POST' });
+    const data = await res.json();
+    const parts = [];
+    for (const [label, r] of Object.entries(data)) {
+      parts.push(r.ok ? `${label}: 已清空` : `${label}: 失败 (${r.error})`);
+    }
+    frontendLog('INFO', 'Logs cleared: ' + parts.join(', '));
+    addMsg('system', '🗑 ' + parts.join(' ｜ '));
+  } catch(e) {
+    frontendLog('ERROR', 'Clear logs failed: ' + e.message);
+    addMsg('system', '清空日志失败: ' + e.message);
+  }
+}
+
+// ── UI helpers ──
+function addMsg(type, text, turnNumber) {
+  const chat = document.getElementById('chat');
+  const div = document.createElement('div');
+  div.className = 'msg ' + type;
+  div.textContent = text;
+
+  // Add 📕 hover trigger to AI messages
+  if (type === 'ai') {
+    const tn = (turnNumber !== undefined && turnNumber !== null) ? turnNumber : (lastTurnNumber || '0');
+    const bookBtn = document.createElement('span');
+    bookBtn.className = 'summary-book';
+    bookBtn.textContent = '📘 ';
+    bookBtn.style.cursor = 'pointer';
+    bookBtn.style.marginLeft = '8px';
+    bookBtn.style.fontSize = '14px';
+    bookBtn.title = '查看本轮场景摘要';
+    bookBtn.dataset.turnNumber = tn;
+    bookBtn.onmouseenter = function() { showSummaryPopup(this, tn); };
+    bookBtn.onmouseleave = function() { hideSummaryPopup(); };
+    div.appendChild(bookBtn);
+  }
+
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+  if (type === 'ai') {
+    frontendLog('OUTPUT', `AI narrative: ${text.length}chars. Preview: ${text.substring(0, 120)}...`);
+    console.log(`[AI OUTPUT ${text.length}chars]`, text);
+  }
+  if (type === 'user') {
+    frontendLog('INPUT', text);
+    console.log(`[USER INPUT]`, text);
+  }
+}
+
+function clearChat() {
+  document.getElementById('chat').innerHTML = '';
+}
+
+function updateStatus(data) {
+  if (data.world_time) document.getElementById('world-time').textContent = data.world_time;
+  if (data.player_location) {
+    document.getElementById('player-loc').textContent = data.player_location;
+    _playerMapLocation = data.player_location;
+  }
+  if (data.player_gender) {
+    _playerMapGender = data.player_gender;
+  }
+  if (data.player_cultivation) document.getElementById('player-cult').textContent = data.player_cultivation;
+}
+
+// ── 📕 Summary hover popup ──
+let lastTurnNumber = 0;
+function showSummaryPopup(btn, turnStr) {
+  const turnNum = parseInt(turnStr) || 0;
+  lastTurnNumber = Math.max(lastTurnNumber, turnNum);
+
+  // Remove any existing popup
+  hideSummaryPopup();
+
+  const popup = document.createElement('div');
+  popup.className = 'summary-popup';
+  popup.textContent = '📖 加载总结中...';
+  popup.style.cssText = 'position:fixed;background:#2a2a3a;border:1px solid #555;border-radius:6px;padding:12px;max-width:360px;z-index:9999;font-size:13px;color:#ddd;box-shadow:0 4px 12px rgba(0,0,0,0.5);';
+
+  // Position near the button
+  const rect = btn.getBoundingClientRect();
+  popup.style.left = Math.min(rect.left, window.innerWidth - 380) + 'px';
+  popup.style.top = (rect.bottom + 6) + 'px';
+
+  document.body.appendChild(popup);
+
+  // Fetch summaries from API
+  const sid = sessionId || '';
+  if (sid) {
+    apiFetch(`/sessions/${sid}/summaries?from_turn=${turnNum}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.summaries && data.summaries.length > 0) {
+          const html = data.summaries.map(s => {
+            const lines = s.content.split('\n').slice(0, 5).join('\n');
+            return `<div style="margin-bottom:8px;border-bottom:1px solid #444;padding-bottom:6px;"><strong>第${s.turn_number}轮</strong><br>${lines.replace(/\n/g, '<br>')}</div>`;
+          }).join('');
+          popup.innerHTML = html;
+        } else {
+          popup.textContent = '📖 总结生成中，请稍后...';
+        }
+      })
+      .catch(() => {
+        popup.textContent = '加载失败';
+      });
+  }
+}
+
+function hideSummaryPopup() {
+  document.querySelectorAll('.summary-popup').forEach(el => el.remove());
+}
+
+// ── Startup auto-load ──
+async function autoLoadLastSession() {
+  try {
+    const res = await apiFetch('/sessions');
+    if (!res.ok) return;
+    const sessions = await res.json();
+    if (sessions.length === 0) return;
+    // Auto-load the most recent (first) session
+    const last = sessions[0];
+    // Check if this was the last active (stored in localStorage)
+    const storedId = localStorage.getItem('ane_last_session');
+    const target = sessions.find(s => s.session_id === storedId) || last;
+    await switchSession(target.session_id);
+  } catch(e) {
+    frontendLog('ERROR', 'Auto-load failed: ' + e.message);
+  }
+}
+
+function escHtml(s) {
+  if (!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Nearby Character Cards ──
+function addNearbyCards(characters) {
+  const chat = document.getElementById('chat');
+  const container = document.createElement('div');
+  container.style.cssText = 'align-self:flex-start;max-width:50%;margin-top:4px;';
+
+  const header = document.createElement('div');
+  header.textContent = '👥 附近人物';
+  header.style.cssText = 'font-size:11px;color:var(--accent);margin-bottom:4px;font-weight:bold;';
+
+  const grid = document.createElement('div');
+  grid.style.cssText = 'display:flex;flex-direction:column;gap:4px;';
+
+  for (const ch of characters) {
+    const genderIcon = ch.gender === '男' ? '👨' : '👩';
+    const card = document.createElement('div');
+    card.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:4px 8px;cursor:pointer;transition:border-color 0.15s;';
+    card.onmouseenter = () => { card.style.borderColor = 'var(--accent)'; };
+    card.onmouseleave = () => { card.style.borderColor = 'var(--border)'; };
+    card.onclick = () => {
+      const input = document.getElementById('user-input');
+      input.value = `与${escHtml(ch.name)}交谈`;
+      input.focus();
+    };
+
+    card.innerHTML =
+      `<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px;">` +
+        `<span style="font-size:12px;">${genderIcon}</span>` +
+        `<span style="font-size:12px;color:var(--text);font-weight:bold;">${escHtml(ch.name)}</span>` +
+        `<span style="font-size:10px;color:var(--accent-dim);">·</span>` +
+        `<span style="font-size:10px;color:var(--accent-dim);">${escHtml(ch.identity||'')}</span>` +
+        `<span style="font-size:10px;color:var(--accent-dim);">·</span>` +
+        `<span style="font-size:10px;color:var(--accent-dim);">${escHtml(ch.cultivation||'')}</span>` +
+      `</div>` +
+      `<div style="font-size:10px;color:var(--accent-dim);margin-left:16px;line-height:1.4;">` +
+        `${escHtml(ch.appearance||'') ? escHtml(ch.appearance||'') + '。' : ''}${escHtml(ch.action||'')}` +
+      `</div>`;
+
+    grid.appendChild(card);
+  }
+
+  container.appendChild(header);
+  container.appendChild(grid);
+  chat.appendChild(container);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+// ── HTEM Directory Display ──
+function onImportantNpcToggle() {
+  const checked = document.getElementById('important-npc-check').checked;
+  if (checked) {
+    const msg = '当需要生成重要人物时，请勾选【⭐重要人物】，按自己的需求描述人物信息，并点击发送。\n\n人物构建需要约一分钟并在后台运行，构建完成后该人物将被该世界永远记住。\n为了不影响你的游戏体验，你可以继续输入下一轮对话，在收到人物形象后再发送。\n\n建议在输入中详细描述该NPC的外貌、身份、性格以及与你角色的关系。';
+    alert(msg);
+  }
+}
+
+// ── NPC modeling helpers ────────────────────────────────────
+
+function formatNpcModel(md, name, status) {
+  if (!md) return '';
+  const basic = md.basic || {};
+  const appearance = md.appearance || {};
+  const face = appearance.face || {};
+  const skin = appearance.skin || {};
+  const hair = appearance.hair || {};
+  const bodyLines = [];
+  if (appearance.overall_impression) bodyLines.push(`整体印象：${appearance.overall_impression}`);
+  if (face.eyes) bodyLines.push(`眼眸：${face.eyes}`);
+  if (face.lips) bodyLines.push(`嘴唇：${face.lips}`);
+  if (face.shape) bodyLines.push(`脸型：${face.shape}`);
+  if (skin.color) bodyLines.push(`肤色：${skin.color}`);
+  if (hair.style && hair.color && hair.length) bodyLines.push(`头发：${hair.length} ${hair.style}，${hair.color}`);
+  const cloth = md.clothing || {};
+  const clothParts = [];
+  if (cloth.type) clothParts.push(cloth.type);
+  if (cloth.color) clothParts.push(cloth.color);
+  if (cloth.material) clothParts.push(cloth.material);
+  if (clothParts.length) bodyLines.push(`衣着：${clothParts.join('，')}`);
+  const pers = md.personality || {};
+  const persLines = [];
+  if (pers.core) persLines.push(`核心：${pers.core}`);
+  if (pers.obsession) persLines.push(`执念：${pers.obsession}`);
+  if (pers.values) persLines.push(`价值观：${pers.values}`);
+  const cult = md.cultivation || {};
+  const cultLines = [];
+  if (cult.spiritual_root) cultLines.push(`灵根：${cult.spiritual_root}`);
+  if (cult.techniques) cultLines.push(`功法：${cult.techniques}`);
+  const voice = md.voice || {};
+  const voiceParts = [];
+  if (voice.timbre) voiceParts.push(voice.timbre);
+  if (voice.speed) voiceParts.push(voice.speed);
+  const weapons = (md.equipment || []).filter(e => e.name);
+  const bg = md.background || {};
+  const relationships = md.relationships || {};
+  const relParts = [];
+  if (relationships.master) relParts.push(`师尊：${relationships.master}`);
+  if (relationships.father) relParts.push(`父：${relationships.father}`);
+  if (relationships.mother) relParts.push(`母：${relationships.mother}`);
+  if (relationships.lover) relParts.push(`恋人：${relationships.lover}`);
+  const lines = [
+    `⭐ ${name}${status || ''}`,
+    `修为：${basic.cultivation || '未知'}`,
+    `身份：${basic.identity || '散修'}`,
+    `年龄：${basic.age || '?'}岁  身高：${basic.height || '?'}  ${basic.race || ''} ${basic.gender || ''}`,
+    basic.faction ? `势力：${basic.faction} - ${basic.position || ''}` : '',
+    bodyLines.length ? bodyLines.join(' | ') : '',
+    voiceParts.length ? `声音：${voiceParts.join('，')}` : '',
+    persLines.length ? `\n【性格】\n${persLines.join('\n')}` : '',
+    cultLines.length ? `\n【修炼】\n${cultLines.join('\n')}` : '',
+    weapons.length ? `\n装备：${weapons.map(w => w.name).join('、')}` : '',
+    bg.history ? `\n【身世】\n${bg.history.substring(0, 300)}` : '',
+    relParts.length ? `\n【关系】\n${relParts.join(' | ')}` : '',
+  ].filter(Boolean).join('\n');
+  return lines;
+}
+
+function showNpcConfirmDialog(names, originalInput) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    const box = document.createElement('div');
+    box.style.cssText = 'background:#1a1a2e;border:1px solid #e94560;border-radius:12px;padding:24px;max-width:420px;width:90%;color:#eee;font-size:14px;';
+    box.innerHTML = `
+      <div style="font-size:18px;font-weight:bold;margin-bottom:12px;color:#e94560;">👤 检测到新人物</div>
+      <div style="margin-bottom:16px;color:#aaa;">以下人物不在数据库中，是否建模？</div>
+      <div id="npc-confirm-list" style="margin-bottom:16px;">
+        ${names.map((n, i) => `
+          <label style="display:block;padding:8px 10px;margin:4px 0;background:#16213e;border-radius:6px;cursor:pointer;">
+            <input type="checkbox" data-idx="${i}" checked style="accent-color:#e94560;margin-right:8px;">
+            ${n}
+          </label>
+        `).join('')}
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button id="npc-confirm-cancel" style="padding:8px 18px;border:1px solid #555;border-radius:6px;background:transparent;color:#aaa;cursor:pointer;">全部跳过</button>
+        <button id="npc-confirm-ok" style="padding:8px 18px;border:none;border-radius:6px;background:#e94560;color:white;cursor:pointer;font-weight:bold;">确认建模</button>
+      </div>
+    `;
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+    document.getElementById('npc-confirm-cancel').onclick = () => {
+      document.body.removeChild(overlay);
+      resolve({canceled: true, confirmed: []});
+    };
+    document.getElementById('npc-confirm-ok').onclick = () => {
+      const checks = document.querySelectorAll('#npc-confirm-list input[type=checkbox]');
+      const confirmed = [];
+      checks.forEach((chk, i) => { if (chk.checked) confirmed.push(names[i]); });
+      document.body.removeChild(overlay);
+      resolve({canceled: false, confirmed});
+    };
+  });
+}
+
+function showImportantNpcGuide() {
+  const msg = '【重要人物构建说明】\n\n当需要生成重要人物时，请勾选【⭐重要人物】，按自己的需求描述人物信息，并点击发送。\n\n人物构建需要约一分钟并在后台运行，构建完成后该人物将被该世界永远记住。\n为了不影响你的游戏体验，你可以继续输入下一轮对话，在收到人物形象后再发送。\n\n建议在输入中详细描述该NPC的外貌、身份、性格以及与你角色的关系。';
+  alert(msg);
+}
+
+// ── 🚻 Relationship Graph Viewer ──
+
+function showRelationshipGraph() {
+  if (!sessionId) return alert('请先创建或选择世界');
+  const popup = document.createElement('div');
+  popup.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  const box = document.createElement('div');
+  box.style.cssText = 'background:#1a1a2e;border:1px solid #e94560;border-radius:12px;padding:24px;max-width:600px;width:90%;color:#eee;font-size:13px;max-height:80vh;overflow-y:auto;';
+  box.innerHTML = '<div style="text-align:center;padding:20px;color:#888;">⏳ 加载关系网...（后台构建中，每轮对话后自动更新）</div>';
+  popup.appendChild(box);
+  document.body.appendChild(popup);
+  popup.addEventListener('click', (e) => { if (e.target === popup) document.body.removeChild(popup); });
+
+  apiFetch(`/sessions/${sessionId}/relationship-graph`).then(r => r.json()).then(data => {
+    if (!data.edges || !data.edges.length) {
+      box.innerHTML = '<div style="text-align:center;padding:20px;color:#888;">暂无关系数据，继续叙事后自动生成</div><div style="text-align:center;margin-top:12px"><button onclick="this.closest(\'div\').parentElement.parentElement.remove()" style="padding:6px 16px;border:none;border-radius:4px;background:#e94560;color:white;cursor:pointer;">关闭</button></div>';
+      return;
+    }
+    // Group by source
+    const groups = {};
+    for (const e of data.edges) {
+      if (!groups[e.source]) groups[e.source] = [];
+      groups[e.source].push(e);
+    }
+    let html = '<div style="margin-bottom:12px;font-size:14px;font-weight:bold">🚻 关系网</div>';
+    for (const [source, rels] of Object.entries(groups)) {
+      html += `<div style="margin-bottom:10px"><b>${source}</b>`;
+      for (const r of rels) {
+        const color = r.affinity >= 50 ? '#5a8' : r.affinity >= 0 ? '#aa8' : '#c66';
+        html += `<div style="margin-left:16px;font-size:12px;color:#bbb;border-left:2px solid ${color};padding-left:8px;margin-top:4px">`;
+        html += `<span style="color:${color}">→ ${r.target}</span>`;
+        html += ` <span style="color:#888">[${r.type}]</span>`;
+        if (r.description) html += `<br><span style="color:#666;font-size:11px">${r.description}</span>`;
+        html += ` <span style="color:${color};float:right">${r.affinity}</span>`;
+        html += '</div>';
+      }
+      html += '</div>';
+    }
+    html += '<div style="text-align:center;margin-top:12px"><button onclick="this.closest(\'div\').parentElement.parentElement.remove()" style="padding:6px 16px;border:none;border-radius:4px;background:#e94560;color:white;cursor:pointer;">关闭</button></div>';
+    box.innerHTML = html;
+  }).catch(() => {
+    box.innerHTML = '<div style="text-align:center;padding:20px;color:#888;">加载失败</div><div style="text-align:center;margin-top:12px"><button onclick="this.closest(\'div\').parentElement.parentElement.remove()" style="padding:6px 16px;border:none;border-radius:4px;background:#e94560;color:white;cursor:pointer;">关闭</button></div>';
+  });
+};
+
+// ── 💭 Memory Panel ──
+
+function showMemoryPanel() {
+  if (!sessionId) return alert('请先创建或选择世界');
+  const popup = document.createElement('div');
+  popup.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  const box = document.createElement('div');
+  box.style.cssText = 'background:#1a1a2e;border:1px solid #e94560;border-radius:12px;padding:24px;max-width:520px;width:90%;color:#eee;font-size:13px;max-height:80vh;overflow-y:auto;';
+  box.innerHTML = '<div style="text-align:center;padding:20px;color:#888;">⏳ 加载中...</div>';
+  popup.appendChild(box);
+  document.body.appendChild(popup);
+  popup.addEventListener('click', (e) => { if (e.target === popup) document.body.removeChild(popup); });
+
+  apiFetch(`/sessions/${sessionId}/memory-panel`).then(r => r.json()).then(data => {
+    if (!data.entries || !data.entries.length) {
+      box.innerHTML = '<div style="text-align:center;padding:20px;color:#888;">暂无记忆数据</div><div style="text-align:center;margin-top:12px"><button onclick="this.closest(\'div\').parentElement.parentElement.remove()" style="padding:6px 16px;border:none;border-radius:4px;background:#e94560;color:white;cursor:pointer;">关闭</button></div>';
+      return;
+    }
+    const sections = [];
+    const groups = {};
+    for (const e of data.entries) {
+      if (!groups[e.category]) groups[e.category] = [];
+      groups[e.category].push(e);
+    }
+    const order = ['longmemory', 'fact_relationship', 'fact_character', 'npc_important', 'shortmemory'];
+    const labels = {
+      longmemory: '📜 纪元记录',
+      fact_relationship: '❤️ 人物关系（永久）',
+      fact_character: '🏷️ 角色标记',
+      npc_important: '⭐ 重要人物',
+      shortmemory: '💾 近期摘要',
+    };
+    for (const cat of order) {
+      const items = groups[cat];
+      if (!items || !items.length) continue;
+      const lines = [`<div style="font-weight:bold;margin:10px 0 4px;color:#e94560;font-size:14px;">${labels[cat] || cat}</div>`];
+      for (const item of items) {
+        const content = item.content.replace(/\n/g, '<br>');
+        lines.push(`<div style="padding:4px 0;border-bottom:1px solid #333;font-size:12px;color:#ccc;">${content}</div>`);
+      }
+      sections.push(lines.join('\n'));
+    }
+    box.innerHTML = sections.join('\n') + '<div style="text-align:center;margin-top:14px"><button onclick="this.closest(\'div\').parentElement.parentElement.remove()" style="padding:6px 16px;border:none;border-radius:4px;background:#e94560;color:white;cursor:pointer;">关闭</button></div>';
+  }).catch(() => {
+    box.innerHTML = '<div style="text-align:center;padding:20px;color:#e94560;">❌ 加载失败</div><div style="text-align:center;margin-top:12px"><button onclick="this.closest(\'div\').parentElement.parentElement.remove()" style="padding:6px 16px;border:none;border-radius:4px;background:#e94560;color:white;cursor:pointer;">关闭</button></div>';
+  });
+}
+
+// ── 建模人物按钮（由后端 turn 响应动态渲染）──
+
+function renderModeledNpcs(npcs) {
+  const chat = document.getElementById('chat');
+  const container = document.createElement('div');
+  container.style.cssText = 'align-self:flex-start;max-width:50%;margin-top:4px;';
+
+  const header = document.createElement('div');
+  header.textContent = '📋 已建模人物';
+  header.style.cssText = 'font-size:11px;color:var(--accent);margin-bottom:4px;font-weight:bold;';
+
+  const list = document.createElement('div');
+  list.style.cssText = 'display:flex;flex-direction:column;gap:4px;';
+
+  for (const npc of npcs) {
+    const icon = npc.gender === '女' ? '👩' : '🧑';
+    const card = document.createElement('div');
+    card.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:4px 10px;cursor:pointer;transition:border-color 0.15s;font-size:12px;color:var(--accent-dim);user-select:none;';
+    card.onmouseenter = () => { card.style.borderColor = 'var(--accent)'; };
+    card.onmouseleave = () => { card.style.borderColor = 'var(--border)'; };
+    card.innerHTML = `${icon} ${npc.name} — 点击查看人物档案`;
+    card.onclick = () => {
+      const detail = formatNpcModel(npc.model_data, npc.name, '（人物档案）');
+      addMsg('system', `【人物档案】\n${detail}`);
+    };
+    list.appendChild(card);
+  }
+
+  container.appendChild(header);
+  container.appendChild(list);
+  chat.appendChild(container);
+}
+
+// ── Recommendation carousel ──
+let recList = [];
+let recIndex = 0;
+
+function updateRecs(recommendations) {
+  recList = recommendations || [];
+  recIndex = 0;
+  const grid = document.getElementById('rec-grid');
+  if (!recList.length) {
+    grid.querySelectorAll('.rec-card').forEach(c => c.textContent = '');
+    return;
+  }
+  renderRecs();
+}
+
+function renderRecs() {
+  const cards = document.querySelectorAll('.rec-card');
+  const count = document.getElementById('rec-count');
+  for (let i = 0; i < 3; i++) {
+    const idx = recIndex + i;
+    cards[i].textContent = idx < recList.length ? recList[idx] : '';
+  }
+  const remaining = Math.max(0, recList.length - recIndex - 3);
+  count.textContent = remaining > 0 ? `+${remaining}` : '';
+}
+
+function recClick(slot) {
+  const idx = recIndex + slot;
+  if (!recList.length || idx >= recList.length) return;
+  const text = recList[idx];
+  const input = document.getElementById('user-input');
+  input.value = text;
+  input.focus();
+  // Remove clicked item, shift the list
+  recList.splice(idx, 1);
+  renderRecs();
+}
+
+// ── Map ──
+let mapRenderer = null;
+let mapVisible = false;
+let mapGenerating = false;
+let _playerMapLocation = '';  // current player location for map marker
+let _playerMapGender = '男';  // player gender for map marker emoji
+let _globalMoveLock = false;  // prevent concurrent move requests
+
+async function _fetchPlayerLocation() {
+  if (!sessionId) return '';
+  try {
+    const res = await apiFetch('/sessions/' + sessionId);
+    if (!res.ok) return '';
+    const data = await res.json();
+    _playerMapGender = data.player_gender || '男';
+    return data.player_location || '';
+  } catch(e) { return ''; }
+}
+
+/** Handle map click or marker drag-drop: POST /move, then update marker */
+function _fmtDuration(ticks) {
+  const days = Math.floor(ticks / 24);
+  const hours = ticks % 24;
+  const parts = [];
+  if (days > 0) parts.push(`${days}天`);
+  if (hours > 0) parts.push(`${hours}小时`);
+  return parts.join('') || '片刻';
+}
+
+async function handleMapMove(destName, destX, destY, skipConfirm) {
+  if (!sessionId || _globalMoveLock) return;
+  _globalMoveLock = true;
+
+  // Marker click (destX = -1 sentinel) — show info, don't move
+  if (destX === -1 && destY === -1) {
+    _globalMoveLock = false;
+    addMsg('system', `📍 你当前在「${destName}」`);
+    return;
+  }
+
+  if (!skipConfirm) {
+    const ok = confirm(`是否前往「${destName}」？`);
+    if (!ok) { _globalMoveLock = false; return; }
+  }
+  frontendLog('INFO', `Map move: → ${destName} (${Math.round(destX)}, ${Math.round(destY)})`);
+  try {
+    const res = await apiFetch(`/sessions/${sessionId}/move`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ destination: destName, dest_x: destX, dest_y: destY }),
+    });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.detail || res.statusText); }
+    const data = await res.json();
+    // Update UI
+    _playerMapLocation = destName;
+    if (mapRenderer) {
+      mapRenderer.playerLocation = destName;
+      mapRenderer.render();
+    }
+    addMsg('system', `🚶 你从${data.old_location}启程前往${data.player_location}，耗时${data.ticks}刻（约${_fmtDuration(data.ticks)}）。当前时间：${data.world_time}`);
+    // Update header
+    document.getElementById('player-loc').textContent = destName;
+  } catch(e) {
+    frontendLog('ERROR', 'Map move failed: ' + e.message);
+    addMsg('system', '❌ 移动失败: ' + e.message);
+  }
+  _globalMoveLock = false;
+}
+
+function closeMap() {
+  mapVisible = false;
+  document.getElementById('map-panel').classList.remove('visible');
+  document.getElementById('map-toggle-btn').classList.remove('active');
+}
+
+// ESC 关闭地图
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && mapVisible) {
+    closeMap();
+  }
+});
+
+async function generateWorldMap() {
+  if (mapGenerating) {
+    frontendLog('WARN', 'Map already generating, ignoring');
+    return;
+  }
+  mapGenerating = true;
+  const genBtn = document.querySelector('#map-gen-controls button');
+  if (genBtn) genBtn.disabled = true;
+  frontendLog('INFO', 'Generating new world map...');
+  const count = Math.min(20, Math.max(10, parseInt(document.getElementById('map-faction-count').value) || 12));
+  frontendLog('INFO', `Faction count: ${count}`);
+
+  // Fetch available sects from the world_templates via API
+  let factions = [];
+  let cityNames = [];
+  try {
+    const res = await apiFetch('/sessions/models/sects');
+    if (res.ok) {
+      const data = await res.json();
+      factions = data.sects || [];
+      frontendLog('INFO', `Fetched ${factions.length} sects from API`);
+    }
+    const cres = await apiFetch('/sessions/models/cities');
+    if (cres.ok) {
+      const cdata = await cres.json();
+      cityNames = cdata.cities || [];
+    }
+  } catch(e) {
+    frontendLog('ERROR', 'Failed to fetch sects from DB: ' + e.message);
+  }
+  if (!factions.length || factions.length < count) {
+    frontendLog('ERROR', `Insufficient sects from DB: need ${count}, got ${factions.length}`);
+    addMsg('system', `地图生成失败：数据库中没有足够的宗门数据（需要 ${count} 个，实际获取 ${factions.length} 个）`);
+    mapGenerating = false;
+    if (genBtn) genBtn.disabled = false;
+    return;
+  }
+  if (!cityNames.length || cityNames.length < count) {
+    frontendLog('ERROR', `Insufficient cities from DB: need ${count}, got ${cityNames.length}`);
+    addMsg('system', `地图生成失败：数据库中没有足够的城市数据（需要 ${count} 个，实际获取 ${cityNames.length} 个）`);
+    mapGenerating = false;
+    if (genBtn) genBtn.disabled = false;
+    return;
+  }
+
+  const canvas = document.getElementById('world-map');
+
+  // Generate Poisson points — use logical dimensions matching WorldMapRenderer
+  const logicalW = 800;
+  const logicalH = 600;
+  const margin = 70;
+  const availW = logicalW - margin * 2;
+  const availH = logicalH - margin * 2;
+  const radius = Math.min(availW, availH) / Math.sqrt(count) * 1.3;
+  let points = [];
+
+  // Pass 1: simple scatter with relaxed distance (radius * 0.85)
+  const scatterDist = radius * 0.85;
+  for (let tries = 0; tries < 2000 && points.length < count; tries++) {
+    const x = Math.random() * availW;
+    const y = Math.random() * availH;
+    let ok = true;
+    for (const p of points) {
+      if (Math.hypot(p[0] - x, p[1] - y) < scatterDist) { ok = false; break; }
+    }
+    if (ok) points.push([x, y]);
+  }
+  // Pass 2: poisson disk to fill gaps
+  if (points.length < count) {
+    const poissonPts = poissonDisk(radius * 0.7, availW, availH);
+    for (const p of poissonPts) {
+      if (points.length >= count) break;
+      let ok = true;
+      for (const ep of points) {
+        if (Math.hypot(p[0] - ep[0], p[1] - ep[1]) < radius * 0.55) { ok = false; break; }
+      }
+      if (ok) points.push(p);
+    }
+  }
+  // Pass 3: force-fill remaining (minimal spacing check to prevent visual overlap)
+  while (points.length < count) {
+    const x = Math.random() * availW;
+    const y = Math.random() * availH;
+    let ok = true;
+    for (const p of points) {
+      if (Math.hypot(p[0] - x, p[1] - y) < 30) { ok = false; break; }
+    }
+    if (ok) points.push([x, y]);
+  }
+
+  // Assign factions to points
+  const shuffled = [...factions].sort(() => Math.random() - 0.5);
+  const locations = points.slice(0, count).map((p, i) => ({
+    x: p[0] + margin,
+    y: p[1] + margin,
+    name: shuffled[i % shuffled.length],
+    identity: "宗门",
+    type: "sect",
+  }));
+
+  // Build city locations: same positions as sect locations
+  const shuffledCities = [...cityNames].sort(() => Math.random() - 0.5);
+  const cityLocations = locations.map((loc, i) => ({
+    x: loc.x,
+    y: loc.y,
+    name: shuffledCities[i % shuffledCities.length],
+  }));
+
+  // Create renderer — use logical canvas dimensions (800x600) for positioning
+  // logicalW and logicalH already declared above
+  const seed = (Math.random() * 65536) | 0;
+  mapRenderer = new WorldMapRenderer(canvas, {
+    width: logicalW,
+    height: logicalH,
+    seed: seed,
+    locations: locations,
+    cityLocations: cityLocations,
+    playerLocation: _playerMapLocation,
+    playerGender: _playerMapGender,
+    onMoveTo: handleMapMove,
+  });
+  mapRenderer.generateTerrain();
+  mapRenderer.render();
+  frontendLog('INFO', `Map preview: ${locations.length} locations, seed=${Math.round(seed)}`);
+
+  // Show save button (preview mode, not saved yet)
+  document.getElementById('map-save-btn').style.display = '';
+
+  mapGenerating = false;
+  if (genBtn) genBtn.disabled = false;
+}
+
+async function saveCurrentMap() {
+  if (!mapRenderer || !sessionId) return;
+  const mapData = {
+    seed: Math.round(mapRenderer.seed),
+    count: mapRenderer.locations.length,
+    locations: mapRenderer.locations,
+    cityLocations: mapRenderer.cityLocations,
+  };
+  frontendLog('INFO', `Saving map to session ${sessionId.substring(0,8)}...`);
+
+  // ── Build world intro and attach it so it persists across refresh ──
+  const uniqueSects = [...new Set(mapRenderer.locations.map(l => l.name))];
+  const uniqueCities = [...new Set((mapRenderer.cityLocations||[]).map(c => c.name))];
+  const pc = window._player_char_data || {};
+  const identityStr = pc.identity_custom || pc.identity || '散修';
+  const bgStr = pc.background || '未知';
+  const gfStr = (pc.gf_name && pc.gf_desc)
+    ? `金手指：${pc.gf_name} — ${pc.gf_desc}${pc.golden_finger_custom ? `（${pc.golden_finger_custom}）` : ''}`
+    : '无特殊金手指。';
+  const playerInfo = [
+    `【你的角色】`,
+    `姓名：${pc.name || '无名修士'} ｜ ${pc.gender || '男'} ｜ 年龄：${pc.age || '?'} ｜ 修为：${pc.cultivation || '?'}`,
+    `出身：${bgStr} ｜ 身份：${identityStr}`,
+    `性格：${pc.personality || '未知'}`,
+    gfStr,
+  ].join('\n');
+  // Fetch detailed sect info from the API (includes description)
+  let sectDetails = {};
+  try {
+    const res = await apiFetch('/sessions/models/sects/detail');
+    if (res.ok) {
+      const data = await res.json();
+      for (const s of (data.sects || [])) {
+        sectDetails[s.name] = s;
+      }
+    }
+  } catch(e) { frontendLog('WARN', 'Failed to fetch sect details: ' + e.message); }
+  const sectLines = uniqueSects.map(s => {
+    const detail = sectDetails[s];
+    if (detail && detail.description) {
+      return `• ${s} — ${detail.description}`;
+    }
+    return `• ${s}`;
+  });
+
+  // ── Show sect selection modal BEFORE finalizing intro ──
+  // Save mapData & details for after user picks a sect
+  _pending_sect_choice = {
+    mapData, uniqueSects, uniqueCities, sectDetails,
+    pc, playerInfo, identityStr, bgStr, gfStr,
+  };
+  showSectSelection(uniqueSects, sectDetails, mapRenderer.cityLocations, mapRenderer.locations);
+  return; // saveCurrentMap returns early — sectConfirm will call _finalizeSaveMap
+}
+
+// ── Sect selection state ──
+let _pending_sect_choice = null;
+let _selected_sect = '';
+let _selected_city = '';
+let _is_rogue = false;
+
+function showSectSelection(sectNames, sectDetails, cityLocations, mapLocations) {
+  const overlay = document.getElementById('sect-select-overlay');
+  const list = document.getElementById('sect-select-list');
+  list.innerHTML = '';
+  _selected_sect = '';
+  _is_rogue = false;
+  for (const name of sectNames) {
+    const d = sectDetails[name] || {};
+    // Find the city at same coords as this sect
+    const sectEntry = (mapLocations||[]).find(l => l.name === name);
+    const matchedCity = sectEntry && (cityLocations||[]).find(cl => cl.x === sectEntry.x && cl.y === sectEntry.y);
+    const cityName = matchedCity ? matchedCity.name : '';
+    const btn = document.createElement('button');
+    btn.className = 'sect-option';
+    btn.innerHTML = `<div class="sect-name">${name}</div>` +
+      (cityName ? `<div class="sect-desc">对应城市：${cityName}</div>` : '') +
+      (d.description ? `<div class="sect-desc">${d.description.substring(0, 120)}</div>` : '');
+    btn.dataset.cityName = cityName;
+    btn.onclick = function() {
+      document.querySelectorAll('.sect-option').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      _selected_sect = name;
+      _selected_city = cityName;
+      _is_rogue = false;
+    };
+    list.appendChild(btn);
+  }
+  // ── 散修选项 ──
+  const divider = document.createElement('div');
+  divider.style.cssText = 'border-top:1px solid var(--border);margin:8px 0;';
+  list.appendChild(divider);
+
+  const rogueBtn = document.createElement('button');
+  rogueBtn.className = 'sect-option';
+  // Pick a random city
+  const cities = cityLocations || [];
+  const rogueCity = cities.length ? cities[Math.floor(Math.random() * cities.length)].name : (mapLocations[0]?.name || '未知');
+  rogueBtn.innerHTML = '<div class="sect-name">🌿 我是散修</div><div class="sect-desc">随机分配一个初始城市，不归属任何宗门</div>';
+  rogueBtn.onclick = function() {
+    document.querySelectorAll('.sect-option').forEach(b => b.classList.remove('selected'));
+    rogueBtn.classList.add('selected');
+    _is_rogue = true;
+    _selected_sect = '';
+    _selected_city = rogueCity;
+  };
+  list.appendChild(rogueBtn);
+
+  overlay.classList.add('visible');
+}
+
+async function confirmSectChoice() {
+  if (!_is_rogue && (!_selected_sect || !_pending_sect_choice)) return;
+  document.getElementById('sect-select-overlay').classList.remove('visible');
+  await _finalizeSaveMap(_selected_sect, _selected_city);
+}
+
+async function _finalizeSaveMap(chosenSect, chosenCity) {
+  const pending = _pending_sect_choice;
+  _pending_sect_choice = null;
+  const { mapData, uniqueSects, uniqueCities, sectDetails, pc, playerInfo, identityStr, bgStr, gfStr } = pending;
+
+  // Add chosen sect to the intro
+  const chosenDetail = sectDetails[chosenSect] || {};
+  const chosenSectLine = chosenDetail.description
+    ? `你出身于「${chosenSect}」—— ${chosenDetail.description.substring(0, 200)}`
+    : `你出身于「${chosenSect}」`;
+
+  // Reconstruct sectLines from uniqueSects + sectDetails (lost when leaving saveCurrentMap's scope)
+  const sectLines = uniqueSects.map(s => {
+    const detail = sectDetails[s];
+    if (detail && detail.description) {
+      return `• ${s} — ${detail.description}`;
+    }
+    return `• ${s}`;
+  });
+
+  // Also store chosen sect in player data for later reuse
+  if (pc) pc.sect_affiliation = chosenSect;
+
+  // ── Build intro (rogue mode vs sect mode) ──
+  const isRogue = _is_rogue;
+  _is_rogue = false; // reset for next time
+
+  const introParts = [
+    `📜 世界已生成`,
+    ``,
+    playerInfo,
+  ];
+
+  if (isRogue) {
+    // Rogue: no sect affiliation line, insert a rogue description
+    introParts.push(
+      `你是一介散修，无门无派，独自在世间游历。`,
+      ``,
+    );
+  } else {
+    introParts.push(
+      `宗门：${chosenSect}`,
+      ``,
+      chosenSectLine,
+      ``,
+    );
+  }
+
+  introParts.push(
+    `【宗门势力】（${uniqueSects.length} 个）`,
+    ...sectLines,
+    ``,
+    `【城市】（${uniqueCities.length} 个）`,
+    ...uniqueCities.map(s => `• ${s}`),
+    ``,
+    `【推荐行动】你可以尝试以下任何一种：`,
+    `• 介绍我的身世和处境`,
+    `• 前往最近的城市或宗门，参加入门测试`,
+    `• 在附近探索，寻找机缘`,
+    `• 描述我的金手指效果`,
+    `• 随便转转，看看这个世界是什么样的`,
+    ``,
+    `请在下面编辑你想做的事，然后发送。`,
+  );
+
+  const intro = introParts.join('\n');
+
+  // Attach intro to mapData so it's saved to the database
+  mapData.world_intro = intro;
+  // Default recommendations for brand new world
+  const defaultRecs = [
+    "介绍我的身世和处境",
+    "前往最近的城市或宗门，参加入门测试",
+    "在附近探索，寻找机缘",
+    "描述我的金手指效果",
+    "随便转转，看看这个世界是什么样的",
+    "查看当前所在位置的详细描述",
+    "询问路人当地的风土人情",
+    "打探附近有没有秘境或遗迹",
+    "盘点自己拥有的物品和灵石",
+    "看看周围有没有看起来特别的修士或商贩",
+  ];
+  mapData.default_recommendations = defaultRecs;
+  mapData.chosen_sect = chosenSect;
+  if (chosenCity) mapData.chosen_city = chosenCity;
+  updateRecs(defaultRecs);
+
+  await saveMapToServer(sessionId, mapData);
+
+  // ── 立即把玩家放上地图 ──
+  _playerMapLocation = chosenCity || chosenSect;
+  if (mapRenderer) {
+    mapRenderer.playerLocation = _playerMapLocation;
+    mapRenderer.playerGender = _playerMapGender;
+    mapRenderer.render();
+  }
+
+  // Disable map controls after save
+  document.getElementById('map-save-btn').style.display = 'none';
+  document.getElementById('map-faction-count').disabled = true;
+  document.querySelector('#map-gen-controls button').disabled = true;
+
+  // Show world intro in the chat
+  addMsg('system', intro);
+  // Input box stays clean — player writes their own opening action
+  document.getElementById('user-input').value = '';
+}
+
+async function toggleMapPanel() {
+  mapVisible = !mapVisible;
+  document.getElementById('map-panel').classList.toggle('visible', mapVisible);
+  document.getElementById('map-toggle-btn').classList.toggle('active', mapVisible);
+  if (mapVisible && !mapRenderer) {
+    frontendLog('INFO', 'Opening map panel...');
+    // Fetch current player location AND gender
+    _playerMapLocation = await _fetchPlayerLocation();
+    if (sessionId) {
+      const restored = await restoreMapFromServer(sessionId);
+      if (restored) {
+        frontendLog('INFO', 'Map restored from database');
+        // Disable controls — saved maps are fixed
+        document.getElementById('map-save-btn').style.display = 'none';
+        document.getElementById('map-faction-count').disabled = true;
+        document.querySelector('#map-gen-controls button').disabled = true;
+        return;
+      }
+      frontendLog('INFO', 'No saved map found, generating new one');
+    }
+    generateWorldMap();
+  } else if (mapVisible && mapRenderer) {
+    // Re-opening map: refresh player location and re-render
+    _playerMapLocation = await _fetchPlayerLocation();
+    if (mapRenderer && _playerMapLocation) {
+      mapRenderer.playerLocation = _playerMapLocation;
+      mapRenderer.playerGender = _playerMapGender;
+      mapRenderer.render();
+    }
+  }
+}
+
+async function restoreMapFromServer(sessionId) {
+  frontendLog('INFO', `Fetching map data for session ${sessionId.substring(0,8)}...`);
+  try {
+    const res = await apiFetch('/sessions/' + sessionId);
+    if (!res.ok) {
+      frontendLog('WARN', `Session fetch failed: ${res.status}`);
+      return false;
+    }
+    const data = await res.json();
+    const mapData = data.map_data;
+    frontendLog('INFO', `Server returned map_data: ${Boolean(mapData)}`);
+    if (!mapData || !mapData.locations || !mapData.locations.length) {
+      frontendLog('INFO', 'No map data (or empty locations) in session');
+      return false;
+    }
+    frontendLog('INFO', `Map data loaded: seed=${mapData.seed}, ${mapData.locations.length} locations`);
+    const canvas = document.getElementById('world-map');
+    mapRenderer = new WorldMapRenderer(canvas, {
+      width: 800, height: 600,
+      seed: mapData.seed || (Math.random() * 65536) | 0,
+      locations: mapData.locations,
+      cityLocations: mapData.cityLocations || [],
+      playerLocation: _playerMapLocation,
+      playerGender: _playerMapGender,
+      onMoveTo: handleMapMove,
+    });
+    mapRenderer.generateTerrain();
+    mapRenderer.render();
+    frontendLog('INFO', 'Map rendered from saved data');
+    return true;
+  } catch(e) {
+    frontendLog('ERROR', 'Failed to restore map: ' + e.message);
+    return false;
+  }
+}
+
+async function saveMapToServer(sessionId, mapData) {
+  frontendLog('INFO', `Saving map: ${mapData.locations.length} locations`);
+  try {
+    const res = await apiFetch('/sessions/' + sessionId + '/map', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(mapData)
+    });
+    if (!res.ok) {
+      const errBody = await res.text();
+      frontendLog('WARN', 'Map save failed: ' + res.status + ' ' + errBody);
+      addMsg('system', '❌ 地图保存失败 (' + res.status + '): ' + errBody);
+    } else {
+      frontendLog('INFO', 'Map saved successfully');
+      addMsg('system', '✅ 地图已保存');
+    }
+  } catch(e) {
+    frontendLog('ERROR', 'Failed to save map: ' + e.message);
+    addMsg('system', '❌ 地图保存失败: ' + e.message);
+  }
+}
+
+// ── Startup ──
+async function initApp() {
+  loadModels();
+  await loadSessionList();
+  await autoLoadLastSession();
+  document.getElementById('app-main').style.display = '';
+  document.getElementById('auth-page').style.display = 'none';
+}
+
+// If already logged in (token exists), skip login page
+(async () => {
+  if (isLoggedIn()) {
+    showApp();
+    await initApp();
+  } else {
+    showAuthPage();
+  }
+})();
+</script>
+
+</body>
+</html>
