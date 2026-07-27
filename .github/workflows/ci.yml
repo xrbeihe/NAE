@@ -44,12 +44,15 @@ jobs:
           username: admin
           password: ${{ secrets.SERVER_PASSWORD }}
           script: |
-            cd /home/admin/NAE && git pull && cp frontend/index.html backend/ane/static/index.html && cp frontend/public/worldmap.js backend/ane/static/worldmap.js && fuser -k 8002/tcp 2>/dev/null && sleep 1 && cd backend && source ../.venv/bin/activate && export LANG=zh_CN.UTF-8 LC_ALL=zh_CN.UTF-8 && nohup python -m ane.main > backend.log 2>&1 && sleep 2 && curl -s http://127.0.0.1:8002/api/health
-            fuser -k 8002/tcp 2>/dev/null
-            sleep 1
+            cd /home/admin/NAE
+            git pull
+            cp frontend/index.html backend/ane/static/index.html
+            cp frontend/public/worldmap.js backend/ane/static/worldmap.js
             cd backend
             source ../.venv/bin/activate
             export LANG=zh_CN.UTF-8 LC_ALL=zh_CN.UTF-8
+            fuser -k 8002/tcp 2>/dev/null
+            sleep 1
             nohup python -m ane.main > backend.log 2>&1 &
-            sleep 2
+            sleep 3
             curl -s http://127.0.0.1:8002/api/health
