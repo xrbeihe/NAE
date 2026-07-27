@@ -2472,6 +2472,9 @@ async function _finalizeSaveMap(chosenSect, chosenCity) {
   document.getElementById('map-faction-count').disabled = true;
   document.querySelector('#map-gen-controls button').disabled = true;
 
+  // Close map after save
+  closeMap();
+
   // Show world intro in the chat
   addMsg('system', intro);
   // Input box stays clean — player writes their own opening action
