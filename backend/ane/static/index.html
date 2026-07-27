@@ -273,17 +273,37 @@
   }
   #time-skip-popup button:hover { background: rgba(107,90,62,0.2); color: var(--accent); }
 
-  #model-select {
-    background: transparent; border: 1px solid var(--border); color: var(--accent-dim);
-    padding: 2px 4px; border-radius: 3px; cursor: pointer; font-size: 11px;
-    font-family: inherit; width: auto; min-width: 0; max-width: 120px;
-    appearance: none; -webkit-appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%236b5a3e'/%3E%3C/svg%3E");
-    background-repeat: no-repeat; background-position: right 4px center;
-    padding-right: 14px; text-overflow: ellipsis;
+  /* ── model selector overlay ── */
+  #model-overlay {
+    display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.7); z-index: 3000;
+    align-items: center; justify-content: center;
   }
-  #model-select:hover { border-color: var(--accent); color: var(--accent); }
-  #model-select:focus { outline: none; border-color: var(--accent); }
+  #model-overlay.visible { display: flex; }
+  #model-popup {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px; max-width: 360px; width: 85%;
+    max-height: 70vh; overflow-y: auto;
+  }
+  #model-popup h3 { color: var(--accent); font-size: 15px; margin-bottom: 12px; text-align: center; }
+  .model-opt {
+    display: block; width: 100%; text-align: left;
+    padding: 8px 12px; margin: 4px 0;
+    border: 1px solid var(--border); border-radius: 4px;
+    background: var(--input-bg); color: var(--text);
+    cursor: pointer; font-size: 13px; font-family: inherit;
+    transition: border-color 0.15s;
+  }
+  .model-opt:hover { border-color: var(--accent); }
+  .model-opt.selected { border-color: var(--accent); background: rgba(201,169,110,0.15); }
+  .model-opt.unavailable { opacity: 0.4; cursor: not-allowed; }
+  #model-btn {
+    background: transparent; border: 1px solid var(--border); color: var(--accent-dim);
+    padding: 2px 6px; border-radius: 3px; cursor: pointer; font-size: 12px;
+    font-family: inherit; white-space: nowrap;
+  }
+  #model-btn:hover { border-color: var(--accent); color: var(--accent); }
+  #model-select { display: none; }
 
   /* ── loading ── */
   #loading-indicator {
@@ -340,7 +360,7 @@
     #chat-panel { flex: 1; min-height: 50vh; }
     #session-bar { flex-wrap: wrap; padding: 6px 10px; gap: 4px; }
     #session-bar .cmd-btn { font-size: 11px; padding: 2px 6px; }
-    #model-select { min-width: 0; max-width: 110px; font-size: 11px; }
+    #model-btn { font-size: 11px; padding: 2px 4px; }
     .rec-card { font-size: 12px; padding: 6px 8px; }
     #rec-area { padding: 4px 10px 6px; }
     #rec-grid { display: none; }
@@ -460,6 +480,12 @@
 </div>
 
 <div id="sidebar-overlay" onclick="toggleSidebar(false)"></div>
+<div id="model-overlay" onclick="if(event.target===this)this.classList.remove('visible')">
+  <div id="model-popup">
+    <h3>✨ 选择模型</h3>
+    <div id="model-popup-list"></div>
+  </div>
+</div>
 <div id="main-layout">
   <div id="session-sidebar">
     <div id="sidebar-header">
@@ -483,7 +509,9 @@
   <div id="chat-panel">
     <div id="session-bar">
       <span id="session-id-display">未创建会话</span>
-      <select id="model-select" onchange="onModelChange()"></select>
+      <button id="model-btn" onclick="showModelPopup()">✨<span id="model-btn-label">loading</span></button>
+      <select id="model-select" onchange="onModelChange()" style="display:none"></select>
+
           <button id="sidebar-toggle-btn" class="cmd-btn" onclick="toggleSidebar()" title="切换世界列表" style="display:none">📜 世界</button>
           <button class="cmd-btn" onclick="sendCommand('/status')">状态</button>
           <!-- 回顾按钮暂不可用 -->
@@ -769,10 +797,13 @@ frontendLog('INFO', 'Frontend loaded');
 // ── Model Selector ──
 async function loadModels() {
   const select = document.getElementById('model-select');
+  const btnLabel = document.getElementById('model-btn-label');
+  const popupList = document.getElementById('model-popup-list');
   try {
     const res = await apiFetch('/api/models');
     const data = await res.json();
     select.innerHTML = '';
+    popupList.innerHTML = '';
     for (const m of data.models) {
       const opt = document.createElement('option');
       opt.value = m.id;
@@ -781,6 +812,20 @@ async function loadModels() {
       opt.textContent = label;
       if (!m.available) opt.disabled = true;
       select.appendChild(opt);
+      // Popup option
+      const btn = document.createElement('button');
+      btn.className = 'model-opt' + (m.available ? '' : ' unavailable');
+      btn.textContent = label;
+      if (m.available) {
+        btn.onclick = function() {
+          document.querySelectorAll('.model-opt').forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+          select.value = m.id;
+          onModelChange();
+          document.getElementById('model-overlay').classList.remove('visible');
+        };
+      }
+      popupList.appendChild(btn);
     }
     if (data.default_model) {
       for (const opt of select.options) {
@@ -796,16 +841,27 @@ async function loadModels() {
         if (!opt.disabled) { select.value = opt.value; selectedModel = opt.value; break; }
       }
     }
+    // Highlight selected in popup
+    document.querySelectorAll('.model-opt').forEach(b => {
+      if (b.textContent === (select.options[select.selectedIndex]?.textContent || '')) b.classList.add('selected');
+    });
+    btnLabel.textContent = select.options[select.selectedIndex]?.textContent || '?';
     frontendLog('INFO', `Models loaded: ${data.models.length} total, default=${selectedModel}`);
   } catch(e) {
     frontendLog('ERROR', 'Failed to load models: ' + e.message);
     select.innerHTML = '<option value="">(加载失败)</option>';
+    btnLabel.textContent = '?';
   }
 }
 
 function onModelChange() {
   selectedModel = document.getElementById('model-select').value;
+  document.getElementById('model-btn-label').textContent = document.getElementById('model-select').options[document.getElementById('model-select').selectedIndex]?.textContent || '?';
   frontendLog('INFO', 'Model changed to: ' + selectedModel);
+}
+
+function showModelPopup() {
+  document.getElementById('model-overlay').classList.add('visible');
 }
 
 // ── Session List ──
