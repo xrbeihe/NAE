@@ -482,8 +482,8 @@
           <button class="cmd-btn" style="opacity:0.5;pointer-events:none">回顾</button>
           <!-- 事实按钮暂不可用 -->
           <button class="cmd-btn" style="opacity:0.5;pointer-events:none">事实</button>
-          <span style="display:inline-flex;align-items:center;margin-left:6px" title="勾选重要人物发送后一般需三十秒进行建模，但是与主响应接口不冲突，建议您等待建模完成后载入建模使用，当然您也可以在这之前就发送对话">
-            <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:var(--input-bg);color:var(--accent-dim);border-radius:50%;font-size:13px;cursor:default">❗</span>
+          <span style="display:inline-flex;align-items:center;margin-left:6px">
+            <span onclick="alert('勾选重要人物发送后一般需三十秒进行建模，但是与主响应接口不冲突，建议您等待建模完成后载入建模使用，当然您也可以在这之前就发送对话')" style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:var(--input-bg);color:var(--accent-dim);border-radius:50%;font-size:13px;cursor:pointer">❗</span>
           </span>
       <span id="time-skip-wrap" style="position:relative">
         <button class="cmd-btn" id="time-skip-btn" onclick="toggleTimeSkip()">⏩ 时间快进</button>
