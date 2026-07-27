@@ -47,6 +47,7 @@ jobs:
             cd /home/admin/NAE
             git pull
             cp frontend/index.html backend/ane/static/index.html
+            cp frontend/public/worldmap.js backend/ane/static/worldmap.js
             fuser -k 8002/tcp 2>/dev/null
             sleep 1
             cd backend

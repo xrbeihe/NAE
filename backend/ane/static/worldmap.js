@@ -710,14 +710,17 @@ class WorldMapRenderer {
       const touch = e.touches[0];
       const dx = touch.clientX - _dragStartX;
       const dy = touch.clientY - _dragStartY;
+      const rect = this.canvas.getBoundingClientRect();
+      const scaleX = this.logicalWidth / rect.width;
+      const scaleY = this.logicalHeight / rect.height;
 
       if (_activeMode === 'marker') {
-        this.markerDragOfsX = dx;
-        this.markerDragOfsY = dy;
+        this.markerDragOfsX = dx * scaleX;
+        this.markerDragOfsY = dy * scaleY;
         this.render();
       } else if (_activeMode === 'sect') {
-        this.sectDragOffsetX = _origSectOfsX + dx;
-        this.sectDragOffsetY = _origSectOfsY + dy;
+        this.sectDragOffsetX = _origSectOfsX + dx * scaleX;
+        this.sectDragOffsetY = _origSectOfsY + dy * scaleY;
         this.render();
       }
       e.preventDefault();
