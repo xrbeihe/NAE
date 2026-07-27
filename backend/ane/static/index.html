@@ -358,8 +358,11 @@
     #map-gen-controls { gap: 4px; flex-wrap: wrap; }
     #map-gen-controls button { font-size: 11px; padding: 4px 8px; }
     #map-faction-count { width: 50px; }
-    #mobile-actions { display: flex !important; }
-    #session-bar .cmd-btn, #session-bar #time-skip-wrap, #session-bar .cmd-btn[onclick*="clearLogs"], #session-bar .cmd-btn[style*="opacity"] { display: none !important; }
+    /* 手机端把推荐行动移到输入框正上方 */
+    #input-area { order: 1; }
+    #rec-area { order: 0; padding: 2px 10px; border-top: none; border-bottom: none; }
+    #rec-area .rec-card { min-height: auto; }
+    #chat-panel { display: flex; flex-direction: column; }
   }
 
   @media (max-width: 480px) {
