@@ -44,12 +44,7 @@ jobs:
           username: admin
           password: ${{ secrets.SERVER_PASSWORD }}
           script: |
-            sudo -u admin bash -c 'cd /home/admin/NAE && git pull && cp frontend/index.html backend/ane/static/index.html && cp frontend/public/worldmap.js backend/ane/static/worldmap.js' 2>&1
-            fuser -k 8002/tcp 2>/dev/null
-            sleep 1
-            sudo -u admin bash -c 'cd /home/admin/NAE/backend && source ../.venv/bin/activate && export LANG=zh_CN.UTF-8 LC_ALL=zh_CN.UTF-8 && nohup python -m ane.main > backend.log 2>&1 &' 2>&1
-            sleep 2
-            curl -s http://127.0.0.1:8002/api/health
+            cd /home/admin/NAE && git pull && cp frontend/index.html backend/ane/static/index.html && cp frontend/public/worldmap.js backend/ane/static/worldmap.js && fuser -k 8002/tcp 2>/dev/null && sleep 1 && cd backend && source ../.venv/bin/activate && export LANG=zh_CN.UTF-8 LC_ALL=zh_CN.UTF-8 && nohup python -m ane.main > backend.log 2>&1 && sleep 2 && curl -s http://127.0.0.1:8002/api/health
             fuser -k 8002/tcp 2>/dev/null
             sleep 1
             cd backend
