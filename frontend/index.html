@@ -341,9 +341,10 @@
     #session-bar { flex-wrap: wrap; padding: 6px 10px; gap: 4px; }
     #session-bar .cmd-btn { font-size: 11px; padding: 2px 6px; }
     #model-select { min-width: 100px; font-size: 11px; }
-    #rec-grid { grid-template-columns: 1fr; }
     .rec-card { font-size: 12px; padding: 6px 8px; }
     #rec-area { padding: 4px 10px 6px; }
+    #rec-grid { display: none; }
+    #rec-mobile-btn { display: inline-flex !important; }
     #user-input { font-size: 14px; min-height: 60px; padding: 8px 10px; }
     #input-area { padding: 6px 10px; }
     #send-btn { padding: 8px 16px; font-size: 14px; }
@@ -523,6 +524,7 @@
       <div style="display:flex;align-items:center;gap:4px;margin-bottom:4px">
         <div id="rec-label" style="font-size:11px;color:var(--accent-dim)">💡推荐行动</div>
         <span id="rec-count" style="font-size:11px;color:var(--accent-dim)"></span>
+        <button id="rec-mobile-btn" class="cmd-btn" onclick="recMobileClick()" title="装载推荐行动" style="display:none;margin-left:auto">💡 推荐 (<span id="rec-mobile-count">0</span>)</button>
         <span style="margin-left:auto;display:flex;align-items:center;gap:4px">
           <span style="cursor:default;font-size:13px;opacity:0.4" title="记忆面板暂不可用">💭</span>
           <span onclick="showRelationshipGraph()" style="cursor:pointer;font-size:13px" title="关系网图谱">🚻</span>
@@ -1902,12 +1904,14 @@ function updateRecs(recommendations) {
 function renderRecs() {
   const cards = document.querySelectorAll('.rec-card');
   const count = document.getElementById('rec-count');
+  const mc = document.getElementById('rec-mobile-count');
   for (let i = 0; i < 3; i++) {
     const idx = recIndex + i;
     cards[i].textContent = idx < recList.length ? recList[idx] : '';
   }
   const remaining = Math.max(0, recList.length - recIndex - 3);
   count.textContent = remaining > 0 ? `+${remaining}` : '';
+  if (mc) mc.textContent = recList.length;
 }
 
 function recClick(slot) {
@@ -1917,8 +1921,17 @@ function recClick(slot) {
   const input = document.getElementById('user-input');
   input.value = text;
   input.focus();
-  // Remove clicked item, shift the list
   recList.splice(idx, 1);
+  renderRecs();
+}
+
+function recMobileClick() {
+  if (!recList.length) return;
+  const text = recList[0];
+  const input = document.getElementById('user-input');
+  input.value = text;
+  input.focus();
+  recList.shift();
   renderRecs();
 }
 
