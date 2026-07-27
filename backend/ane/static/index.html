@@ -318,6 +318,43 @@
   /* ── scrollbar ── */
   #chat::-webkit-scrollbar { width: 6px; }
   #chat::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  @media (max-width: 768px) {
+    #header h1 { font-size: 14px; }
+    #header .status-item { font-size: 11px; padding: 2px 6px; }
+    #header { gap: 6px; padding: 6px 10px; flex-wrap: wrap; }
+    #map-toggle-btn, .cmd-btn { font-size: 11px; padding: 3px 6px; }
+    #session-sidebar { width: 100%; min-width: 0; max-height: 40vh; border-right: none; border-bottom: 1px solid var(--border); }
+    #main-layout { flex-direction: column; }
+    #chat-panel { flex: 1; min-height: 50vh; }
+    #session-bar { flex-wrap: wrap; padding: 6px 10px; gap: 4px; }
+    #session-bar .cmd-btn { font-size: 11px; padding: 2px 6px; }
+    #model-select { min-width: 100px; font-size: 11px; }
+    #rec-grid { grid-template-columns: 1fr; }
+    .rec-card { font-size: 12px; padding: 6px 8px; }
+    #rec-area { padding: 4px 10px 6px; }
+    #user-input { font-size: 14px; min-height: 60px; padding: 8px 10px; }
+    #input-area { padding: 6px 10px; }
+    #send-btn { padding: 8px 16px; font-size: 14px; }
+    .msg { max-width: 95%; font-size: 13px; }
+    #char-modal { width: 95%; padding: 20px; }
+    #char-modal h2 { font-size: 16px; }
+    #sect-select-modal { width: 95%; }
+    .sect-option { font-size: 13px; padding: 8px 10px; }
+    #map-panel canvas { max-width: 100%; height: auto; }
+    #map-gen-controls { gap: 4px; }
+    #map-gen-controls button { font-size: 11px; padding: 4px 8px; }
+    #map-faction-count { width: 50px; }
+  }
+
+  @media (max-width: 480px) {
+    #session-sidebar { max-height: 35vh; }
+    #header .status-item { display: none; }
+    #session-id-display { display: none; }
+    #sidebar-header h2 { font-size: 12px; }
+    .session-card { padding: 6px 10px; }
+    .session-card .name { font-size: 12px; }
+  }
 </style>
 </head>
 <body>
