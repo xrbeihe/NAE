@@ -643,11 +643,16 @@
     document.documentElement.style.setProperty('--vh', vh + 'px');
   }
   setHeight();
-  window.addEventListener('resize', setHeight);
-  // Also fix on orientation change and keyboard pop
-  window.addEventListener('orientationchange', () => setTimeout(setHeight, 200));
-  // iOS keyboard: scroll into view to trigger resize
-  document.addEventListener('focusin', () => setTimeout(() => window.scrollTo(0, 0), 300));
+  // Chrome/Edge/Samsung: visualViewport fires when address bar hides/shows
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', setHeight);
+  } else {
+    window.addEventListener('resize', setHeight);
+  }
+  window.addEventListener('orientationchange', () => setTimeout(setHeight, 300));
+  // iOS keyboard: force recalculation
+  document.addEventListener('focusin', () => setTimeout(setHeight, 400));
+  document.addEventListener('focusout', () => setTimeout(setHeight, 200));
 })();
 
 // ── Frontend logger ──
