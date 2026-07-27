@@ -1478,23 +1478,52 @@ class GameEngine:
         if not player:
             return TurnResult(is_system_command=True, system_response="【状态】\n（无玩家数据）")
         attrs = dict(player.attributes or {})
-        lines = [
-            f"姓名：{player.name}",
+        line_parts = [
+            f"姓名：{player.name} ｜ {attrs.get('gender', '?')} ｜ {attrs.get('age', '?')}岁",
             f"修为：{player.cultivation}",
-            f"位置：{player.location}",
-            f"出身：{attrs.get('background', '未知')}",
-            f"身份：{attrs.get('identity', '未知')}",
-            f"灵根：{attrs.get('spiritual_root', '未知')}",
             f"性格：{attrs.get('personality', '未知')}",
+            f"身份：{attrs.get('identity', '未知')}",
+            f"位置：{player.location or '未知'}",
         ]
+        sr = attrs.get("spiritual_root", "未知")
+        line_parts.append(f"灵根：{sr}")
+        sc = attrs.get("special_constitution", "")
+        if sc:
+            line_parts.append(f"体质：{sc}")
+        line_parts.append(f"衣物：{attrs.get('clothing', '未设定')}")
         inv = player.inventory or []
         if inv:
-            items = ", ".join(i.get("name", "?") for i in inv)
-            lines.append(f"物品：{items}")
+            items = "、".join(i.get("name", "?") for i in inv)
+            line_parts.append(f"物品：{items}")
+        # Economy
+        savings_amount = attrs.get("_savings_amount", None)
+        savings_unit = attrs.get("_savings_unit", "块下品灵石")
+        if savings_amount is not None:
+            line_parts.append(f"灵石：{savings_amount}{savings_unit}")
+        elif attrs.get("savings"):
+            line_parts.append(f"灵石：{attrs['savings']}")
+        # Golden finger
+        gf = attrs.get("golden_finger_name", "")
+        if gf:
+            line_parts.append(f"金手指：{gf}")
+        # Extensions
+        exts = attrs.get("_extensions", {})
+        if exts and isinstance(exts, dict):
+            ext_items = []
+            for ek, ev in exts.items():
+                if ek and ev:
+                    if isinstance(ev, dict):
+                        sub = " | ".join(f"{sk}:{sv}" for sk, sv in ev.items() if sk and sv)
+                        ext_items.append(f"{ek}→{sub}" if sub else f"{ek}→{ev}")
+                    else:
+                        ext_items.append(f"{ek}→{ev}")
+            if ext_items:
+                line_parts.append(f"扩展：{' / '.join(ext_items)}")
+        # Important NPC count
         all_npcs = await npc_manager.get_by_session(db, session_id)
         important_count = sum(1 for n in all_npcs if n.is_important)
-        lines.append(f"标记重要人物数：{important_count}")
-        return TurnResult(is_system_command=True, system_response="\n".join(lines))
+        line_parts.append(f"标记重要人物数：{important_count}")
+        return TurnResult(is_system_command=True, system_response="【状态】\n" + " ｜ ".join(line_parts))
 
     def _cmd_help(self) -> TurnResult:
         return TurnResult(
