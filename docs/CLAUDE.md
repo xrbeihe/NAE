@@ -65,12 +65,10 @@
 │       │   ├── routes.py          # Session/Turn API（认证保护）
 │       │   ├── auth_routes.py     # 注册/登录 API
 │       │   └── schemas.py
-│       └── static/                # Vite 构建产物（前端构建输出）
+│       └── static/                # 静态文件目录（前端构建输出）
 ├── frontend/              # 前端源码
 │   ├── index.html         # SPA + 登录/注册页面
 │   ├── public/worldmap.js # 世界地图 Canvas 渲染
-│   ├── vite.config.js     # Vite 配置（proxy + build outDir）
-│   └── package.json
 ├── .venv/                 # 虚拟环境（Python 依赖）
 ├── data/                  # SQLite 数据库文件
 ├── tests/                 # 测试

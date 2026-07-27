@@ -28,15 +28,10 @@ goto MENU
 
 :START_ALL
 echo.
-echo [1/4] Killing old processes...
+echo [1/3] Killing old processes...
 call :KILL_PORT
 
-echo [2/4] Building frontend...
-cd frontend
-call npx vite build
-cd ..
-
-echo [3/4] Starting backend (waiting for ready)...
+echo [2/3] Starting backend (waiting for ready)...
 cd backend
 set ANE_RELOAD=1
 start /b "" "%~dp0.venv\Scripts\python.exe" -m ane.main
@@ -49,17 +44,11 @@ curl -s http://127.0.0.1:8002/api/health >nul 2>&1
 if errorlevel 1 goto WAIT_BACKEND
 echo     Backend ready!
 
-echo [4/4] Starting frontend dev server...
-cd /d "%~dp0frontend"
-start /b "" "%~dp0frontend\node_modules\.bin\vite.cmd" --host --open
-cd /d "%~dp0"
-
 echo.
 echo ============================================
 echo  ANE Server Running
 echo ============================================
 echo  Backend: http://localhost:8002
-echo  Frontend: http://localhost:5173
 echo ============================================
 echo.
 echo  Close this window or run again + select 3 to stop.
@@ -111,7 +100,7 @@ goto MENU
 exit /b
 
 :KILL_PORT
-for %%p in (5173 8002) do (
+for %%p in (8002) do (
     for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":%%p " ^| findstr LISTENING') do (
         taskkill /f /pid %%a >nul 2>&1
     )

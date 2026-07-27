@@ -1,6 +1,6 @@
 # AI Narrative Engine (ANE)
 
-修仙叙事引擎 — Phase 1 MVP。FastAPI 后端 + Vite 构建的前端 SPA。
+修仙叙事引擎 — Phase 1 MVP。FastAPI 后端 + 前端 SPA。
 约 35 个 Python 源文件 / ~4000 行代码。
 
 ## 快速导航
@@ -39,9 +39,9 @@ backend/          → 后端源码
     content/         7 个 JSON 模板库 + 2 个 Python 封装层
     tools/           NSFW 收割 + GUI 工具
     api/             FastAPI 路由 + Pydantic schemas
-    static/          Vite 构建产物输出目录
+    static/          静态文件目录（前端构建产物）
 frontend/         → 前端源码
-  index.html         SPA 主页面（Vite 构建入口）
+  index.html         SPA 主页面
   public/worldmap.js 世界地图 Canvas 渲染器
 tests/            → 测试（pytest）
 data/             → SQLite 数据库文件
@@ -60,11 +60,9 @@ ane.bat
 # 仅后端（带热重载 ANE_RELOAD=1）
 cd backend && ANE_RELOAD=1 .venv\Scripts\python -m ane.main
 
-# 仅前端开发（Vite 热更新，固定端口 5173）
-cd frontend && npx vite
-
-# 构建前端（产物输出到 backend/ane/static/）
-cd frontend && npx vite build
+# 构建前端（复制静态文件到 static/）
+cp frontend/index.html backend/ane/static/index.html
+cp frontend/public/worldmap.js backend/ane/static/worldmap.js
 
 # 测试
 .venv\Scripts\pytest tests/ -v

@@ -1,6 +1,6 @@
 # CI/CD — 持续集成与自动部署
 
-> 基于 GitHub Actions，每次 push 到 `main` 分支时自动运行。
+> 基于 GitHub Actions + 自托管 Runner，每次 push 到 `main` 分支时自动运行。
 
 ---
 
@@ -11,25 +11,24 @@
     ↓
 GitHub Actions 触发
     ↓
-┌─ Job 1: test ──────────────────────────────────────┐
-│ 启动 Ubuntu 临时服务器                               │
-│ 安装 Python 3.12 + 项目依赖                         │
-│ 运行 pytest（全部 90+ 测试）                        │
-│                                                      │
-│ ❌ 测试失败 → 红色 ❌，流程停止，不发部署              │
-│ ✅ 测试通过 → 绿色 ✅，自动进入 Job 2                 │
-└──────────────────────────────────────────────────────┘
-    ↓ (test 通过)
-┌─ Job 2: deploy ─────────────────────────────────────┐
-│ SSH 登录服务器 (admin@47.82.109.156)                 │
-│ cd /home/admin/NAE && git pull                      │
-│ cp frontend/index.html → backend/ane/static/         │
-│ 杀掉旧进程 → 后台重启 nohup python -m ane.main       │
-│ sleep 2 → curl http://127.0.0.1:8002/api/health 验证  │
-│                                                      │
-│ 验证失败 → 红色 ❌（部署有问题）                      │
-│ 返回 ok → 绿色 ✅（部署成功）                         │
-└──────────────────────────────────────────────────────┘
+┌─ Job 1: test ───────────────────────────────────────────┐
+│ 启动 Ubuntu 临时服务器                                    │
+│ 安装 Python 3.12 + 项目依赖                              │
+│ 运行 pytest（全部 90+ 测试）                             │
+│                                                           │
+│ ❌ 测试失败 → 红色 ❌，流程停止，不发部署                   │
+│ ✅ 测试通过 → 绿色 ✅，自动进入 Job 2                      │
+└───────────────────────────────────────────────────────────┘
+    ↓ (test 通过 + push 到 main)
+┌─ Job 2: deploy ──────────────────────────────────────────┐
+│ 自托管 Runner 在服务器本地执行：                           │
+│ actions/checkout → 拉取最新代码到 _work/                   │
+│ sudo systemctl restart ane.service → 重启后端             │
+│ curl http://127.0.0.1:8002/api/health → 健康检查验证      │
+│                                                           │
+│ 验证失败 → 红色 ❌（部署有问题）                           │
+│ 返回 ok → 绿色 ✅（部署成功）                              │
+└───────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -43,9 +42,9 @@ name: CI
 
 on:
   push:
-    branches: [main]     # push 到 main 时触发
+    branches: [main]
   pull_request:
-    branches: [main]     # PR 到 main 时触发（不部署）
+    branches: [main]
 
 jobs:
   test:
@@ -63,26 +62,19 @@ jobs:
           python -m pytest ../tests/ -v --tb=short
 
   deploy:
-    needs: test                              # 等待 test 通过
-    if: github.ref == 'refs/heads/main'      # 仅 main 分支
-    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: self-hosted
     steps:
-      - uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: 47.82.109.156
-          username: admin
-          password: ${{ secrets.SERVER_PASSWORD }}   # GitHub Secrets 配置
-          script: |
-            cd /home/admin/NAE
-            git pull
-            cp frontend/index.html backend/ane/static/index.html
-            fuser -k 8002/tcp 2>/dev/null
-            sleep 1
-            cd backend && source ../.venv/bin/activate
-            export LANG=zh_CN.UTF-8 LC_ALL=zh_CN.UTF-8
-            nohup python -m ane.main > backend.log 2>&1 &
-            sleep 2
-            curl -s http://127.0.0.1:8002/api/health
+      - uses: actions/checkout@v4
+      - name: Restart ANE service
+        run: |
+          sudo systemctl restart ane.service
+          sleep 3
+          systemctl is-active ane.service
+      - name: Verify
+        run: |
+          curl -sf http://localhost:8002/api/health
 ```
 
 ---
@@ -97,24 +89,18 @@ jobs:
 
 ---
 
-## 部署前提
-
-服务器密码存放在 GitHub Secrets 中（不在代码里）：
-
-1. 打开 `https://github.com/xrbeihe/NAE/settings/secrets/actions`
-2. 点 **New repository secret**
-3. Name: `SERVER_PASSWORD`
-4. Secret: 服务器 admin 的 SSH 密码
-
-如果密码变了，更新 Secret 即可，不需要改代码。
-
----
-
 ## 排错
 
 | 症状 | 可能原因 |
 |------|---------|
 | test ❌ | 有测试失败 → 点进 Actions 看具体哪个测试报错 |
-| deploy ❌（test ✅） | SSH 连接失败、密码不对、服务器磁盘满 |
-| deploy ❌ 但 test ✅ | 服务器上 Python 包缺失、端口被占用、git pull 冲突 |
-| 页面没更新 | GitHub Secrets 里密码过期或没配置 |
+| deploy ❌（test ✅） | 自托管 Runner 未运行或掉线 |
+| deploy ❌（ane.service 重启失败） | 端口被占用 → 服务器执行 `lsof -ti:8002 \| xargs kill -9` 后重试 |
+| deploy ❌（健康检查失败） | 后端启动异常 → 服务器查看 `journalctl -u ane.service -n 50 --no-pager` |
+| Runner 不在线 | 检查服务器上 runner 服务状态 |
+
+---
+
+## 服务器运维参考
+
+详见 [DEPLOY.md](DEPLOY.md) 和 [DEPLOY_SYNC.md](DEPLOY_SYNC.md)。
