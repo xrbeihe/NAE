@@ -358,6 +358,8 @@
     #map-gen-controls { gap: 4px; flex-wrap: wrap; }
     #map-gen-controls button { font-size: 11px; padding: 4px 8px; }
     #map-faction-count { width: 50px; }
+    #mobile-actions { display: flex !important; }
+    #session-bar .cmd-btn, #session-bar #time-skip-wrap, #session-bar .cmd-btn[onclick*="clearLogs"], #session-bar .cmd-btn[style*="opacity"] { display: none !important; }
   }
 
   @media (max-width: 480px) {
@@ -502,6 +504,22 @@
       <div class="msg system">欢迎来到 AI Narrative Engine。<br>点击左侧 "+" 创建一个修仙世界，或选择已有世界继续冒险。</div>
     </div>
     <div id="loading-indicator">天道运转中，请稍候...</div>
+    <div id="mobile-actions" style="display:none;padding:4px 10px;border-top:1px solid var(--border);background:var(--panel);justify-content:flex-end;gap:6px;flex-shrink:0">
+      <button class="cmd-btn" onclick="sendCommand('/status')">状态</button>
+      <span id="time-skip-wrap" style="position:relative">
+        <button class="cmd-btn" id="time-skip-btn" onclick="toggleTimeSkip()">⏩ 快进</button>
+        <div id="time-skip-popup">
+          <button onclick="skipTime('1_month')">📅 一个月</button>
+          <button onclick="skipTime('3_months')">📅 三个月</button>
+          <button onclick="skipTime('6_months')">📅 半年</button>
+          <button onclick="skipTime('1_year')">📅 一年</button>
+          <button onclick="skipTime('2_years')">📅 两年</button>
+          <button onclick="skipTime('5_years')">📅 五年</button>
+        </div>
+      </span>
+      <span onclick="alert('注意：重要人物勾选仅作为人物建模使用，发送并不生成正文内容。勾选重要人物发送后一般需三十秒进行建模，但是与主响应接口不冲突，建议您等待建模完成后载入建模使用，当然您也可以在这之前就发送对话。当您已成功建模某个重要npc，您可再次输入内容对其补充更改，请务必保证名字正确。一般默认加载建模开启用于丰富正文。')" style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:var(--input-bg);color:var(--accent-dim);border-radius:50%;font-size:13px;cursor:pointer;flex-shrink:0">❗</span>
+      <button class="cmd-btn" onclick="clearLogs()">🗑 日志</button>
+    </div>
     <div id="input-area">
       <div id="input-row">
         <textarea id="user-input" rows="1" placeholder="输入你的行动或对话..."
