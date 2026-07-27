@@ -598,7 +598,7 @@ class WorldMapRenderer {
       const mpos = this._getPlayerMarkerCoords();
       if (mpos) {
         const dist = Math.hypot(lc.x - mpos.x, lc.y - (mpos.y - 12));
-        if (dist < 22 && this.playerLocation) {
+        if (dist < 44 && this.playerLocation) {
           // Start marker drag
           _activeMode = 'marker';
           _origMarkerX = mpos.x;
