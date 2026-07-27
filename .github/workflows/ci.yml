@@ -24,3 +24,28 @@ jobs:
 
       - name: Run tests
         run: python -m pytest tests/ -v --tb=short
+
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 47.82.109.156
+          port: 22
+          username: admin
+          password: ${{ secrets.SERVER_PASSWORD }}
+          script: |
+            cd /home/admin/NAE
+            git pull
+            cp frontend/index.html backend/ane/static/index.html
+            fuser -k 8002/tcp 2>/dev/null
+            sleep 1
+            cd backend
+            source ../.venv/bin/activate
+            export LANG=zh_CN.UTF-8 LC_ALL=zh_CN.UTF-8
+            nohup python -m ane.main > backend.log 2>&1 &
