@@ -9,7 +9,6 @@ build/
 
 # Node
 node_modules/
-frontend/dist/
 
 # Virtual environment
 .venv/
@@ -21,9 +20,8 @@ frontend/dist/
 # Testing
 .pytest_cache/
 
-# Database
-data/*.db-shm
-data/*.db-wal
+# Database — entire data dir (ane.db, shm, wal, dumps)
+data/
 
 # Environment
 .env
@@ -32,8 +30,13 @@ data/*.db-wal
 *.log
 user_logs/
 
+# Build artifacts — frontend built to backend/ane/static/
+backend/ane/static/
+
+# Debug / temp
+debug_*.txt
+nul
+
 # OS
 Thumbs.db
 .DS_Store
-"nul" 
-"nul" 
