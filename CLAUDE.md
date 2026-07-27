@@ -22,6 +22,8 @@
 | 世界地图渲染原理 | [docs/WORLDMAP.md](docs/WORLDMAP.md) |
 | 地图玩家标记交互 | [docs/WORLDMAP_PLAYER_MARKER.md](docs/WORLDMAP_PLAYER_MARKER.md) |
 | 关系网系统 | [docs/RELATIONSHIP_GRAPH.md](docs/RELATIONSHIP_GRAPH.md) |
+| 服务器部署指南 | [docs/DEPLOY.md](docs/DEPLOY.md) |
+| 代码同步方式 | [docs/DEPLOY_SYNC.md](docs/DEPLOY_SYNC.md) |
 
 ## 目录结构
 
