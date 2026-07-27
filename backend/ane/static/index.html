@@ -639,11 +639,11 @@
 // ── Fix mobile 100vh ──
 (function() {
   function setHeight() {
-    const vh = window.innerHeight * 0.01;
+    const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    const vh = h * 0.01;
     document.documentElement.style.setProperty('--vh', vh + 'px');
   }
   setHeight();
-  // Chrome/Edge/Samsung: visualViewport fires when address bar hides/shows
   if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', setHeight);
   } else {
