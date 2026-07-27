@@ -31,21 +31,17 @@ jobs:
 
   deploy:
     needs: test
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
 
-      - name: Deploy to server
-        working-directory: /home/runner/actions-runner
+      - name: Restart ANE service
         run: |
-          cp frontend/index.html backend/ane/static/index.html
-          cp frontend/public/worldmap.js backend/ane/static/worldmap.js
-          cd backend
-          source ../.venv/bin/activate
-          export LANG=zh_CN.UTF-8 LC_ALL=zh_CN.UTF-8
-          fuser -k 8002/tcp 2>/dev/null
-          sleep 1
-          nohup python -m ane.main > backend.log 2>&1 &
+          sudo systemctl restart ane.service
           sleep 3
-          curl -s http://127.0.0.1:8002/api/health
+          systemctl is-active ane.service
+
+      - name: Verify
+        run: |
+          curl -sf http://localhost:8002/api/health
