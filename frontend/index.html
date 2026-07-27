@@ -759,8 +759,7 @@ async function loadModels() {
     for (const m of data.models) {
       const opt = document.createElement('option');
       opt.value = m.id;
-      let label = m.name;
-      if (m.provider && m.provider !== m.name.split(':')[0]) label = m.provider.slice(0,2) + ':' + m.name;
+      let label = m.name.replace(/^(deepseek|openai|claude|gemini|ollama)-v?\d*\.?\d*/,'').replace(/^[:\-]/, '') || m.name;
       if (!m.available) label += ' (不可用)';
       opt.textContent = label;
       if (!m.available) opt.disabled = true;
