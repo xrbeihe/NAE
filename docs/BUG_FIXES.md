@@ -91,6 +91,32 @@ f"人物性别：{npc_model.gender or '待确定'}\n\n"
 
 ---
 
+## Bug 8 — clearLogs 漏 async 关键字（前端 index.html）
+
+### 问题
+`clearLogs()` 函数定义时没有 `async` 关键字，函数体内却使用了 `await`：
+
+```js
+function clearLogs() {
+  const res = await apiFetch('/api/clear-logs', ...);  // ❌ await 在非 async 函数中
+  const data = await res.json();
+}
+```
+
+JS 引擎编译整个 `<script>` 块时发现此语法错误即**放弃全部编译**，导致该 script 块内所有函数定义（`handleAuthSubmit`、`toggleAuthMode` 等约 80 个全局函数）均未注册。页面加载后立即报：
+
+```
+Uncaught SyntaxError: await is only valid in async functions and the top level bodies of modules
+5(索引):569 Uncaught ReferenceError: handleAuthSubmit is not defined
+```
+
+### 修复
+`function clearLogs()` → `async function clearLogs()`。
+
+**相关文件**：`frontend/index.html:1456`
+
+---
+
 ## Bug 7 — 忘记 HO 时无提示（前端）
 ### 问题
 用户输入 NSFW 关键词但忘记加 HO 时，LLM 会在"写不写露骨内容"之间纠结，导致输出大量过渡文字后触达 `max_tokens` 截断，用户白等 2 分钟。

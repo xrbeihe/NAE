@@ -109,13 +109,6 @@ class ApplyCharacterRequest(BaseModel):
     golden_finger_custom: str = Field(default="", max_length=500, description="金手指自定义描写")
     identity_custom: str = Field(default="", max_length=300, description="自定义身份描述")
 
-
-# ── Time Skip ──────────────────────────────────────────────────
-
-class TimeSkipRequest(BaseModel):
-    ticks: int = Field(..., ge=1, description="要跳过的 tick 数")
-
-
 # ── Map Move ───────────────────────────────────────────────────
 
 class MoveRequest(BaseModel):
@@ -157,16 +150,3 @@ class SummariesResponse(BaseModel):
     session_id: str
     from_turn: int
     summaries: list[SummaryEntry]
-
-
-# ── Memory Panel (💭) ─────────────────────────────────────────────
-
-class MemoryPanelEntry(BaseModel):
-    category: str = ""   # "longmemory" / "fact_relationship" / "fact_achievement" / "npc_important" / "shortmemory"
-    turn_number: int = 0
-    content: str = ""
-
-
-class MemoryPanelResponse(BaseModel):
-    session_id: str
-    entries: list[MemoryPanelEntry]

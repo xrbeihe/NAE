@@ -12,12 +12,11 @@ from ane.modules.player_manager import player_manager as pm
 from ane.api.schemas import (
     CreateSessionRequest, CreateSessionResponse,
     SessionSummary, TurnRequest, TurnResponse,
-    DeleteSessionResponse, ApplyCharacterRequest, TimeSkipRequest,
+    DeleteSessionResponse, ApplyCharacterRequest,
     MoveRequest,
     NpcModelingRequest, NpcModelingResponse,
     NpcModelingConfirmRequest, NpcModelingConfirmResponse,
     SummaryEntry, SummariesResponse,
-    MemoryPanelEntry, MemoryPanelResponse,
 )
 
 import logging
@@ -418,38 +417,6 @@ async def apply_character(
     }
 
 
-@router.post("/{session_id}/time-skip")
-async def time_skip(
-    session_id: str,
-    req: TimeSkipRequest,
-    db: AsyncSession = Depends(get_db),
-    user = Depends(get_current_user),
-):
-    from ane.modules.time_manager import time_manager as tm
-    session = await _get_users_session(db, session_id, user.id)
-    ticks = req.ticks
-    session.time_epoch += ticks
-    session.world_time = tm.format_world_time(session.time_epoch)
-    npc_updates = await tm.update_active_npcs(db, session_id, ticks)
-    await memory_manager.add_fact(
-        db, session_id,
-        f"时光流逝，世界来到了{session.world_time}。",
-        category="world", priority=8,
-    )
-    await db.commit()
-    from ane.modules.player_manager import player_manager as pm
-    player = await pm.get_by_session(db, session_id)
-    return {
-        "session_id": session_id,
-        "world_time": session.world_time,
-        "ticks_skipped": ticks,
-        "npc_updates": len(npc_updates),
-        "player_name": player.name if player else "",
-        "player_cultivation": player.cultivation if player else "",
-        "player_location": player.location if player else "",
-    }
-
-
 @router.post("/{session_id}/npc-modeling")
 async def npc_modeling(
     session_id: str,
@@ -599,16 +566,6 @@ async def get_summaries(
             for e in entries
         ],
     )
-
-
-@router.get("/{session_id}/memory-panel", response_model=MemoryPanelResponse)
-async def get_memory_panel(
-    session_id: str,
-    db: AsyncSession = Depends(get_db),
-    user = Depends(get_current_user),
-):
-    """暂时关闭."""
-    return MemoryPanelResponse(session_id=session_id, entries=[])
 
 
 # ── Relationship Graph (🚻) ──────────────────────────────────

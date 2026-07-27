@@ -14,6 +14,9 @@
     --accent-dim: #6b5a3e;
     --danger: #8b4545;
     --input-bg: #2a2218;
+    --color-ai: #d4c8b8;
+    --color-system: #6b5a3e;
+    --color-user: #e8dcc8;
   }
   * { margin:0; padding:0; box-sizing:border-box; }
   body {
@@ -64,18 +67,18 @@
     max-width: 85%; padding: 8px 12px; border-radius: 6px;
     font-size: 13px; line-height: 1.6; white-space: pre-wrap;
   }
-  .msg.user {
-    align-self: flex-end; background: var(--accent-dim);
-    color: #e8dcc8;
-  }
   .msg.ai {
     align-self: flex-start; background: var(--panel);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border); color: var(--color-ai);
   }
   .msg.system {
     align-self: flex-start; background: transparent;
-    color: var(--accent-dim); font-size: 13px; font-style: italic;
+    color: var(--color-system); font-size: 13px; font-style: italic;
     border: 1px dashed var(--border);
+  }
+  .msg.user {
+    align-self: flex-end; background: var(--accent-dim);
+    color: var(--color-user);
   }
   .msg .time-tag {
     font-size: 11px; color: var(--accent-dim); margin-bottom: 4px;
@@ -104,13 +107,18 @@
   #send-btn:hover { opacity: 0.9; }
   #send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-  /* ── session sidebar ── */
+  /* ── session sidebar (slide-over on all sizes) ── */
+  #sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1999; }
+  #sidebar-overlay.open { display: block; }
+  #sidebar-toggle-btn { display: inline-flex !important; }
   #main-layout { display: flex; flex: 1; overflow: hidden; }
   #session-sidebar {
-    width: 140px; min-width: 140px; background: var(--panel);
-    border-right: 1px solid var(--border);
+    position: fixed; top: 0; left: 0; width: 260px; height: 100vh; z-index: 2000;
+    background: var(--panel); border-right: 1px solid var(--border);
     display: flex; flex-direction: column; overflow: hidden;
+    transform: translateX(-100%); transition: transform 0.25s ease;
   }
+  #session-sidebar.open { transform: translateX(0); }
   #sidebar-header {
     padding: 12px 14px; border-bottom: 1px solid var(--border);
     display: flex; justify-content: space-between; align-items: center;
@@ -260,19 +268,6 @@
   .cmd-btn:hover { border-color: var(--accent); color: var(--accent); }
 
   /* time skip popup */
-  #time-skip-wrap { position: relative; }
-  #time-skip-popup {
-    display: none; position: absolute; top: 100%; right: 0; background: var(--panel);
-    border: 1px solid var(--border); border-radius: 4px; padding: 8px; z-index: 100;
-    flex-direction: column; gap: 4px; min-width: 120px;
-  }
-  #time-skip-popup.visible { display: flex; }
-  #time-skip-popup button {
-    background: transparent; border: none; color: var(--text); padding: 6px 10px;
-    border-radius: 3px; cursor: pointer; font-family: inherit; font-size: 13px; text-align: left;
-  }
-  #time-skip-popup button:hover { background: rgba(107,90,62,0.2); color: var(--accent); }
-
   /* ── model selector overlay ── */
   #model-overlay {
     display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -312,7 +307,30 @@
   }
   #loading-indicator.active { display: block; }
 
-  /* ── recommendation carousel ── */
+  /* ── color settings floating popup ── */
+  #color-popup {
+    display: none; position: fixed; z-index: 9999;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px; width: 280px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+  }
+  #color-popup.visible { display: block; }
+  #color-popup h3 { color: var(--accent); font-size: 14px; margin: 0 0 10px; text-align: center; }
+  .color-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+  .color-row label { flex: 0 0 70px; font-size: 13px; color: var(--text); }
+  .color-row input[type="color"] { width: 36px; height: 28px; border: none; border-radius: 3px; cursor: pointer; padding: 0; background: transparent; flex-shrink: 0; }
+  .color-row input[type="text"] { flex: 1; padding: 3px 6px; background: var(--input-bg); border: 1px solid var(--border); border-radius: 3px; color: var(--text); font-size: 12px; font-family: monospace; }
+
+  /* ── help popup ── */
+  #help-popup {
+    display: none; position: fixed; z-index: 9999;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px 14px; width: 260px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.6); font-size: 13px; line-height: 1.6;
+    color: var(--text);
+  }
+  #help-popup.visible { display: block; }
+
   #rec-area {
     background: var(--panel); border-top: 1px solid var(--border);
     border-bottom: 1px solid var(--border);
@@ -347,20 +365,12 @@
     #header .status-item { font-size: 11px; padding: 2px 6px; }
     #header { gap: 6px; padding: 6px 10px; flex-wrap: wrap; }
     #map-toggle-btn, .cmd-btn { font-size: 11px; padding: 3px 6px; }
-    #session-sidebar {
-      position: fixed; top: 0; left: 0; width: 260px; height: 100vh; z-index: 2000;
-      max-height: none; border-right: 1px solid var(--border);
-      transform: translateX(-100%); transition: transform 0.25s ease;
-    }
-    #session-sidebar.open { transform: translateX(0); }
-    #sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1999; }
-    #sidebar-overlay.open { display: block; }
-    #sidebar-toggle-btn { display: inline-flex !important; }
     #main-layout { flex-direction: column; }
     #chat-panel { flex: 1; min-height: 50vh; }
     #session-bar { flex-wrap: wrap; padding: 6px 10px; gap: 4px; }
     #session-bar .cmd-btn { font-size: 11px; padding: 2px 6px; }
     #model-btn { font-size: 11px; padding: 2px 4px; }
+    #color-btn { font-size: 11px; padding: 2px 4px; }
     .rec-card { font-size: 12px; padding: 6px 8px; }
     #rec-grid { display: none; }
     #rec-label { display: none !important; }
@@ -379,12 +389,8 @@
     #map-gen-controls { gap: 4px; flex-wrap: wrap; }
     #map-gen-controls button { font-size: 11px; padding: 4px 8px; }
     #map-faction-count { width: 50px; }
-    /* 手机端把推荐行动移到输入框正上方 */
-    #input-area { order: 1; }
-    #rec-area { order: 0; padding: 2px 10px; border-top: none; border-bottom: none; display: flex; justify-content: flex-end; }
+    #rec-area { padding: 2px 10px; }
     #rec-area .rec-card { min-height: auto; }
-    #rec-area > div { display: flex; align-items: center; gap: 4px; }
-    #chat-panel { display: flex; flex-direction: column; }
   }
 
   @media (max-width: 480px) {
@@ -446,10 +452,10 @@
 </div>
 
 <div id="header">
+  <button id="sidebar-toggle-btn" onclick="toggleSidebar()" title="世界列表" style="background:none;border:none;color:var(--accent-dim);font-size:18px;cursor:pointer;padding:0 4px;flex-shrink:0">☰</button>
   <h1>⚔ AI Narrative Engine</h1>
   <div class="status-item">⏳ <span id="world-time">--</span></div>
   <div class="status-item">📍 <span id="player-loc">--</span></div>
-  <div class="status-item">⚡ <span id="player-cult">--</span></div>
   <button id="map-toggle-btn" onclick="toggleMapPanel()" title="世界地图">🗺 地图</button>
 </div>
 
@@ -485,6 +491,37 @@
     <div id="model-popup-list"></div>
   </div>
 </div>
+
+<div id="help-popup">
+  <b>⭐ 重要人物</b><br>
+  勾选后发送，系统从输入中提取人名，已有档案的做增量更新，新人物弹窗确认后全量建模。不占用本轮叙事。<br><br>
+  <b>📦 加载建模</b><br>
+  勾选后，输入中提到的已建模人物自动注入完整档案到 Prompt，叙事更精准。名字需严格匹配，0 次 LLM 调用。<br><br>
+  两者互斥，不可同时使用。
+</div>
+
+<div id="color-popup">
+  <h3>🎨 文字颜色</h3>
+  <div class="color-row">
+    <label>AI 正文</label>
+    <input type="color" id="color-picker-ai">
+    <input type="text" id="color-text-ai" placeholder="#d4c8b8" oninput="applyColor('ai', this.value)">
+  </div>
+  <div class="color-row">
+    <label>系统消息</label>
+    <input type="color" id="color-picker-system">
+    <input type="text" id="color-text-system" placeholder="#6b5a3e" oninput="applyColor('system', this.value)">
+  </div>
+  <div class="color-row">
+    <label>用户消息</label>
+    <input type="color" id="color-picker-user">
+    <input type="text" id="color-text-user" placeholder="#e8dcc8" oninput="applyColor('user', this.value)">
+  </div>
+  <div style="display:flex;gap:6px;margin-top:10px">
+    <button onclick="resetColors()" style="flex:1;padding:5px;background:transparent;border:1px solid var(--border);color:var(--accent-dim);border-radius:4px;cursor:pointer;font-size:12px">恢复默认</button>
+  </div>
+</div>
+
 <div id="main-layout">
   <div id="session-sidebar">
     <div id="sidebar-header">
@@ -510,34 +547,33 @@
       <span id="session-id-display">未创建会话</span>
       <button id="model-btn" onclick="showModelPopup()">✨<span id="model-btn-label">loading</span></button>
       <select id="model-select" onchange="onModelChange()" style="display:none"></select>
+      <button id="color-btn" onclick="showColorPopup()">🎨</button>
 
 
-          <button id="sidebar-toggle-btn" class="cmd-btn" onclick="toggleSidebar()" title="切换世界列表" style="display:none">📜 世界</button>
-          <button class="cmd-btn" onclick="sendCommand('/status')">状态</button>
-          <!-- 回顾按钮暂不可用 -->
-          <button class="cmd-btn" style="opacity:0.5;pointer-events:none">回顾</button>
-          <!-- 事实按钮暂不可用 -->
-          <button class="cmd-btn" style="opacity:0.5;pointer-events:none">事实</button>
-          <span style="display:inline-flex;align-items:center;margin-left:6px">
-            <span onclick="alert('注意：重要人物勾选仅作为人物建模使用，发送并不生成正文内容。勾选重要人物发送后一般需三十秒进行建模，但是与主响应接口不冲突，建议您等待建模完成后载入建模使用，当然您也可以在这之前就发送对话。当您已成功建模某个重要npc，您可再次输入内容对其补充更改，请务必保证名字正确。一般默认加载建模开启用于丰富正文。')" style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:var(--input-bg);color:var(--accent-dim);border-radius:50%;font-size:13px;cursor:pointer">❗</span>
-          </span>
-      <span id="time-skip-wrap" style="position:relative">
-        <button class="cmd-btn" id="time-skip-btn" onclick="toggleTimeSkip()">⏩ 时间快进</button>
-        <div id="time-skip-popup">
-          <button onclick="skipTime('1_month')">📅 一个月</button>
-          <button onclick="skipTime('3_months')">📅 三个月</button>
-          <button onclick="skipTime('6_months')">📅 半年</button>
-          <button onclick="skipTime('1_year')">📅 一年</button>
-          <button onclick="skipTime('2_years')">📅 两年</button>
-          <button onclick="skipTime('5_years')">📅 五年</button>
-        </div>
-      </span>
       <button class="cmd-btn" onclick="clearLogs()" title="清空前后端日志文件">🗑 清空日志</button>
     </div>
     <div id="chat">
       <div class="msg system">欢迎来到 AI Narrative Engine。<br>点击左侧 "+" 创建一个修仙世界，或选择已有世界继续冒险。</div>
     </div>
     <div id="loading-indicator">天道运转中，请稍候...</div>
+
+    <div id="rec-area">
+      <div style="display:flex;align-items:center;gap:4px;margin-bottom:4px">
+        <div id="rec-label" style="font-size:11px;color:var(--accent-dim);margin-left:auto">💡推荐行动</div>
+        <span id="rec-count" style="font-size:11px;color:var(--accent-dim)"></span>
+        <button id="rec-mobile-btn" class="cmd-btn" onclick="recMobileClick()" title="推荐行动" style="display:none">💡 推荐 (<span id="rec-mobile-count">0</span>)</button>
+        <span style="display:flex;align-items:center;flex-shrink:0">
+          <span id="help-btn" onclick="showHelpPopup(event)" style="cursor:pointer;font-size:13px" title="勾选说明">❤️</span>
+          <span onclick="showRelationshipGraph()" style="cursor:pointer;font-size:13px;margin-left:4px" title="关系网图谱">🚻</span>
+        </span>
+      </div>
+      <div id="rec-grid">
+        <div class="rec-card" onclick="recClick(0)"></div>
+        <div class="rec-card" onclick="recClick(1)"></div>
+        <div class="rec-card" onclick="recClick(2)"></div>
+      </div>
+    </div>
+
     <div id="input-area">
       <div id="input-row">
         <textarea id="user-input" rows="1" placeholder="输入你的行动或对话..."
@@ -554,23 +590,6 @@
           <div id="ho-hint" style="display:none;font-size:11px;color:var(--danger);text-align:right;white-space:nowrap">💡 需要直白描写请在末尾加 HO</div>
           <button id="send-btn" onclick="sendTurn()">发送</button>
         </div>
-      </div>
-    </div>
-
-    <div id="rec-area">
-      <div style="display:flex;align-items:center;gap:4px;margin-bottom:4px">
-        <div id="rec-label" style="font-size:11px;color:var(--accent-dim)">💡推荐行动</div>
-        <span id="rec-count" style="font-size:11px;color:var(--accent-dim)"></span>
-        <button id="rec-mobile-btn" class="cmd-btn" onclick="recMobileClick()" title="装载推荐行动" style="display:none;margin-left:auto">💡 推荐 (<span id="rec-mobile-count">0</span>)</button>
-        <span style="margin-left:auto;display:flex;align-items:center;gap:4px">
-          <span style="cursor:default;font-size:13px;opacity:0.4" title="记忆面板暂不可用">💭</span>
-          <span onclick="showRelationshipGraph()" style="cursor:pointer;font-size:13px" title="关系网图谱">🚻</span>
-        </span>
-      </div>
-      <div id="rec-grid">
-        <div class="rec-card" onclick="recClick(0)"></div>
-        <div class="rec-card" onclick="recClick(1)"></div>
-        <div class="rec-card" onclick="recClick(2)"></div>
       </div>
     </div>
 
@@ -848,6 +867,90 @@ function onModelChange() {
 
 function showModelPopup() {
   document.getElementById('model-overlay').classList.add('visible');
+}
+
+// ── Color Settings ──
+function showColorPopup() {
+  const popup = document.getElementById('color-popup');
+  const btn = document.getElementById('color-btn');
+  const isVisible = popup.classList.contains('visible');
+  if (isVisible) { popup.classList.remove('visible'); return; }
+  // Load saved colors
+  ['ai','system','user'].forEach(t => {
+    const saved = localStorage.getItem('color_' + t);
+    if (saved) {
+      document.getElementById('color-picker-' + t).value = saved;
+      document.getElementById('color-text-' + t).value = saved;
+    } else {
+      const current = getComputedStyle(document.documentElement).getPropertyValue('--color-' + t).trim();
+      if (current) {
+        document.getElementById('color-picker-' + t).value = rgbToHex(current);
+        document.getElementById('color-text-' + t).value = current;
+      }
+    }
+  });
+  // Position below the button
+  const rect = btn.getBoundingClientRect();
+  popup.style.left = Math.max(4, rect.left + rect.width - 280) + 'px';
+  popup.style.top = (rect.bottom + 4) + 'px';
+  popup.classList.add('visible');
+}
+function showHelpPopup(event) {
+  event.stopPropagation();
+  const popup = document.getElementById('help-popup');
+  const isVisible = popup.classList.contains('visible');
+  if (isVisible) { popup.classList.remove('visible'); return; }
+  const btn = document.getElementById('help-btn');
+  const rect = btn.getBoundingClientRect();
+  popup.style.left = Math.max(4, rect.left + rect.width - 260) + 'px';
+  popup.style.top = (rect.bottom + 4) + 'px';
+  popup.classList.add('visible');
+  // One-click close on any click
+  const closer = () => {
+    popup.classList.remove('visible');
+    document.removeEventListener('click', closer);
+  };
+  setTimeout(() => document.addEventListener('click', closer), 10);
+}
+function applyColor(type, hex) {
+  hex = hex.trim();
+  if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return;
+  document.getElementById('color-picker-' + type).value = hex;
+  document.getElementById('color-text-' + type).value = hex;
+  document.documentElement.style.setProperty('--color-' + type, hex);
+  localStorage.setItem('color_' + type, hex);
+}
+['ai','system','user'].forEach(t => {
+  document.addEventListener('DOMContentLoaded', () => {
+    const saved = localStorage.getItem('color_' + t);
+    if (saved) {
+      document.documentElement.style.setProperty('--color-' + t, saved);
+    }
+  });
+});
+// Sync color picker ↔ text input
+['ai','system','user'].forEach(t => {
+  document.addEventListener('DOMContentLoaded', () => {
+    const picker = document.getElementById('color-picker-' + t);
+    const text = document.getElementById('color-text-' + t);
+    if (picker && text) {
+      picker.addEventListener('input', () => applyColor(t, picker.value));
+    }
+  });
+});
+function rgbToHex(rgb) {
+  const m = rgb.match(/\d+/g);
+  if (!m) return '#d4c8b8';
+  return '#' + m.slice(0,3).map(x => parseInt(x).toString(16).padStart(2,'0')).join('');
+}
+function resetColors() {
+  const defaults = {'ai':'#d4c8b8','system':'#6b5a3e','user':'#e8dcc8'};
+  ['ai','system','user'].forEach(t => {
+    document.documentElement.style.setProperty('--color-' + t, defaults[t]);
+    localStorage.setItem('color_' + t, defaults[t]);
+    document.getElementById('color-picker-' + t).value = defaults[t];
+    document.getElementById('color-text-' + t).value = defaults[t];
+  });
 }
 
 // ── Session List ──
@@ -1232,8 +1335,7 @@ async function applyCharacter() {
     }
   }
   if (sid === sessionId) {
-    document.getElementById('player-loc').textContent = name;
-    document.getElementById('player-cult').textContent = cultivation;
+    document.getElementById('player-loc').textContent = name
   }
   // Pre-fill input — guide player to open map, generate world
   const defaultMsg = `生成你的世界吧！点击顶部🗺 地图按钮，随机生成几次后点击💾 保存地图。`;
@@ -1270,7 +1372,6 @@ async function createSession() {
       `会话: ${data.session_id.substring(0,8)}... | ${data.name}`;
     updateStatus(data);
     document.getElementById('player-loc').textContent = data.player_name;
-    document.getElementById('player-cult').textContent = data.player_cultivation || '?';
     const elapsed = (performance.now() - t0).toFixed(0);
     console.log(`Session created: ${data.session_id} (${elapsed}ms)`);
     clearChat();
@@ -1493,43 +1594,6 @@ async function sendCommand(cmd) {
   await sendTurn();
 }
 
-// ── Time skip ──
-function toggleTimeSkip() {
-  const popup = document.getElementById('time-skip-popup');
-  popup.classList.toggle('visible');
-}
-// Close popup on outside click
-document.addEventListener('click', function(e) {
-  const wrap = document.getElementById('time-skip-wrap');
-  if (wrap && !wrap.contains(e.target)) {
-    document.getElementById('time-skip-popup').classList.remove('visible');
-  }
-});
-
-async function skipTime(duration) {
-  document.getElementById('time-skip-popup').classList.remove('visible');
-  if (!sessionId) return;
-  const labelMap = { '1_month': '一个月', '3_months': '三个月', '6_months': '半年',
-                     '1_year': '一年', '2_years': '两年', '5_years': '五年' };
-  const tickMap = { '1_month': 240, '3_months': 720, '6_months': 1440,
-                    '1_year': 2880, '2_years': 5760, '5_years': 14400 };
-  const ticks = tickMap[duration];
-  try {
-    const res = await apiFetch(`/sessions/${sessionId}/time-skip`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ticks: ticks})
-    });
-    if (!res.ok) throw new Error(res.statusText);
-    const data = await res.json();
-    updateStatus(data);
-    addMsg('system', `⏩ 时间快进：${labelMap[duration]} → 当前时间：${data.world_time}`);
-  } catch(e) {
-    addMsg('system', '时间快进失败: ' + e.message);
-  }
-}
-
-// ── Clear logs ──
 async function clearLogs() {
   if (!confirm('确定要清空前后端日志文件吗？')) return;
   try {
@@ -1595,7 +1659,6 @@ function updateStatus(data) {
   if (data.player_gender) {
     _playerMapGender = data.player_gender;
   }
-  if (data.player_cultivation) document.getElementById('player-cult').textContent = data.player_cultivation;
 }
 
 // ── 📕 Summary hover popup ──
@@ -1872,54 +1935,6 @@ function showRelationshipGraph() {
   });
 };
 
-// ── 💭 Memory Panel ──
-
-function showMemoryPanel() {
-  if (!sessionId) return alert('请先创建或选择世界');
-  const popup = document.createElement('div');
-  popup.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;';
-  const box = document.createElement('div');
-  box.style.cssText = 'background:#1a1a2e;border:1px solid #e94560;border-radius:12px;padding:24px;max-width:520px;width:90%;color:#eee;font-size:13px;max-height:80vh;overflow-y:auto;';
-  box.innerHTML = '<div style="text-align:center;padding:20px;color:#888;">⏳ 加载中...</div>';
-  popup.appendChild(box);
-  document.body.appendChild(popup);
-  popup.addEventListener('click', (e) => { if (e.target === popup) document.body.removeChild(popup); });
-
-  apiFetch(`/sessions/${sessionId}/memory-panel`).then(r => r.json()).then(data => {
-    if (!data.entries || !data.entries.length) {
-      box.innerHTML = '<div style="text-align:center;padding:20px;color:#888;">暂无记忆数据</div><div style="text-align:center;margin-top:12px"><button onclick="this.closest(\'div\').parentElement.parentElement.remove()" style="padding:6px 16px;border:none;border-radius:4px;background:#e94560;color:white;cursor:pointer;">关闭</button></div>';
-      return;
-    }
-    const sections = [];
-    const groups = {};
-    for (const e of data.entries) {
-      if (!groups[e.category]) groups[e.category] = [];
-      groups[e.category].push(e);
-    }
-    const order = ['longmemory', 'fact_relationship', 'fact_character', 'npc_important', 'shortmemory'];
-    const labels = {
-      longmemory: '📜 纪元记录',
-      fact_relationship: '❤️ 人物关系（永久）',
-      fact_character: '🏷️ 角色标记',
-      npc_important: '⭐ 重要人物',
-      shortmemory: '💾 近期摘要',
-    };
-    for (const cat of order) {
-      const items = groups[cat];
-      if (!items || !items.length) continue;
-      const lines = [`<div style="font-weight:bold;margin:10px 0 4px;color:#e94560;font-size:14px;">${labels[cat] || cat}</div>`];
-      for (const item of items) {
-        const content = item.content.replace(/\n/g, '<br>');
-        lines.push(`<div style="padding:4px 0;border-bottom:1px solid #333;font-size:12px;color:#ccc;">${content}</div>`);
-      }
-      sections.push(lines.join('\n'));
-    }
-    box.innerHTML = sections.join('\n') + '<div style="text-align:center;margin-top:14px"><button onclick="this.closest(\'div\').parentElement.parentElement.remove()" style="padding:6px 16px;border:none;border-radius:4px;background:#e94560;color:white;cursor:pointer;">关闭</button></div>';
-  }).catch(() => {
-    box.innerHTML = '<div style="text-align:center;padding:20px;color:#e94560;">❌ 加载失败</div><div style="text-align:center;margin-top:12px"><button onclick="this.closest(\'div\').parentElement.parentElement.remove()" style="padding:6px 16px;border:none;border-radius:4px;background:#e94560;color:white;cursor:pointer;">关闭</button></div>';
-  });
-}
-
 // ── 建模人物按钮（由后端 turn 响应动态渲染）──
 
 function renderModeledNpcs(npcs) {
@@ -1977,7 +1992,7 @@ function renderRecs() {
     cards[i].textContent = idx < recList.length ? recList[idx] : '';
   }
   const remaining = Math.max(0, recList.length - recIndex - 3);
-  count.textContent = remaining > 0 ? `+${remaining}` : '';
+  count.textContent = `(${recList.length})` + (remaining > 0 ? ` +${remaining}` : '');
   if (mc) mc.textContent = recList.length;
 }
 

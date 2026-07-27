@@ -560,74 +560,115 @@ class GameEngine:
 
         # Step 14: (removed — llm_modeling replaces HTEM entirely)
 
-        # Step 15: Record important NPC markers + auto-fact from state_changes
+        # Step 15: Apply state_changes — write back to Player/NPC tables
         for change in parsed.state_changes:
             change_type = change.get("type", "")
+            change_target = change.get("target", "")
+            change_field = change.get("field", "")
+            change_value = change.get("value", "")
+
             if change_type == "npc_important":
-                npc_id = change.get("target", "")
-                if npc_id:
-                    await npc_manager.mark_important(db, npc_id)
-                    fact_content = change.get("value", f"NPC {npc_id} 被标记为重要")
-                    await memory_manager.add_fact(
-                        db, session_id, fact_content,
-                        category="character", priority=10,
-                    )
+                if change_target:
+                    npc_obj = await db.get(NPC, change_target)
+                    if npc_obj and npc_obj.session_id == session_id:
+                        await npc_manager.mark_important(db, change_target)
+                        logger.info(f"step15: npc_important {change_target}")
+                    else:
+                        logger.warning(f"step15: npc_important target {change_target} not found or wrong session")
 
-            # Auto-write relationship facts (permanent, never trimmed)
-            elif change_type == "relationship_change":
-                target = change.get("target", "")
-                value = change.get("value", "")
-                if target and value:
-                    fact_content = f"{target}: {value}"
-                    await memory_manager.add_fact(
-                        db, session_id, fact_content,
-                        category="relationship", priority=10,
-                    )
-
-            # Auto-write cultivation breakthroughs
+            # ── Player cultivation ──
             elif change_type == "cultivation_change":
-                target = change.get("target", "")
-                value = change.get("value", "")
-                if target and value:
-                    fact_content = f"{target} 修为变为 {value}"
-                    await memory_manager.add_fact(
-                        db, session_id, fact_content,
-                        category="achievement", priority=8,
-                    )
+                if change_target == "player" and change_value:
+                    logger.info(f"step15: {player.name} cultivation {player.cultivation}→{change_value}")
+                    player.cultivation = change_value
 
-            # Auto-write key location changes (player only)
+            # ── Player location ──
             elif change_type == "location_change":
-                target = change.get("target", "")
-                if target == "player":
-                    new_loc = change.get("value", "")
-                    if new_loc:
-                        fact_content = f"玩家到达 {new_loc}"
-                        await memory_manager.add_fact(
-                            db, session_id, fact_content,
-                            category="travel", priority=6,
-                        )
+                if change_target == "player" and change_value:
+                    logger.info(f"step15: {player.name} location {player.location}→{change_value}")
+                    player.location = change_value
 
-            # Auto-write quest events
-            elif change_type in ("quest_accepted", "quest_completed"):
-                target = change.get("target", "")
-                value = change.get("value", "")
-                label = "接取" if change_type == "quest_accepted" else "完成"
-                fact_content = f"{label}任务：{value or target}" if value else f"{label}任务：{target}"
-                await memory_manager.add_fact(
-                    db, session_id, fact_content,
-                    category="achievement", priority=9,
-                )
+            # ── Player inventory ──
+            elif change_type == "item_added":
+                if change_target == "player" and change_value:
+                    inv = list(player.inventory or [])
+                    inv.append({
+                        "name": change_value,
+                        "description": change.get("description", ""),
+                    })
+                    player.inventory = inv
+                    logger.info(f"step15: item_added {change_value}")
 
-            # Auto-write marriage / death / breakthrough narrative events
-            elif change_type in ("marriage", "death", "breakthrough"):
-                target = change.get("target", "")
-                value = change.get("value", "")
-                fact_content = f"{target} {change_type}: {value}" if value else f"{target} {change_type}"
-                await memory_manager.add_fact(
-                    db, session_id, fact_content,
-                    category="relationship" if change_type in ("marriage",) else "achievement",
-                    priority=10,
-                )
+            elif change_type == "item_removed":
+                if change_target == "player" and change_value:
+                    inv = list(player.inventory or [])
+                    player.inventory = [i for i in inv if i.get("name") != change_value]
+                    logger.info(f"step15: item_removed {change_value}")
+
+            # ── Player name ──
+            elif change_type == "player_name_change":
+                if change_target == "player" and change_value:
+                    logger.info(f"step15: player name {player.name}→{change_value}")
+                    player.name = change_value
+
+            # ── Player attributes (personality, clothing, special_constitution, etc.) ──
+            elif change_type == "status_change":
+                if change_target == "player" and change_field and change_value:
+                    attrs = dict(player.attributes or {})
+                    if change_field == "_extensions":
+                        import ast
+                        if isinstance(change_value, str):
+                            try:
+                                attrs["_extensions"] = json.loads(change_value)
+                            except json.JSONDecodeError:
+                                try:
+                                    attrs["_extensions"] = ast.literal_eval(change_value)
+                                except (ValueError, SyntaxError):
+                                    attrs["_extensions"] = {}
+                        else:
+                            attrs["_extensions"] = change_value
+                        logger.info(f"step15: _extensions updated: {change_value}")
+                    elif change_field.startswith("attributes."):
+                        attr_key = change_field[len("attributes."):]
+                        attrs[attr_key] = change_value
+                        logger.info(f"step15: attributes.{attr_key} → {change_value}")
+                    else:
+                        attrs[change_field] = change_value
+                        logger.info(f"step15: player.{change_field} → {change_value}")
+                    player.attributes = attrs
+
+            # ── NPC status changes ──
+            elif change_type in ("npc_status", "character_status"):
+                if change_target and change_field and change_value:
+                    npc_obj = await db.get(NPC, change_target)
+                    if npc_obj and npc_obj.session_id == session_id:
+                        old = getattr(npc_obj, change_field, "?")
+                        setattr(npc_obj, change_field, change_value)
+                        logger.info(f"step15: npc {npc_obj.name}/{change_field}: {old}→{change_value}")
+                    else:
+                        logger.warning(f"step15: npc_status target {change_target} not found or wrong session")
+
+            # ── Relationship (written as NPC_Relationship edge) ──
+            elif change_type == "relationship_change":
+                if change_target and change_value:
+                    pass  # handled by _run_bg_relationship
+
+            # ── Economy (numeric savings) ──
+            elif change_type == "economy_change":
+                if change_target == "player":
+                    delta = change.get("change", 0)
+                    unit = change.get("unit", "")
+                    if delta != 0:
+                        attrs = dict(player.attributes or {})
+                        cur = attrs.get("_savings_amount", 0)
+                        if not isinstance(cur, (int, float)):
+                            cur = 0
+                        cur += delta
+                        attrs["_savings_amount"] = cur
+                        if unit:
+                            attrs["_savings_unit"] = unit
+                        player.attributes = attrs
+                        logger.info(f"step15: economy {cur} ({delta:+d}) {attrs.get('_savings_unit', '')}")
 
         # Apply nearby character seeding
         for change in parsed.state_changes:
@@ -679,22 +720,47 @@ class GameEngine:
         player_panel_str = "【主角面板】\n"
         if player:
             p_attrs = dict(player.attributes or {})
-            player_panel_str += (
-                f"姓名：{player.name} ｜ {p_attrs.get('gender', '?')} ｜ {p_attrs.get('age', '?')}岁\n"
-                f"出身：{p_attrs.get('background', '未知')}\n"
-                f"性格：{p_attrs.get('personality', '未知')}\n"
-                f"修为：{player.cultivation}\n"
-                f"身份：{p_attrs.get('identity', '未知')}\n"
-                f"灵根：{p_attrs.get('spiritual_root', '未知')} ｜ {p_attrs.get('talent_note', '')}\n"
-                f"月入：{p_attrs.get('monthly_income', '无')}\n"
-                f"衣物：{p_attrs.get('clothing', '未设定')}\n"
-            )
+            line_parts = [
+                f"姓名：{player.name} ｜ {p_attrs.get('gender', '?')} ｜ {p_attrs.get('age', '?')}岁",
+                f"修为：{player.cultivation}",
+                f"性格：{p_attrs.get('personality', '未知')}",
+                f"身份：{p_attrs.get('identity', '未知')}",
+                f"位置：{player.location or '未知'}",
+            ]
+            sr = p_attrs.get("spiritual_root", "未知")
+            line_parts.append(f"灵根：{sr}")
+            sc = p_attrs.get("special_constitution", "")
+            if sc:
+                line_parts.append(f"体质：{sc}")
+            line_parts.append(f"衣物：{p_attrs.get('clothing', '未设定')}")
+            inv = player.inventory or []
+            if inv:
+                items = "、".join(i.get("name", "?") for i in inv)
+                line_parts.append(f"物品：{items}")
             p_gf = p_attrs.get("golden_finger_name", "")
             if p_gf:
-                player_panel_str += f"金手指：{p_gf}\n"
+                line_parts.append(f"金手指：{p_gf}")
             p_gf_desc = p_attrs.get("golden_finger_desc", "")
             if p_gf_desc:
-                player_panel_str += f"  设定：{p_gf_desc}\n"
+                line_parts.append(f"设定：{p_gf_desc}")
+            # Savings display
+            savings_amount = p_attrs.get("_savings_amount", 0)
+            if savings_amount:
+                savings_unit = p_attrs.get("_savings_unit", "块下品灵石")
+                line_parts.append(f"灵石：{savings_amount}{savings_unit}")
+            exts = p_attrs.get("_extensions", {})
+            if exts and isinstance(exts, dict):
+                ext_parts = []
+                for ek, ev in exts.items():
+                    if ek and ev:
+                        if isinstance(ev, dict):
+                            sub = " | ".join(f"{sk}:{sv}" for sk, sv in ev.items() if sk and sv)
+                            ext_parts.append(f"{ek}→{sub}" if sub else f"{ek}→{ev}")
+                        else:
+                            ext_parts.append(f"{ek}→{ev}")
+                if ext_parts:
+                    line_parts.append(f"扩展：{' / '.join(ext_parts)}")
+            player_panel_str += " ｜ ".join(line_parts)
         else:
             player_panel_str += "（无玩家数据）\n"
 
