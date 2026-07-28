@@ -38,6 +38,20 @@ jobs:
         with:
           clean: false
 
+      - name: Write .env from secrets
+        run: |
+          echo "DEEPSEEK_API_KEY=${{ secrets.DEEPSEEK_API_KEY }}" | sudo tee /etc/ane/.env
+          echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" | sudo tee -a /etc/ane/.env
+          echo "ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}" | sudo tee -a /etc/ane/.env
+          sudo chmod 600 /etc/ane/.env
+
+      - name: Ensure systemd uses /etc/ane/.env
+        run: |
+          if ! grep -q 'EnvironmentFile=/etc/ane/.env' /etc/systemd/system/ane.service; then
+            sudo sed -i '/^\[Service\]/a EnvironmentFile=/etc/ane/.env' /etc/systemd/system/ane.service
+            sudo systemctl daemon-reload
+          fi
+
       - name: Restart ANE service
         run: |
           sudo systemctl restart ane.service
