@@ -159,7 +159,7 @@ class WorldMapRenderer {
     this.markerDragOfsX = 0;        // temp visual offset during marker drag
     this.markerDragOfsY = 0;
     this._moveLock = false;         // prevent concurrent move calls
-    this.terrainImage = null;
+    this._terrainCanvas = null;     // cached low-res terrain (scaled up on draw)
 
     // Bind events
     this._bindEvents();
@@ -190,40 +190,54 @@ class WorldMapRenderer {
 
   // ── Generate terrain image (called once) ──
   generateTerrain() {
+    // Render terrain at low resolution then scale up — saves ~10x on HiDPI phones
     const scale = 0.002;
-    const octaves = 6;
+    const octaves = 4;
     const persistence = 0.55;
-    const imageData = this.ctx.createImageData(this.width, this.height);
+    const terrainW = 200;
+    const terrainH = 150;
+    const imageData = this.ctx.createImageData(terrainW, terrainH);
     const data = imageData.data;
 
-    for (let y = 0; y < this.height; y++) {
-      for (let x = 0; x < this.width; x++) {
+    for (let y = 0; y < terrainH; y++) {
+      for (let x = 0; x < terrainW; x++) {
         let h = 0, amp = 1, freq = 1, maxAmp = 0;
         for (let o = 0; o < octaves; o++) {
-          h += this.noise.noise2D((x / this.dpr) * scale * freq + 1000, (y / this.dpr) * scale * freq + 1000) * amp;
+          h += this.noise.noise2D((x / terrainW * this.logicalWidth) * scale * freq + 1000, (y / terrainH * this.logicalHeight) * scale * freq + 1000) * amp;
           maxAmp += amp;
           amp *= persistence;
           freq *= 2;
         }
         h /= maxAmp;
-        h += 0.15; // sea level offset: lift distribution, less blue water
+        h += 0.15;
         const c = this._getTerrainColor(h);
-        const idx = (y * this.width + x) * 4;
+        const idx = (y * terrainW + x) * 4;
         data[idx] = c[0];
         data[idx + 1] = c[1];
         data[idx + 2] = c[2];
         data[idx + 3] = 255;
       }
     }
-    // Draw water outline
-    this.ctx.putImageData(imageData, 0, 0);
-    this._renderCoastGlow();
-    this.terrainImage = this.ctx.getImageData(0, 0, this.width, this.height);
+
+    // Draw low-res terrain, scale to full canvas
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = terrainW;
+    tempCanvas.height = terrainH;
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCtx.putImageData(imageData, 0, 0);
+    this._renderCoastGlow(tempCtx, terrainW, terrainH);
+    this._terrainCanvas = tempCanvas;
+
+    // First render: draw to main canvas
+    this.ctx.save();
+    this.ctx.imageSmoothingEnabled = true;
+    this.ctx.imageSmoothingQuality = 'medium';
+    this.ctx.drawImage(tempCanvas, 0, 0, this.logicalWidth, this.logicalHeight);
+    this.ctx.restore();
   }
 
-  _renderCoastGlow() {
-    const ctx = this.ctx;
-    const w = this.width, h = this.height;
+  _renderCoastGlow(ctx, w, h) {
+    if (!ctx) { ctx = this.ctx; w = this.logicalWidth; h = this.logicalHeight; }
     const img = ctx.getImageData(0, 0, w, h);
     const d = img.data;
 
@@ -414,8 +428,10 @@ class WorldMapRenderer {
 
     // Draw terrain (always full size)
     ctx.save();
-    if (this.terrainImage) {
-      ctx.putImageData(this.terrainImage, 0, 0);
+    if (this._terrainCanvas) {
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'medium';
+      ctx.drawImage(this._terrainCanvas, 0, 0, this.logicalWidth, this.logicalHeight);
     } else {
       this.generateTerrain();
     }
