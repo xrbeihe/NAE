@@ -940,7 +940,8 @@ function showHelpPopup(event) {
   const btn = document.getElementById('help-btn');
   const rect = btn.getBoundingClientRect();
   popup.style.left = Math.max(4, rect.left + rect.width - 260) + 'px';
-  popup.style.top = Math.max(4, rect.top - popup.offsetHeight - 4) + 'px';
+  popup.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+  popup.style.top = 'auto';
   popup.classList.add('visible');
   // One-click close on any click
   const closer = () => {
