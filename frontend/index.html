@@ -332,6 +332,19 @@
   }
   #loading-indicator.active { display: block; }
 
+  /* ── info panel ── */
+  #info-panel {
+    background: var(--panel); border-bottom: 1px solid var(--border);
+    padding: 6px 16px; font-size: 12px; color: var(--text);
+    line-height: 1.7; flex-shrink: 0; display: none;
+    white-space: pre-wrap;
+  }
+  #info-panel.visible { display: block; }
+  #info-panel .info-section { color: var(--accent); font-weight: bold; }
+  #info-panel .info-ext { color: var(--accent-dim); }
+  #info-panel .info-ext-key { color: var(--accent); }
+  #info-panel .info-divider { color: var(--accent-dim); }
+
   /* ── color settings floating popup ── */
   #color-popup {
     display: none; position: fixed; z-index: 9999;
@@ -522,7 +535,7 @@
   <b>⭐ 重要人物</b><br>
   勾选后发送，系统从输入中提取人名，已有档案的做增量更新，新人物弹窗确认后全量建模。不占用本轮叙事。<br><br>
   <b>📦 加载建模</b><br>
-  勾选后，输入中提到的已建模人物自动注入完整档案到 Prompt，叙事更精准。名字需严格匹配，0 次 LLM 调用。<br><br>
+  勾选后，输入中提到的已建模人物自动注入完整档案到 Prompt，叙事更精准。名字需严格匹配，因为是数据库提取名字。<br><br>
   两者互斥，不可同时使用。
 </div>
 
@@ -578,6 +591,7 @@
 
       <button class="cmd-btn" onclick="clearLogs()" title="清空前后端日志文件">🗑 清空日志</button>
     </div>
+    <div id="info-panel"></div>
     <div id="chat">
       <div class="msg system">欢迎来到 AI Narrative Engine。<br>点击左侧 "+" 创建一个修仙世界，或选择已有世界继续冒险。</div>
     </div>
@@ -1599,7 +1613,7 @@ async function sendTurn() {
     }
     // ── Player panel ──
     if (data.player_panel) {
-      addMsg('system', data.player_panel);
+      updateInfoPanel(data.player_panel);
     }
     // ── Important NPCs panel ──
     if (data.important_npcs_panel) {
@@ -1972,6 +1986,19 @@ function showRelationshipGraph() {
     box.innerHTML = '<div style="text-align:center;padding:20px;color:#888;">加载失败</div><div style="text-align:center;margin-top:12px"><button onclick="this.closest(\'div\').parentElement.parentElement.remove()" style="padding:6px 16px;border:none;border-radius:4px;background:#e94560;color:white;cursor:pointer;">关闭</button></div>';
   });
 };
+
+// ── 信息面板（每轮自动更新，展示玩家面板 + 扩展栏目）──
+
+function updateInfoPanel(text) {
+  const panel = document.getElementById('info-panel');
+  if (!text || text.startsWith('（无玩家数据）') || text === '【主角面板】\n（无）') {
+    panel.classList.remove('visible');
+    panel.innerHTML = '';
+    return;
+  }
+  panel.textContent = text;
+  panel.classList.add('visible');
+}
 
 // ── 建模人物按钮（由后端 turn 响应动态渲染）──
 

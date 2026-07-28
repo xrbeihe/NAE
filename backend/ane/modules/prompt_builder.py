@@ -136,7 +136,10 @@ player_name_change, npc_important
   更新玩家任意属性（可用 field: personality/clothing/spiritual_root/special_constitution/
   current_action/current_pose/visible_state 等。嵌套属性用 attributes.xxx）
 - status_change：target="player", field="_extensions", value='{"栏目名":"值","栏目名2":"值2"}' →
-  自定义跟踪栏目（value 为完整 JSON 对象字符串，写回后自动解析）。当前已有扩展见 extension: 行
+  自动创建自定义跟踪栏目。当玩家询问或需要持续跟踪的长期活动时，
+  LLM 应主动创建栏目（如 暧昧关系、灵宠状态、炼丹进度、宗门资源
+  等），value 为完整 JSON 对象。当期已有栏目见 extension: 行，
+  LLM 根据叙事进展持续更新。活动结束后栏目可自然消失。
 - npc_status / character_status：target=NPC_ID, field="cultivation", value="新修为" →
   更新 NPC 的修为/位置/身份
 - economy_change：target="player", change=-3, unit="块下品灵石" →
