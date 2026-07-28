@@ -543,22 +543,22 @@ class WorldMapRenderer {
     this._lastClick = { x: logicalX, y: logicalY, time: now };
 
     const hitRadius = 40;
-    // Check city labels first (fixed positions)
-    for (const city of this.cityLocations) {
-      if (Math.abs(logicalX - city.x) < hitRadius && Math.abs(logicalY - city.y) < hitRadius) {
-        if (city.name !== this.playerLocation) {
-          this.onMoveTo(city.name, city.x, city.y);
-          return;
-        }
-      }
-    }
-    // Then sect labels (with drag offset applied)
+    // Check sect labels first (with drag offset applied) — sects are more meaningful
     const adjX = logicalX - this.sectDragOffsetX;
     const adjY = logicalY - this.sectDragOffsetY;
     for (const loc of this.locations) {
       if (Math.abs(adjX - loc.x) < hitRadius && Math.abs(adjY - loc.y) < hitRadius) {
         if (loc.name !== this.playerLocation) {
           this.onMoveTo(loc.name, loc.x, loc.y);
+          return;
+        }
+      }
+    }
+    // Then city labels (fixed positions) — fallback
+    for (const city of this.cityLocations) {
+      if (Math.abs(logicalX - city.x) < hitRadius && Math.abs(logicalY - city.y) < hitRadius) {
+        if (city.name !== this.playerLocation) {
+          this.onMoveTo(city.name, city.x, city.y);
           return;
         }
       }
