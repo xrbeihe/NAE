@@ -24,7 +24,6 @@
     background: var(--bg); color: var(--text);
     height: 100vh;
     height: 100dvh;
-    height: calc(var(--vh, 1vh) * 100);
     display: flex; flex-direction: column;
   }
   /* ── app main wrapper ── */
@@ -641,9 +640,8 @@
         <option value="yes">是，我已成年</option>
       </select>
       <div id="auth-adult-hint" style="margin-top:8px;padding:8px 10px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;font-size:12px;color:var(--accent-dim);line-height:1.5;display:none">
-        你可以在发送内容的末尾添加 <strong>HO</strong>（意思是 H is Open）来标记该轮为成人内容。
-        注意：HO 必须是输入内容最后的两个字母，空格和额外字符会被忽略。
-        例如：<em>我要和她双修HO</em>
+        你可以在发送内容的末尾添加 <strong>HO</strong>（H is Open）来标记该轮为特殊内容。
+        例如：<em>我要......HO</em>
       </div>
       <div id="auth-minor-hint" style="margin-top:8px;padding:8px 10px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;font-size:12px;color:var(--accent-dim);display:none">
         欢迎你，小朋友！🖐
@@ -661,22 +659,15 @@
 
 <script>
 // ── Fix mobile 100vh ──
+// Note: `100dvh` in CSS already handles mobile address bar on modern browsers.
+// Only needed for very old WebView fallback:
 (function() {
   function setHeight() {
-    const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-    const vh = h * 0.01;
-    document.documentElement.style.setProperty('--vh', vh + 'px');
+    const h = window.innerHeight;
+    document.documentElement.style.setProperty('--vh', (h * 0.01) + 'px');
   }
   setHeight();
-  if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', setHeight);
-  } else {
-    window.addEventListener('resize', setHeight);
-  }
-  window.addEventListener('orientationchange', () => setTimeout(setHeight, 300));
-  // iOS keyboard: force recalculation
-  document.addEventListener('focusin', () => setTimeout(setHeight, 400));
-  document.addEventListener('focusout', () => setTimeout(setHeight, 200));
+  window.addEventListener('resize', setHeight);
 })();
 
 // ── Frontend logger ──
