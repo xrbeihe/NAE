@@ -672,7 +672,6 @@ class WorldMapRenderer {
           // Cancel drag offset so _handleClick sees correct coords
           this.sectDragOffsetX = _origSectOfsX;
           this.sectDragOffsetY = _origSectOfsY;
-          this._handleClick(e);
         }
         // If dragged, keep the offset as-is (user positioned labels)
       }
@@ -756,7 +755,7 @@ class WorldMapRenderer {
         if (isTap) {
           this.sectDragOffsetX = _origSectOfsX;
           this.sectDragOffsetY = _origSectOfsY;
-          this._handleClick({ clientX: _touchStartX, clientY: _touchStartY });
+        }
         }
       }
 
