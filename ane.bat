@@ -6,7 +6,7 @@ echo ============================================
 echo     AI Narrative Engine Service Manager
 echo ============================================
 echo.
-echo  1. Start all (frontend + backend)
+echo  1. Start backend (waiting for ready)
 echo  2. Backend only (foreground)
 echo  3. Stop services
 echo  4. Clean cache
@@ -28,10 +28,10 @@ goto MENU
 
 :START_ALL
 echo.
-echo [1/3] Killing old processes...
+echo [1/2] Killing old processes...
 call :KILL_PORT
 
-echo [2/3] Starting backend (waiting for ready)...
+echo [2/2] Starting backend (waiting for ready)...
 cd backend
 set ANE_RELOAD=1
 start /b "" "%~dp0.venv\Scripts\python.exe" -m ane.main

@@ -89,5 +89,5 @@ cd backend && ANE_RELOAD=1 .venv\Scripts\python -m ane.main
 
 ### 🔄 热重载
 - `ANE_RELOAD=1` 环境变量启用 uvicorn reload
-- `start_backend.bat` / `ane.sh` 启动前自动杀旧进程
+- `ane.bat` 启动前自动杀旧进程
 
