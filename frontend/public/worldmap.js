@@ -142,8 +142,11 @@ class WorldMapRenderer {
     this.height = Math.floor(logicalH * dpr);
     this.canvas.width = this.width;
     this.canvas.height = this.height;
-    this.canvas.style.width = logicalW + 'px';
-    this.canvas.style.height = logicalH + 'px';
+    // Don't set fixed style — let CSS (flex: 1, width: 100%) handle display size
+    // this.canvas.style.width = logicalW + 'px';
+    // this.canvas.style.height = logicalH + 'px';
+    this.canvas.style.width = '100%';
+    this.canvas.style.height = '100%';
     this.ctx.scale(dpr, dpr);
 
     this.seed = options.seed || (Math.random() * 65536) | 0;

@@ -45,21 +45,44 @@
   #map-toggle-btn { cursor: pointer; }
   #map-toggle-btn:hover { border-color: var(--accent); color: var(--accent); }
 
-  /* ── world map ── */
-  #map-panel {
-    display: none; flex-direction: column; overflow: hidden;
-    border-bottom: 1px solid var(--border); background: var(--panel);
-    flex-shrink: 0; align-items: center; padding: 10px;
+  /* ── world map (fullscreen modal) ── */
+  #map-overlay {
+    display: none; position: fixed; z-index: 1000;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.65); backdrop-filter: blur(4px);
+    justify-content: center; align-items: center;
   }
-  #map-panel.visible { display: flex; }
-  #map-panel canvas { max-width: 100%; border-radius: 4px; cursor: pointer; }
+  #map-overlay.visible { display: flex; }
+  #map-panel {
+    display: flex; flex-direction: column;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px;
+    width: min(90vw, 900px); height: min(85vh, 700px);
+    position: relative; overflow: hidden;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+  }
+  #map-panel canvas {
+    flex: 1; width: 100%; border-radius: 6px;
+    cursor: pointer; object-fit: contain;
+    background: #0d0a08;
+  }
   #map-panel canvas:active { cursor: grabbing; }
-  #map-gen-controls { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; flex-wrap: wrap; justify-content: center; }
+  #map-gen-controls {
+    display: flex; gap: 8px; align-items: center;
+    flex-shrink: 0; margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
   #map-gen-controls label { color: var(--text); font-size: 13px; }
   #map-gen-controls input { width: 60px; background: #1e1e1e; color: var(--text); border: 1px solid var(--border); padding: 4px 8px; border-radius: 3px; font-size: 13px; }
   #map-gen-controls button { background: var(--accent); color: #1a1410; border: none; padding: 5px 14px; border-radius: 3px; cursor: pointer; font-weight: bold; font-size: 13px; }
   #map-gen-controls button:hover { background: #d4b87a; }
-  #map-close { position: absolute; top: 8px; right: 12px; background: none; border: none; color: var(--accent-dim); cursor: pointer; font-size: 16px; }
+  #map-close {
+    position: absolute; top: 8px; right: 12px;
+    background: none; border: none; color: var(--accent-dim);
+    cursor: pointer; font-size: 20px; z-index: 1;
+    line-height: 1; padding: 4px;
+  }
+  #map-close:hover { color: var(--text); }
 
   /* ── chat area ── */
   #chat {
@@ -387,9 +410,8 @@
     #char-modal h2 { font-size: 16px; }
     #sect-select-modal { width: 95%; max-width: 95%; }
     .sect-option { font-size: 13px; padding: 8px 10px; }
-    #map-panel canvas { max-width: 100%; height: auto; }
-    #map-panel { padding: 6px; max-height: 50vh; }
-    #map-gen-controls { gap: 4px; flex-wrap: wrap; }
+    #map-panel { padding: 12px; width: 95vw; height: 90vh; }
+    #map-gen-controls { gap: 4px; }
     #map-gen-controls button { font-size: 11px; padding: 4px 8px; }
     #map-faction-count { width: 50px; }
     #rec-area { padding: 2px 10px; }
@@ -462,15 +484,17 @@
   <button id="map-toggle-btn" onclick="toggleMapPanel()" title="世界地图">🗺 地图</button>
 </div>
 
-<div id="map-panel">
-  <div id="map-gen-controls">
-    <label>宗门数量 (10-20):</label>
-    <input type="number" id="map-faction-count" value="12" min="10" max="20">
-    <button onclick="generateWorldMap()">🔄 随机生成</button>
-    <button id="map-save-btn" onclick="saveCurrentMap()" style="display:none">💾 保存地图</button>
-    <button onclick="closeMap()">✕</button>
+<div id="map-overlay">
+  <div id="map-panel">
+    <button onclick="closeMap()" id="map-close">✕</button>
+    <div id="map-gen-controls">
+      <label>宗门数量 (10-20):</label>
+      <input type="number" id="map-faction-count" value="12" min="10" max="20">
+      <button onclick="generateWorldMap()">🔄 随机生成</button>
+      <button id="map-save-btn" onclick="saveCurrentMap()" style="display:none">💾 保存地图</button>
+    </div>
+    <canvas id="world-map"></canvas>
   </div>
-  <canvas id="world-map" width="1200" height="825"></canvas>
 </div>
 
 <div id="app-main" style="display:none">
@@ -797,7 +821,7 @@ function resetWorldState() {
   mapRenderer = null;
   mapVisible = false;
   mapGenerating = false;
-  document.getElementById('map-panel')?.classList.remove('visible');
+  document.getElementById('map-overlay')?.classList.remove('visible');
   document.getElementById('map-toggle-btn')?.classList.remove('active');
   // Re-enable map controls (may have been disabled by previous session's save)
   const mapCountInput = document.getElementById('map-faction-count');
@@ -2110,9 +2134,14 @@ async function handleMapMove(destName, destX, destY, skipConfirm) {
 
 function closeMap() {
   mapVisible = false;
-  document.getElementById('map-panel').classList.remove('visible');
+  document.getElementById('map-overlay').classList.remove('visible');
   document.getElementById('map-toggle-btn').classList.remove('active');
 }
+
+// Click overlay to close
+document.addEventListener('click', (e) => {
+  if (e.target.id === 'map-overlay') closeMap();
+});
 
 // ESC 关闭地图
 document.addEventListener('keydown', (e) => {
@@ -2483,7 +2512,7 @@ async function _finalizeSaveMap(chosenSect, chosenCity) {
 
 async function toggleMapPanel() {
   mapVisible = !mapVisible;
-  document.getElementById('map-panel').classList.toggle('visible', mapVisible);
+  document.getElementById('map-overlay').classList.toggle('visible', mapVisible);
   document.getElementById('map-toggle-btn').classList.toggle('active', mapVisible);
   if (mapVisible && !mapRenderer) {
     frontendLog('INFO', 'Opening map panel...');
