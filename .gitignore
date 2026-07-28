@@ -30,9 +30,6 @@ data/
 *.log
 user_logs/
 
-# Build artifacts — frontend built to backend/ane/static/
-# backend/ane/static/  # removed: need to track built files for deployment
-
 # Debug / temp
 debug_*.txt
 nul

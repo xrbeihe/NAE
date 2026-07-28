@@ -39,8 +39,7 @@ backend/          → 后端源码
     content/         7 个 JSON 模板库 + 2 个 Python 封装层
     tools/           NSFW 收割 + GUI 工具
     api/             FastAPI 路由 + Pydantic schemas
-    static/          静态文件目录（前端构建产物）
-frontend/         → 前端源码
+frontend/         → 前端源码（FastAPI 直接挂载此目录）
   index.html         SPA 主页面
   public/worldmap.js 世界地图 Canvas 渲染器
 tests/            → 测试（pytest）
@@ -59,10 +58,6 @@ ane.bat
 
 # 仅后端（带热重载 ANE_RELOAD=1）
 cd backend && ANE_RELOAD=1 .venv\Scripts\python -m ane.main
-
-# 构建前端（复制静态文件到 static/）
-cp frontend/index.html backend/ane/static/index.html
-cp frontend/public/worldmap.js backend/ane/static/worldmap.js
 
 # 测试
 .venv\Scripts\pytest tests/ -v

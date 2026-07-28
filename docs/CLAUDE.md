@@ -65,8 +65,10 @@
 │       │   ├── routes.py          # Session/Turn API（认证保护）
 │       │   ├── auth_routes.py     # 注册/登录 API
 │       │   └── schemas.py
-│       └── static/                # 静态文件目录（前端构建输出）
-├── frontend/              # 前端源码
+│       └── content/               # JSON 模板数据
+│           ├── npc_templates.json  # 姓名/修为/性格/原型
+│           └── json_loader.py
+├── frontend/              # 前端源码（FastAPI 直接挂载）
 │   ├── index.html         # SPA + 登录/注册页面
 │   ├── public/worldmap.js # 世界地图 Canvas 渲染
 ├── .venv/                 # 虚拟环境（Python 依赖）

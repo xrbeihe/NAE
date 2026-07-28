@@ -376,7 +376,7 @@ app.include_router(router)
 from ane.api.auth_routes import router as auth_router  # noqa: E402
 app.include_router(auth_router)
 
-_static_dir = Path(__file__).parent / "static"
+_static_dir = Path(__file__).parent.parent.parent / "frontend"
 if _static_dir.exists():
     app.mount("/", StaticFiles(directory=str(_static_dir), html=True), name="static")
     logger.info(f"Serving static files from {_static_dir}")
