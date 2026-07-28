@@ -543,7 +543,7 @@ class WorldMapRenderer {
     this._lastClick = { x: logicalX, y: logicalY, time: now };
 
     // Check city labels first (fixed positions)
-    const hitRadius = 20;
+    const hitRadius = 40;
     for (const city of this.cityLocations) {
       if (Math.abs(logicalX - city.x) < hitRadius && Math.abs(logicalY - city.y) < hitRadius) {
         if (city.name !== this.playerLocation) {
