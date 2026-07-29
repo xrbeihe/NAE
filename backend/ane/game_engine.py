@@ -1443,12 +1443,22 @@ class GameEngine:
     async def _handle_system_command(
         self, db, session_id, cmd, user_input,
     ) -> TurnResult:
-        """Handle system commands /help."""
+        """Handle system commands."""
+        from ane.modules.player_manager import player_manager as pm
         if cmd == "system_help":
             return self._cmd_help()
+        if cmd == "system_status":
+            player = await pm.get_by_session(db, session_id)
+            name = player.name if player else "未知"
+            loc = player.location if player else "未知"
+            cult = player.cultivation if player else "未知"
+            return TurnResult(
+                is_system_command=True,
+                system_response=f"修士：{name} | 位置：{loc} | 修为：{cult}",
+            )
         return TurnResult(
             is_system_command=True,
-            system_response="未知命令。可用命令：/help",
+            system_response="未知命令。可用命令：/help、/status",
         )
 
 

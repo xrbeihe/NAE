@@ -32,6 +32,7 @@ _INJECTION_PATTERNS = [
 # System commands that bypass normal narrative flow
 _SYSTEM_COMMANDS = {
     "/help": "system_help",
+    "/status": "system_status",
     "/describe-world": "system_describe_world",
     "描述这个世界": "system_describe_world",
 }
