@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>主页 — AI Narrative Engine</title>
+<style>
+  :root {
+    --bg: #1a1410;
+    --panel: #231d16;
+    --border: #3a3026;
+    --text: #d4c8b8;
+    --accent: #c9a96e;
+    --accent-dim: #6b5a3e;
+    --danger: #8b4545;
+    --input-bg: #2a2218;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: "Microsoft YaHei", "SimSun", serif;
+    background: var(--bg); color: var(--text);
+    height: 100vh; height: 100dvh;
+    display: flex; flex-direction: column;
+  }
+
+  /* ── header ── */
+  #header {
+    background: var(--panel); border-bottom: 1px solid var(--border);
+    padding: 10px 20px; display: flex; align-items: center; gap: 16px;
+    flex-shrink: 0;
+  }
+  #header h1 { font-size: 18px; color: var(--accent); white-space: nowrap; cursor: pointer; }
+  #header h1:hover { opacity: 0.85; }
+
+  /* ── home page ── */
+  #home-page { display: flex; flex-direction: column; height: 100%; overflow-y: auto; padding: 20px 32px; flex: 1; background: var(--bg); }
+
+  /* ── NPC table ── */
+  #home-npc-table { flex: 1; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); }
+
+  /* ── NPC library popup ── */
+  #npc-library-popup {
+    display: none; position: fixed; z-index: 9999;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 8px; width: 75vw; max-width: 900px; height: 75vh;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+    flex-direction: column; overflow: hidden;
+  }
+  #npc-library-popup.visible { display: flex; }
+  #npc-lib-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 14px; border-bottom: 1px solid var(--border);
+    font-size: 14px; color: var(--accent); flex-shrink: 0;
+  }
+  #npc-lib-body { flex: 1; overflow-y: auto; padding: 6px 0; min-height: 100px; }
+  .npc-lib-item {
+    display: block; width: 100%; text-align: left;
+    padding: 8px 14px; border: none; background: transparent;
+    color: var(--text); font-size: 13px; cursor: pointer;
+    font-family: inherit; transition: background 0.15s;
+  }
+  .npc-lib-item:hover { background: var(--input-bg); }
+  .npc-lib-item .npc-lib-sub { font-size: 11px; color: var(--accent-dim); margin-top: 1px; }
+  .npc-lib-back {
+    display: inline-block; padding: 4px 10px; margin: 6px 10px;
+    border: 1px solid var(--border); border-radius: 4px;
+    background: transparent; color: var(--accent-dim); font-size: 12px;
+    cursor: pointer; font-family: inherit;
+  }
+  .npc-lib-back:hover { border-color: var(--accent); color: var(--accent); }
+  .npc-lib-detail { padding: 8px 14px 14px; font-size: 12px; line-height: 1.7; color: var(--text); white-space: pre-wrap; }
+
+  /* ── NPC detail float ── */
+  #npc-detail-float {
+    display: none; position: fixed; z-index: 10000;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 8px; width: 360px; max-height: 60vh;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5); overflow: hidden;
+    flex-direction: column; cursor: move;
+    left: 50%; top: 50%; transform: translate(-50%,-50%);
+  }
+  #npc-detail-float-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 12px; border-bottom: 1px solid var(--border);
+    font-size: 14px; color: var(--accent); cursor: move;
+    flex-shrink: 0; user-select: none;
+  }
+  #npc-detail-float-body { flex: 1; overflow-y: auto; padding: 10px 12px; font-size: 12px; color: var(--text); white-space: pre-wrap; line-height: 1.5; }
+
+  /* ── scrollbar ── */
+  #home-npc-table::-webkit-scrollbar { width: 6px; }
+  #home-npc-table::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  @media (max-width: 768px) {
+    #header h1 { font-size: 14px; }
+    #header { gap: 6px; padding: 6px 10px; flex-wrap: wrap; }
+    #home-page { padding: 12px 16px; }
+    #npc-library-popup { width: 95vw; }
+  }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1 onclick="renderHomePage()">⚔ AI Narrative Engine</h1>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:6px;position:relative">
+    <div id="user-avatar" onclick="toggleUserMenu()" style="width:30px;height:30px;border-radius:50%;background:var(--accent);color:var(--panel);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;overflow:hidden;flex-shrink:0;border:1px solid var(--border)">🧑</div>
+    <div id="user-menu" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:4px;min-width:140px;z-index:500;box-shadow:0 4px 12px rgba(0,0,0,0.4)">
+      <button onclick="location.href='/settings'" style="display:block;width:100%;padding:8px 12px;background:none;border:none;color:var(--text);cursor:pointer;font-size:13px;text-align:left;border-radius:4px">⚙️ 用户设置</button>
+      <button onclick="handleLogout()" style="display:block;width:100%;padding:8px 12px;background:none;border:none;color:var(--danger);cursor:pointer;font-size:13px;text-align:left;border-radius:4px">🚪 退出登录</button>
+    </div>
+  </div>
+</div>
+
+<div id="home-page">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-shrink:0">
+    <h2 style="margin:0;color:var(--accent)">📚 NPC总库</h2>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button onclick="showCreateNpcModal()" style="background:var(--accent);color:var(--panel);border:none;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:13px">+ 新建建模NPC</button>
+      <button onclick="npcLibRefresh()" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px">↻ 刷新</button>
+    </div>
+  </div>
+  <div id="home-npc-table">
+  </div>
+  <div style="margin-top:12px;flex-shrink:0">
+    <button onclick="showWorldManage()" style="background:var(--accent);color:var(--panel);border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:13px">🌍 世界管理</button>
+  </div>
+</div>
+
+<!-- 世界管理弹窗 -->
+<div id="world-manage-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:20000;align-items:center;justify-content:center" onclick="if(event.target===this)closeWorldManageModal()">
+  <div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;width:520px;max-height:95vh;min-height:60vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 6px 24px rgba(0,0,0,0.5)">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <h2 style="margin:0;color:var(--accent);font-size:16px">🌍 世界管理</h2>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button onclick="startNewWorld()" style="background:var(--accent);color:var(--panel);border:none;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:13px">🌍 创建新世界</button>
+        <span onclick="closeWorldManageModal()" style="cursor:pointer;font-size:16px;color:var(--accent-dim);padding:2px 4px">✕</span>
+      </div>
+    </div>
+    <div style="flex:1;overflow-y:auto;background:var(--panel)">
+      <select id="home-world-select" onchange="onHomeWorldSelect()" style="width:100%;padding:12px;background:var(--input-bg);border:none;border-bottom:1px solid var(--border);color:var(--text);font-size:14px">
+        <option value="">选择一个世界进入...</option>
+      </select>
+      <div id="world-list" style="padding:12px">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- NPC Library Popup -->
+<div id="npc-library-popup">
+  <div id="npc-lib-header">
+    <span>📚 NPC总库</span>
+    <span onclick="closeNpcLibraryPopup()" style="cursor:pointer;font-size:16px;color:var(--accent-dim)">✕</span>
+  </div>
+  <div id="npc-lib-main" style="display:flex;flex:1;min-height:0;overflow:hidden">
+    <div id="npc-lib-list" style="width:240px;flex-shrink:0;overflow-y:auto;border-right:1px solid var(--border);padding:6px"></div>
+    <div id="npc-lib-detail-panel" style="flex:1;overflow-y:auto;padding:12px;font-size:13px;color:var(--text);white-space:pre-wrap;line-height:1.6">
+      <div style="text-align:center;color:var(--accent-dim);margin-top:40px">点击左侧NPC名称查看详情</div>
+    </div>
+  </div>
+  <div id="npc-lib-footer" style="padding:8px;border-top:1px solid var(--border);display:flex;gap:4px">
+    <button id="npc-lib-create-btn" onclick="showCreateNpcModal()" style="flex:1;background:var(--accent);color:var(--panel);border:none;padding:6px;border-radius:4px;cursor:pointer;font-size:12px">+ 新建建模NPC</button>
+    <button id="npc-lib-refresh-btn" onclick="npcLibRefresh()" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:6px;border-radius:4px;cursor:pointer;font-size:12px">↻</button>
+  </div>
+</div>
+
+<!-- NPC detail float -->
+<div id="npc-detail-float">
+  <div id="npc-detail-float-header">
+    <span id="npc-detail-float-name" style="font-weight:bold">NPC</span>
+    <span onclick="closeNpcDetailFloat()" style="cursor:pointer;font-size:14px;color:var(--accent-dim);padding:2px 6px">✕</span>
+  </div>
+  <div id="npc-detail-float-body"></div>
+</div>
+
+<!-- NPC创建弹窗 -->
+<div id="create-npc-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:20000;align-items:center;justify-content:center">
+  <div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:28px;width:480px;max-height:85vh;overflow-y:auto;box-shadow:0 6px 24px rgba(0,0,0,0.5)">
+    <h2 style="margin:0 0 6px;color:var(--accent);font-size:18px">✨ 新建建模NPC</h2>
+    <p style="margin:0 0 18px;font-size:12px;color:var(--accent-dim);line-height:1.6">
+      输入你对这个NPC的描述，AI将根据描述自动生成本相貌、身份、性格等完整人物模型。
+    </p>
+
+    <label style="display:block;color:var(--accent-dim);font-size:12px;margin-bottom:4px">NPC描述</label>
+    <textarea id="create-npc-input" placeholder="例：一个白发苍苍的老者，修为深不可测，是落霞山脉的隐世高人…"
+      style="width:100%;min-height:120px;padding:12px;background:var(--input-bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;font-family:inherit;resize:vertical;box-sizing:border-box;line-height:1.6"></textarea>
+
+    <div id="create-npc-tags" style="margin-top:12px">
+      <label style="display:block;color:var(--accent-dim);font-size:12px;margin-bottom:4px">标签（可选）</label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <label style="font-size:12px;color:var(--accent-dim);cursor:pointer;display:flex;align-items:center;gap:3px;padding:4px 8px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px" onclick="tagClick(this)">
+          <input type="checkbox" value="重要人物" checked style="accent-color:var(--accent);cursor:pointer"> 重要人物
+        </label>
+        <label style="font-size:12px;color:var(--accent-dim);cursor:pointer;display:flex;align-items:center;gap:3px;padding:4px 8px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px" onclick="tagClick(this)">
+          <input type="checkbox" value="反派" style="accent-color:var(--accent);cursor:pointer"> 反派
+        </label>
+        <label style="font-size:12px;color:var(--accent-dim);cursor:pointer;display:flex;align-items:center;gap:3px;padding:4px 8px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px" onclick="tagClick(this)">
+          <input type="checkbox" value="路人" style="accent-color:var(--accent);cursor:pointer"> 路人
+        </label>
+        <label style="font-size:12px;color:var(--accent-dim);cursor:pointer;display:flex;align-items:center;gap:3px;padding:4px 8px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px" onclick="tagClick(this)">
+          <input type="checkbox" value="背景板" style="accent-color:var(--accent);cursor:pointer"> 背景板
+        </label>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end">
+      <button onclick="closeCreateNpcModal()" style="padding:8px 20px;background:transparent;border:1px solid var(--border);color:var(--accent-dim);border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit">取消</button>
+      <button id="create-npc-submit-btn" onclick="submitCreateNpc()" style="padding:8px 24px;background:var(--accent);color:#1a1410;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:bold;font-family:inherit">✨ 开始建模</button>
+    </div>
+  </div>
+</div>
+
+<script src="/public/common.js"></script>
+<script>
+frontendLog('INFO', 'Home page loaded');
+
+// ── Auth guard ──
+if (!isLoggedIn()) { location.href = '/login'; }
+
+// ── User menu ──
+function toggleUserMenu() {
+  var menu = document.getElementById('user-menu');
+  menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+}
+document.addEventListener('click', function(e) {
+  var menu = document.getElementById('user-menu');
+  var avatar = document.getElementById('user-avatar');
+  if (menu && avatar && !avatar.contains(e.target) && !menu.contains(e.target)) {
+    menu.style.display = 'none';
+  }
+});
+
+function handleLogout() {
+  clearToken();
+  location.href = '/login';
+}
+
+// ── NPC Library ──
+let _npcLibData = [];
+let _npcImportedData = {};
+let _npcLibSessionId = "";
+let _sessionIdLib = null;  // set from switchToWorld
+
+async function npcLibLoad() {
+  try {
+    const res = await apiFetch('/npcs/library');
+    const data = await res.json();
+    _npcLibData = data.npcs || [];
+  } catch (e) {
+    _npcLibData = [];
+    frontendLog('ERROR', 'Failed to load NPC library: ' + e.message);
+  }
+  _npcImportedData = {};
+  if (_sessionIdLib) {
+    try {
+      const res2 = await apiFetch('/sessions/' + _sessionIdLib + '/npcs/imported');
+      const data2 = await res2.json();
+      for (var i = 0; i < (data2.npcs || []).length; i++) {
+        _npcImportedData[data2.npcs[i].name] = true;
+      }
+    } catch (e2) {}
+  }
+}
+
+async function showNpcLibraryPopup() {
+  await npcLibLoad();
+  var popup = document.getElementById('npc-library-popup');
+  var listDiv = document.getElementById('npc-lib-list');
+  if (!popup || !listDiv) return;
+  var h = '<div style="font-size:11px;color:var(--accent-dim);padding:6px 10px">勾选 = 导入当前世界</div>';
+  if (!_npcLibData || !_npcLibData.length) {
+    h += '<div style="padding:16px;text-align:center;color:var(--accent-dim);font-size:12px">暂无NPC，点击下方"新建"创建</div>';
+  } else {
+    for (var i = 0; i < _npcLibData.length; i++) {
+      var n = _npcLibData[i];
+      var imported = _npcImportedData[n.name] || false;
+      var style = 'display:flex;align-items:center;gap:4px;padding:6px 10px;border-bottom:1px solid var(--border);cursor:default';
+      if (i === window._npcLib_selectedIdx) { style += ';background:var(--accent);color:var(--panel)'; }
+      h += '<div class="npc-lib-list-item" style="' + style + '">' +
+        '<input type="checkbox" ' + (imported ? 'checked' : '') + ' onchange="npcLibToggle(\'' + n.name.replace(/'/g, "\\'") + '\', this.checked)" style="cursor:pointer;flex-shrink:0">' +
+        '<button style="display:block;width:100%;text-align:left;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--input-bg);color:var(--text);cursor:pointer;font-size:14px;transition:border-color .2s,background .2s" onclick="npcLibSelect(' + i + ')">' + escHtml(n.name) + '</button></div>';
+    }
+  }
+  listDiv.innerHTML = h;
+  if (window._npcLib_selectedIdx >= 0 && _npcLibData && _npcLibData[window._npcLib_selectedIdx]) {
+    showNpcDetailFloat(window._npcLib_selectedIdx);
+  } else {
+    document.getElementById('npc-lib-detail-panel').innerHTML = '<div style="text-align:center;color:var(--accent-dim);margin-top:40px">点击左侧NPC名称查看详情</div>';
+  }
+  popup.style.left = '50%';
+  popup.style.top = '50%';
+  popup.style.transform = 'translate(-50%, -50%)';
+  var overlay = document.getElementById('npc-lib-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'npc-lib-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.5);';
+    overlay.onclick = closeNpcLibraryPopup;
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = 'block';
+  popup.classList.add('visible');
+}
+
+window._npcLib_selectedIdx = -1;
+
+function npcLibSelect(index) {
+  window._npcLib_selectedIdx = index;
+  showNpcLibraryPopup();
+}
+
+function showNpcDetailFloat(index) {
+  var n = _npcLibData[index];
+  if (!n) return;
+  document.getElementById('npc-detail-float-name').textContent = n.name;
+  var body = document.getElementById('npc-detail-float-body');
+  if (n.model_data && n.model_data.model_version) {
+    var detail = formatNpcModel(n.model_data, n.name);
+    body.textContent = detail;
+  } else {
+    body.innerHTML = '<div style="color:var(--accent-dim)">该NPC尚无建模数据</div>';
+  }
+  document.getElementById('npc-detail-float').style.display = 'flex';
+}
+
+function closeNpcLibraryPopup() {
+  document.getElementById('npc-library-popup').classList.remove('visible');
+  var overlay = document.getElementById('npc-lib-overlay');
+  if (overlay) overlay.style.display = 'none';
+  closeNpcDetailFloat();
+  window._npcLib_selectedIdx = -1;
+}
+
+function closeNpcDetailFloat() {
+  document.getElementById('npc-detail-float').style.display = 'none';
+}
+
+// NPC detail float drag
+(function() {
+  var floatDiv = document.getElementById('npc-detail-float');
+  var header = document.getElementById('npc-detail-float-header');
+  if (!floatDiv || !header) return;
+  var isDragging = false, startX, startY, origLeft, origTop;
+  header.onmousedown = function(e) {
+    isDragging = true;
+    var rect = floatDiv.getBoundingClientRect();
+    startX = e.clientX; startY = e.clientY;
+    origLeft = rect.left; origTop = rect.top;
+    floatDiv.style.left = origLeft + 'px';
+    floatDiv.style.top = origTop + 'px';
+    floatDiv.style.transform = 'none';
+    document.onmousemove = function(e2) {
+      if (!isDragging) return;
+      floatDiv.style.left = (origLeft + e2.clientX - startX) + 'px';
+      floatDiv.style.top = (origTop + e2.clientY - startY) + 'px';
+    };
+    document.onmouseup = function() { isDragging = false; document.onmousemove = null; document.onmouseup = null; };
+    e.preventDefault();
+  };
+})();
+
+async function npcLibToggle(name, checked) {
+  if (!_sessionIdLib) return;
+  try {
+    if (checked) {
+      await apiFetch('/sessions/' + _sessionIdLib + '/npcs/import/' + encodeURIComponent(name), {method: 'POST'});
+    } else {
+      await apiFetch('/sessions/' + _sessionIdLib + '/npcs/import/' + encodeURIComponent(name), {method: 'DELETE'});
+    }
+  } catch (e) {
+    frontendLog('ERROR', 'NPC toggle failed: ' + e.message);
+    npcLibLoad();
+    showNpcLibraryPopup();
+  }
+}
+
+async function npcLibCreate(inputText, tags) {
+  var btn = document.getElementById('npc-lib-create-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '···'; }
+  try {
+    const res = await apiFetch('/npcs/library', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({input: inputText.trim(), tags: tags || ['新建']})
+    });
+    if (!res.ok) { var err = await res.json(); throw new Error(err.detail || '创建失败'); }
+    var data = await res.json();
+    closeCreateNpcModal();
+    alert('✅ NPC「' + data.name + '」已添加至总库');
+    await npcLibLoad();
+    renderNpcTable();
+  } catch (e) {
+    frontendLog('ERROR', 'NPC create failed: ' + e.message);
+    alert('❌ 创建NPC失败: ' + e.message);
+  }
+  if (btn) { btn.disabled = false; btn.textContent = '+ 新建建模NPC'; }
+}
+
+// ── Create NPC Modal ──
+function showCreateNpcModal() {
+  document.getElementById('create-npc-input').value = '';
+  document.getElementById('create-npc-modal').style.display = 'flex';
+  setTimeout(function() { document.getElementById('create-npc-input').focus(); }, 100);
+}
+
+function closeCreateNpcModal() {
+  document.getElementById('create-npc-modal').style.display = 'none';
+}
+
+function tagClick(labelEl) {
+  var cb = labelEl.querySelector('input[type=checkbox]');
+  if (cb) cb.checked = !cb.checked;
+}
+
+function submitCreateNpc() {
+  var input = document.getElementById('create-npc-input').value.trim();
+  if (!input) {
+    document.getElementById('create-npc-input').focus();
+    document.getElementById('create-npc-input').style.borderColor = 'var(--danger)';
+    setTimeout(function() { document.getElementById('create-npc-input').style.borderColor = ''; }, 1500);
+    return;
+  }
+  var tagCbs = document.querySelectorAll('#create-npc-tags input[type=checkbox]:checked');
+  var tags = Array.from(tagCbs).map(function(cb) { return cb.value; });
+  var submitBtn = document.getElementById('create-npc-submit-btn');
+  submitBtn.disabled = true;
+  submitBtn.textContent = '⏳ 建模中...';
+  npcLibCreate(input, tags.length ? tags : null).finally(function() {
+    submitBtn.disabled = false;
+    submitBtn.textContent = '✨ 开始建模';
+  });
+}
+
+async function npcLibRefresh() {
+  await npcLibLoad();
+  renderNpcTable();
+  await loadHomeWorldSelect();
+}
+
+// ── Home page ──
+
+function renderHomePage() {
+  document.getElementById('home-page').style.display = 'flex';
+}
+
+async function renderNpcTable() {
+  await npcLibLoad();
+  var table = document.getElementById('home-npc-table');
+  if (!_npcLibData || !_npcLibData.length) {
+    table.innerHTML = '<div style="padding:24px;text-align:center;color:var(--accent-dim)">暂无NPC，点击上方"新建"创建第一个角色</div>';
+    return;
+  }
+  var h = '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
+    '<thead><tr style="border-bottom:1px solid var(--border);color:var(--accent-dim);font-size:12px">' +
+    '<th style="padding:8px 12px;text-align:left">名称</th>' +
+    '<th style="padding:8px 12px;text-align:left">身份</th>' +
+    '<th style="padding:8px 12px;text-align:left">修为</th>' +
+    '<th style="padding:8px 12px;text-align:left">标签</th>' +
+    '<th style="padding:8px 12px;text-align:center">导入当前世界</th>' +
+    '<th style="padding:8px 12px;text-align:center">操作</th></tr></thead><tbody>';
+  for (var i = 0; i < _npcLibData.length; i++) {
+    var n = _npcLibData[i];
+    var imported = _npcImportedData[n.name] || false;
+    var identity = (n.model_data && n.model_data.basic && n.model_data.basic.identity) || '未知';
+    var cult = (n.model_data && n.model_data.basic && n.model_data.basic.cultivation) || '未知';
+    var tags = (n.tags && n.tags.length) ? n.tags.join(', ') : '—';
+    h += '<tr style="border-bottom:1px solid var(--border)">' +
+      '<td style="padding:8px 12px"><b>' + escHtml(n.name) + '</b></td>' +
+      '<td style="padding:8px 12px;color:var(--accent-dim)">' + escHtml(identity) + '</td>' +
+      '<td style="padding:8px 12px;color:var(--accent-dim)">' + escHtml(cult) + '</td>' +
+      '<td style="padding:8px 12px;color:var(--accent-dim);font-size:11px">' + escHtml(tags) + '</td>' +
+      '<td style="padding:8px 12px;text-align:center">' +
+      '<input type="checkbox" ' + (imported ? 'checked' : '') + ' onchange="homeNpcToggle(\'' + n.name.replace(/'/g, "\\'") + '\', this.checked)" style="cursor:pointer"></td>' +
+      '<td style="padding:8px 12px;text-align:center">' +
+      '<button onclick="homeNpcEdit(\'' + n.name.replace(/'/g, "\\'") + '\')" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:2px 8px;border-radius:3px;cursor:pointer;font-size:11px">查看/编辑</button>' +
+      ' <button onclick="homeNpcDelete(\'' + n.name.replace(/'/g, "\\'") + '\')" style="background:none;border:1px solid var(--danger);color:var(--danger);padding:2px 8px;border-radius:3px;cursor:pointer;font-size:11px">删除</button></td></tr>';
+  }
+  h += '</tbody></table>';
+  table.innerHTML = h;
+}
+
+async function homeNpcToggle(name, checked) {
+  if (!_sessionIdLib) {
+    renderNpcTable();
+    return;
+  }
+  try {
+    if (checked) {
+      await apiFetch('/sessions/' + _sessionIdLib + '/npcs/import/' + encodeURIComponent(name), {method: 'POST'});
+    } else {
+      await apiFetch('/sessions/' + _sessionIdLib + '/npcs/import/' + encodeURIComponent(name), {method: 'DELETE'});
+    }
+  } catch (e) {
+    frontendLog('ERROR', 'NPC toggle failed: ' + e.message);
+    await npcLibLoad();
+    renderNpcTable();
+  }
+}
+
+async function homeNpcEdit(name) {
+  var input = prompt('输入更新描述（身份、外貌、性格等）：\n已有数据不会被覆盖，系统会自动合并。', name + '的补充信息');
+  if (!input || !input.trim()) return;
+  try {
+    const res = await apiFetch('/npcs/library/' + encodeURIComponent(name), {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({input: input.trim()})
+    });
+    if (!res.ok) { var err = await res.json(); throw new Error(err.detail || '更新失败'); }
+    await npcLibLoad();
+    renderNpcTable();
+    alert('✅ NPC「' + name + '」已更新');
+  } catch (e) {
+    frontendLog('ERROR', 'NPC edit failed: ' + e.message);
+    alert('更新NPC失败: ' + e.message);
+  }
+}
+
+async function homeNpcDelete(name) {
+  if (!confirm('确定要从总库中永久删除「' + name + '」吗？\n此操作不可恢复。')) return;
+  try {
+    const res = await apiFetch('/npcs/library/' + encodeURIComponent(name), {method: 'DELETE'});
+    if (!res.ok) { var err = await res.json(); throw new Error(err.detail || '删除失败'); }
+    await npcLibLoad();
+    renderNpcTable();
+    alert('🗑 NPC「' + name + '」已从总库删除');
+  } catch (e) {
+    frontendLog('ERROR', 'NPC delete failed: ' + e.message);
+    alert('删除NPC失败: ' + e.message);
+  }
+}
+
+// ── World management ──
+
+function showWorldManage() {
+  document.getElementById('world-manage-modal').style.display = 'flex';
+  loadWorldManageList();
+}
+
+function closeWorldManageModal() {
+  document.getElementById('world-manage-modal').style.display = 'none';
+}
+
+async function loadWorldManageList() {
+  var sel = document.getElementById('home-world-select');
+  try {
+    const res = await apiFetch('/sessions');
+    if (!res.ok) return;
+    const sessions = await res.json();
+    sel.innerHTML = '<option value="">选择一个世界进入...</option>' +
+      sessions.map(function(s) {
+        return '<option value="' + s.session_id + '">' + s.name + ' — ' + (s.player_name || '无名修士') + '</option>';
+      }).join('');
+    var listDiv = document.getElementById('world-list');
+    if (!sessions.length) {
+      listDiv.innerHTML = '<div style="text-align:center;color:var(--accent-dim);padding:20px">暂无世界，点击上方"创建新世界"</div>';
+    } else {
+      listDiv.innerHTML = sessions.map(function(s) {
+        return '<div style="display:flex;align-items:center;padding:10px;border-bottom:1px solid var(--border)">' +
+          '<div onclick="switchToWorld(\'' + s.session_id + '\')" style="flex:1;cursor:pointer;min-width:0">' +
+          '<div style="font-size:14px;color:var(--text)">' + s.name + ' — ' + (s.player_name || '无名修士') + '</div>' +
+          '<div style="font-size:12px;color:var(--accent-dim)">' + (s.world_time || '') + ' · ' + (s.player_cultivation || '?') + '</div></div>' +
+          '<button onclick="event.stopPropagation();deleteWorld(\'' + s.session_id + '\', \'' + escHtml(s.name) + '\')" style="background:none;border:1px solid var(--danger);color:var(--danger);padding:2px 8px;border-radius:3px;cursor:pointer;font-size:11px;flex-shrink:0;margin-left:8px">删除</button></div>';
+      }).join('');
+    }
+  } catch(e) { frontendLog('ERROR', 'Failed to load sessions: ' + e.message); }
+}
+
+function switchToWorld(sid) {
+  closeWorldManageModal();
+  try { localStorage.setItem('ane_last_session', sid); } catch(e) {}
+  location.href = '/';
+}
+
+async function deleteWorld(sid, name) {
+  if (!confirm(`确定要删除世界「${name}」吗？\n所有 NPC、故事进度、记忆将被永久删除，无法恢复。`)) return;
+  try {
+    const res = await apiFetch(`/sessions/${sid}`, { method: 'DELETE' });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.detail || '删除失败'); }
+    if (_sessionIdLib === sid) _sessionIdLib = null;
+    loadWorldManageList();
+  } catch(e) {
+    frontendLog('ERROR', 'Delete failed: ' + e.message);
+    alert('删除失败: ' + e.message);
+  }
+}
+
+async function startNewWorld() {
+  closeWorldManageModal();
+  location.href = '/chat?create=1';
+}
+
+function onHomeWorldSelect() {
+  var sel = document.getElementById('home-world-select');
+  var sid = sel.value;
+  if (!sid) return;
+  switchToWorld(sid);
+}
+
+// ── Load avatar ──
+(function() {
+  var saved = localStorage.getItem('ane_avatar');
+  if (saved) {
+    document.getElementById('user-avatar').innerHTML = '<img src="' + saved + '" style="width:100%;height:100%;object-fit:cover">';
+  }
+})();
+
+// ── Initial render ──
+renderNpcTable();
+</script>
+</body>
+</html>

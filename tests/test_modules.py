@@ -76,15 +76,10 @@ class TestInputValidator:
         assert result.is_system_command is True
         assert result.system_command == "system_help"
 
-    def test_system_command_facts(self):
-        result = validate("/facts")
+    def test_help_command(self):
+        result = validate("/help")
         assert result.is_system_command is True
-        assert result.system_command == "system_list_facts"
-
-    def test_system_command_addfact(self):
-        result = validate("/addfact 林雨凝是玩家的道侣")
-        assert result.is_system_command is True
-        assert result.system_command == "system_add_fact"
+        assert result.system_command == "system_help"
 
     # ── Injection detection ──
 
@@ -538,25 +533,9 @@ class TestMemoryManager:
             earliest = min(c.turn_number for c in conv)
             assert earliest >= total - CONVERSATION_WINDOW_SIZE
 
-    async def test_facts_sorted_by_priority(self, engine):
-        """Facts should be returned in descending priority order."""
-        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-        from ane.modules.memory_manager import memory_manager
-        from ane.database.models import WorldSession
-        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-        async with factory() as db:
-            session = WorldSession(user_id='test_user', name="Test")
-            db.add(session)
-            await db.flush()
-            sid = session.id
-
-            await memory_manager.add_fact(db, sid, "Low priority", priority=1)
-            await memory_manager.add_fact(db, sid, "High priority", priority=10)
-            await memory_manager.add_fact(db, sid, "Medium priority", priority=5)
-
-            facts = await memory_manager.get_facts(db, sid)
-            priorities = [f.priority for f in facts]
-            assert priorities == sorted(priorities, reverse=True)
+    async def todo_facts_removed(self, engine):
+        """Facts table has been removed — this test is deprecated."""
+        pass
 
 
 # ── ModelAdapter tests ───────────────────────────────────────

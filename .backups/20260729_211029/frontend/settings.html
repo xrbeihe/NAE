@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>用户设置 — AI Narrative Engine</title>
+<style>
+  :root {
+    --bg: #1a1410;
+    --panel: #231d16;
+    --border: #3a3026;
+    --text: #d4c8b8;
+    --accent: #c9a96e;
+    --accent-dim: #6b5a3e;
+    --input-bg: #2a2218;
+    --color-ai: #d4c8b8;
+    --color-system: #6b5a3e;
+    --color-user: #e8dcc8;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: "Microsoft YaHei", "SimSun", serif;
+    background: var(--bg); color: var(--text);
+    height: 100vh; height: 100dvh;
+    display: flex; flex-direction: column;
+  }
+
+  /* ── header ── */
+  #header {
+    background: var(--panel); border-bottom: 1px solid var(--border);
+    padding: 10px 20px; display: flex; align-items: center; gap: 16px;
+    flex-shrink: 0;
+  }
+  #header h1 { font-size: 18px; color: var(--accent); white-space: nowrap; cursor: pointer; }
+  #header h1:hover { opacity: 0.85; }
+
+  /* ── settings page ── */
+  #settings-page {
+    display: flex; flex-direction: column; height: 100%;
+    overflow-y: auto; padding: 20px 32px; flex: 1; background: var(--bg);
+  }
+
+  /* ── form elements ── */
+  #settings-page input[type="text"],
+  #settings-page input[type="password"],
+  #settings-page select {
+    width: 100%; padding: 8px 12px; margin-bottom: 6px;
+    background: var(--input-bg); border: 1px solid var(--border);
+    border-radius: 4px; color: var(--text); font-size: 13px;
+    box-sizing: border-box; font-family: inherit;
+  }
+  #settings-page input:focus { border-color: var(--accent); outline: none; }
+  #settings-page input[type="color"] { width: 36px; height: 28px; border: none; border-radius: 3px; cursor: pointer; padding: 0; background: transparent; flex-shrink: 0; }
+
+  .color-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+  .color-row label { flex: 0 0 70px; font-size: 13px; color: var(--text); }
+  .color-row input[type="color"] { width: 36px; height: 28px; border: none; border-radius: 3px; cursor: pointer; padding: 0; background: transparent; flex-shrink: 0; }
+  .color-row input[type="text"] { flex: 1; padding: 3px 6px; background: var(--input-bg); border: 1px solid var(--border); border-radius: 3px; color: var(--text); font-size: 12px; font-family: monospace; }
+  .font-row { display: flex; align-items: center; gap: 8px; margin: 10px 0 6px; }
+  .font-row label { flex: 0 0 70px; font-size: 13px; color: var(--text); }
+  .font-row select { flex: 1; padding: 4px 6px; background: var(--input-bg); border: 1px solid var(--border); border-radius: 3px; color: var(--text); font-size: 12px; font-family: inherit; }
+
+  @media (max-width: 768px) {
+    #header h1 { font-size: 14px; }
+    #header { gap: 6px; padding: 6px 10px; flex-wrap: wrap; }
+    #settings-page { padding: 12px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1 onclick="location.href='/'">⚔ AI Narrative Engine</h1>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:6px;position:relative">
+    <div id="user-avatar" onclick="toggleUserMenu()" style="width:30px;height:30px;border-radius:50%;background:var(--accent);color:var(--panel);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;overflow:hidden;flex-shrink:0;border:1px solid var(--border)">🧑</div>
+    <div id="user-menu" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:4px;min-width:140px;z-index:500;box-shadow:0 4px 12px rgba(0,0,0,0.4)">
+      <button onclick="handleLogout()" style="display:block;width:100%;padding:8px 12px;background:none;border:none;color:var(--danger);cursor:pointer;font-size:13px;text-align:left;border-radius:4px">🚪 退出登录</button>
+    </div>
+  </div>
+</div>
+
+<div id="settings-page">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+    <h2 style="margin:0;color:var(--accent)">⚙️ 用户设置</h2>
+    <button onclick="location.href='/'" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:6px 14px;border-radius:4px;cursor:pointer;font-size:12px">← 返回</button>
+  </div>
+  <div style="max-width:400px">
+
+    <!-- Avatar -->
+    <div style="margin-bottom:16px;text-align:center">
+      <div id="settings-avatar-preview" style="width:72px;height:72px;border-radius:50%;background:var(--accent);color:var(--panel);display:inline-flex;align-items:center;justify-content:center;font-size:28px;overflow:hidden;border:2px solid var(--border);margin-bottom:8px;cursor:pointer">🧑</div>
+      <div style="font-size:11px;color:var(--accent-dim)">点击上方更换头像</div>
+    </div>
+    <input type="file" id="avatar-file-input" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none">
+
+    <!-- Username -->
+    <label style="display:block;margin-bottom:4px;font-size:12px;color:var(--accent-dim)">用户名</label>
+    <div id="settings-username" style="padding:8px 12px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;font-size:13px;color:var(--text);margin-bottom:12px"></div>
+
+    <!-- Password -->
+    <label style="display:block;margin-bottom:4px;font-size:12px;color:var(--accent-dim)">新密码</label>
+    <input type="password" id="settings-new-pwd" placeholder="输入新密码">
+    <button onclick="changePassword()" style="background:var(--accent);color:var(--panel);border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:13px">修改密码</button>
+
+    <hr style="border:none;border-top:1px solid var(--border);margin:24px 0">
+
+    <!-- Colors -->
+    <h3 style="color:var(--accent);font-size:15px;margin-bottom:12px">🎨 文字颜色</h3>
+    <div class="color-row"><label>AI 正文</label><input type="color" id="color-picker-ai"><input type="text" id="color-text-ai" placeholder="#d4c8b8" oninput="safeApplyColor('ai', this.value)"></div>
+    <div class="color-row"><label>系统消息</label><input type="color" id="color-picker-system"><input type="text" id="color-text-system" placeholder="#6b5a3e" oninput="safeApplyColor('system', this.value)"></div>
+    <div class="color-row"><label>用户消息</label><input type="color" id="color-picker-user"><input type="text" id="color-text-user" placeholder="#e8dcc8" oninput="safeApplyColor('user', this.value)"></div>
+    <div style="display:flex;gap:6px;margin-top:10px"><button onclick="resetColors()" style="flex:1;padding:5px;background:transparent;border:1px solid var(--border);color:var(--accent-dim);border-radius:4px;cursor:pointer;font-size:12px">恢复默认</button></div>
+
+    <!-- Font -->
+    <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
+    <div class="font-row"><label>字体</label>
+      <select id="font-select" onchange="applyFont(this.value)">
+        <option value="default">默认 (微软雅黑/宋体)</option>
+        <option value="songti">宋体</option>
+        <option value="heiti">黑体</option>
+        <option value="kaiti">楷体</option>
+        <option value="fangsong">仿宋</option>
+        <option value="lishu">隶书</option>
+        <option value="xingkai">华文行楷</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<script src="/public/common.js"></script>
+<script>
+frontendLog('INFO', 'Settings page loaded');
+
+// ── Auth guard ──
+if (!isLoggedIn()) { location.href = '/login'; }
+
+// ── User menu ──
+function toggleUserMenu() {
+  var menu = document.getElementById('user-menu');
+  menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+}
+document.addEventListener('click', function(e) {
+  var menu = document.getElementById('user-menu');
+  var avatar = document.getElementById('user-avatar');
+  if (menu && avatar && !avatar.contains(e.target) && !menu.contains(e.target)) menu.style.display = 'none';
+});
+
+function handleLogout() { clearToken(); location.href = '/login'; }
+
+// ── Load user info from JWT ──
+(function() {
+  try {
+    var token = getToken();
+    if (token) {
+      var parts = token.split('.');
+      if (parts.length === 3) {
+        var data = JSON.parse(atob(parts[1]));
+        document.getElementById('settings-username').textContent = data.sub || '(未知)';
+        window._settings_username = data.sub || '';
+      }
+    }
+  } catch(e) {}
+  var saved = localStorage.getItem('ane_avatar');
+  if (saved) {
+    document.getElementById('settings-avatar-preview').innerHTML = '<img src="' + saved + '" style="width:100%;height:100%;object-fit:cover">';
+    document.getElementById('user-avatar').innerHTML = '<img src="' + saved + '" style="width:100%;height:100%;object-fit:cover">';
+  }
+})();
+
+// ── Avatar upload ──
+(function() {
+  var previewEl = document.getElementById('settings-avatar-preview');
+  var fileInput = document.getElementById('avatar-file-input');
+  if (previewEl && fileInput) {
+    previewEl.onclick = function() { fileInput.click(); };
+    fileInput.onchange = function(e) {
+      var file = e.target.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function(ev) {
+        var dataUrl = ev.target.result;
+        localStorage.setItem('ane_avatar', dataUrl);
+        document.getElementById('settings-avatar-preview').innerHTML = '<img src="' + dataUrl + '" style="width:100%;height:100%;object-fit:cover">';
+        document.getElementById('user-avatar').innerHTML = '<img src="' + dataUrl + '" style="width:100%;height:100%;object-fit:cover">';
+      };
+      reader.readAsDataURL(file);
+    };
+  }
+})();
+
+// ── Password ──
+async function changePassword() {
+  var newPwd = document.getElementById('settings-new-pwd').value.trim();
+  if (!newPwd) { alert('请输入新密码'); return; }
+  if (newPwd.length < 4) { alert('密码至少4位'); return; }
+  try {
+    var un = window._settings_username || '';
+    var res = await fetch('/auth/change-password', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken()},
+      body: JSON.stringify({username: un, new_password: newPwd})
+    });
+    if (!res.ok) { var d = await res.json(); throw new Error(d.detail || '修改失败'); }
+    alert('✅ 密码已修改');
+    document.getElementById('settings-new-pwd').value = '';
+  } catch(e) { frontendLog('ERROR', 'Password change failed: ' + e.message); alert('修改密码失败: ' + e.message); }
+}
+
+// ── Colors (restore) ──
+['ai','system','user'].forEach(function(t) {
+  var saved = localStorage.getItem('color_' + t);
+  if (saved) {
+    document.documentElement.style.setProperty('--color-' + t, saved);
+  }
+});
+
+(function() {
+  var savedFont = localStorage.getItem('font_family');
+  if (savedFont) applyFont(savedFont);
+})();
+
+function safeApplyColor(type, hex) {
+  hex = hex.trim();
+  if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return;
+  document.getElementById('color-picker-' + type).value = hex;
+  document.getElementById('color-text-' + type).value = hex;
+  document.documentElement.style.setProperty('--color-' + type, hex);
+  localStorage.setItem('color_' + type, hex);
+}
+
+// Sync color picker
+['ai','system','user'].forEach(function(t) {
+  var picker = document.getElementById('color-picker-' + t);
+  var text = document.getElementById('color-text-' + t);
+  if (picker && text) {
+    picker.addEventListener('input', function() { safeApplyColor(t, picker.value); });
+  }
+});
+</script>
+</body>
+</html>

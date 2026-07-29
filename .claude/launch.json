@@ -1,13 +1,14 @@
 {
   "version": "0.0.1",
-  "autoPort": true,
+  "autoPort": false,
   "configurations": [
     {
       "name": "ANE Backend",
       "runtimeExecutable": "D:/ANE/.venv/Scripts/python.exe",
       "runtimeArgs": ["-m", "ane.main"],
       "cwd": "D:/ANE/backend",
-      "port": 8002
+      "env": {"ANE_PORT": "3001"},
+      "port": 3001
     }
   ]
 }

@@ -1,5 +1,5 @@
 # CI/CD — 持续集成与自动部署
-
+# 禁止擅自推送或者git操作，用户可能会放权允许agent行为，但是agent禁止擅自推送或者git操作，执行前需停止行为询问用户
 > 基于 GitHub Actions + 自托管 Runner，每次 push 到 `main` 分支时自动运行。
 
 ---

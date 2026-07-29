@@ -70,7 +70,6 @@
 │           └── json_loader.py
 ├── frontend/              # 前端源码（FastAPI 直接挂载）
 │   ├── index.html         # SPA + 登录/注册页面
-│   ├── public/worldmap.js # 世界地图 Canvas 渲染
 ├── .venv/                 # 虚拟环境（Python 依赖）
 ├── data/                  # SQLite 数据库文件
 ├── tests/                 # 测试

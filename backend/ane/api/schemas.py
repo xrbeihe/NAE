@@ -104,10 +104,12 @@ class ApplyCharacterRequest(BaseModel):
     background: str = Field(default="无父无母", description="出身背景")
     cultivation: str = Field(default="凡人", description="修为选择")
     personality: str = Field(default="谨慎隐忍", description="性格选择")
+    personality_custom: str = Field(default="", max_length=500, description="自定义性格描述")
     identity: str = Field(default="外门弟子", description="宗门身份选择")
     golden_finger_id: str = Field(default="", description="金手指类别 ID")
     golden_finger_custom: str = Field(default="", max_length=500, description="金手指自定义描写")
     identity_custom: str = Field(default="", max_length=300, description="自定义身份描述")
+    chosen_sect: str = Field(default="", description="选择的初始宗门")
 
 # ── Map Move ───────────────────────────────────────────────────
 
@@ -150,3 +152,28 @@ class SummariesResponse(BaseModel):
     session_id: str
     from_turn: int
     summaries: list[SummaryEntry]
+
+class MemoryResponse(BaseModel):
+    short: list[SummaryEntry] = []
+    long: list[SummaryEntry] = []
+
+
+# ── NPC Library (跨世界总库) ─────────────────────────────────
+
+class NpcLibraryCreateRequest(BaseModel):
+    input: str = Field(..., min_length=1, max_length=4000, description="角色描述输入")
+    tags: list[str] = Field(default_factory=list, description="用户自定义标签")
+
+class NpcLibraryUpdateRequest(BaseModel):
+    input: str = Field(default="", max_length=4000, description="角色描述输入（AI增量更新）")
+    model_data: dict | None = Field(default=None, description="完整mod el_data直接替换（AI增量更新时留空）")
+    tags: list[str] | None = None
+
+class NpcLibraryEntry(BaseModel):
+    name: str
+    model_data: dict = {}
+    tags: list[str] = []
+
+
+class NpcLibraryResponse(BaseModel):
+    npcs: list[NpcLibraryEntry]

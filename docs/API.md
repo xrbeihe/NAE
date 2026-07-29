@@ -50,8 +50,7 @@ Token 有效期 7 天。前端存储在 `localStorage`，每次请求自动附�
 - `conversation`: 完整对话历史（`[{turn_number, content}]`，格式为【玩家】xxx\n【AI】yyy\n【附近人物】[...]）
 - `npc_names`: 核心 NPC 的姓名列表
 - `htem_directory`: 当前保存的 HTEM 角色目录（保留兼容，实际被 NPC_MODELING 替代）
-- `map_data`: 世界地图数据（如已保存）
-- `world_intro`: 世界简介文本（保存地图时存入，刷新后仍可查看）
+- `world_intro`: 世界简介文本（角色创建时生成，刷新后仍可查看）
 - `prompts`: 全量 Prompt 历史（`[{turn_number, content}]`，按 `memory_type="prompt"` 永久保留）
 - `player_location`: 玩家当前位置
 
@@ -200,29 +199,9 @@ Token 有效期 7 天。前端存储在 `localStorage`，每次请求自动附�
 
 ---
 
-## 地图
-
-| 方法 | 路径 | 请求体 | 响应 | 说明 |
-|------|------|--------|------|------|
-| POST | `/sessions/{session_id}/map` | `map_data` | `{ok}` | 保存世界地图数据（含 world_intro） |
-| GET | `/sessions/models/sects` | — | `{sects: [名称列表]}` | 获取可用宗门名（按后缀过滤 + NSFW 关键词过滤） |
-| GET | `/sessions/models/sects/detail` | — | `{sects: [{name, description, details}]}` | 同上，含详细描述 |
-| GET | `/sessions/models/cities` | — | `{cities: [名称列表]}` | 获取可用城市名（以"城"结尾，NSFW 过滤） |
-
 **宗门过滤规则**：以 圣地/宗/门/宫/阁/殿/谷/观/派 结尾，且通过 NSFW 关键词检测。
 **城市过滤规则**：以"城"结尾，且通过 NSFW 关键词检测。
 **NSFW 过滤关键词**：魔法少女、精灵、矮人、兽人、触手、便利店等非修仙词汇。
-
-### `map_data` 保存格式
-```json
-{
-  "seed": 12345,
-  "count": 12,
-  "locations": [{"x": 100, "y": 150, "name": "青云宗", "identity": "宗门", "type": "sect"}],
-  "cityLocations": [{"x": 100, "y": 150, "name": "天风城"}],
-  "world_intro": "📜 世界已生成\n\n【你的角色】..."
-}
-```
 
 ---
 

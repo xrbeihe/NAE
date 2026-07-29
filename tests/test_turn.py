@@ -101,20 +101,6 @@ async def test_conversation_memory(db, mock_llm):
 
 
 @pytest.mark.asyncio
-async def test_facts_management(db):
-    """Facts should be addable and retrievable."""
-    result = await game_engine.create_session(db, user_id='test_user', name="测试世界")
-    session_id = result["session_id"]
-
-    await memory_manager.add_fact(db, session_id, "测试事实", category="test")
-    await db.commit()
-
-    facts = await memory_manager.get_facts(db, session_id)
-    assert len(facts) >= 1
-    assert any(f.content == "测试事实" for f in facts)
-
-
-@pytest.mark.asyncio
 async def test_time_advances_with_intent(db, mock_llm):
     """Time should advance more for 'cultivate' than 'dialogue'."""
     result = await game_engine.create_session(db, user_id='test_user', name="测试世界")

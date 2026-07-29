@@ -1,4 +1,4 @@
-# ANE 模块参考 — 14 个独立模块 (+ Auth 基础设施) 速查
+# ANE 模块参考 — 13 个独立模块 (+ Auth + JSONLoader 基础设施) 速查
 
 > 全部单例。所有模块在 `game_engine.py` 中导入并通过 turn 管线编排。
 > 模块间禁止直接耦合；交流通过 Event Bus + 方法调用（GameEngine 统一调度）。
@@ -219,11 +219,11 @@ get_templates() -> dict
 ```
 
 - `apply_character()` 将角色完整设定写入 `Player.attributes` JSON 字段
-- `attributes` 存储出身(`background`)、性别(`gender`)、身份(`identity`)、灵根(`spiritual_root`)、金手指(`golden_finger_*`) 等全部角色属性
+- `attributes` 存储出身(`background`)、性别(`gender`)、身份(`identity`)、灵根(`spiritual_root`)、宗门(`sect`)、金手指(`golden_finger_*`) 等全部角色属性
 - 自定义身份时 `identity="custom"`，身份描述写入 `identity_custom`
 - 自定义金手指 `golden_finger_id="custom"`，描述写入 `golden_finger_custom`
-- 角色初始随机位置从 `_START_LOCATIONS` 列表选取（12 个城市名）
-- `get_templates()` 返回 `player_templates.json`（含 genders / backgrounds / cultivations / personalities / identities / golden_fingers）
+- 角色初始随机位置从 `_START_LOCATIONS` 列表选取（20 个城市名，来自 world_templates.json）
+- 若创建角色时选了宗门（`chosen_sect` 非空），后端在 `routes.py` 中覆盖随机位置，改为从系统数据库随机分配一个以"城"结尾的城市
 
 ---
 
@@ -306,17 +306,41 @@ portrait_data() -> dict  # 惰性加载 portrait_templates.json
 ```
 前端弹窗
   → GET /sessions/__any__/templates → 取 player_templates.json
-  → 用户填写出身/性别/身份/金手指等
+  → 用户填写出身/性别/身份/金手指/宗门等
   → POST /sessions/{id}/character → ApplyCharacterRequest
     → GameEngine.apply_character()
     → PlayerManager.apply_character()
       → 写 Player 表基础字段（name, cultivation）
       → 写 Player.attributes JSON（age, gender, background, identity, clothing,
         monthly_income, spiritual_root, talent_note, golden_finger_* 等）
-  → 前端收到响应，触发地图生成（saveCurrentMap）
-    → 构建世界简介文本（含出身/身份/金手指 + 宗门/城市列表）
-    → POST /sessions/{id}/map → 存入 session.map_data + session.world_intro
+    → 若请求带了 chosen_sect：
+      → 从世界模板随机选一个城市
+      → 设置 player.location = 随机城市
+      → 设置 attrs["sect"] = chosen_sect
+      → 设置 attrs["location_hierarchy"] = "宗门 → 城市"
+  → 前端收到响应，输出角色信息卡到聊天区
+  → 前端更新位置显示
 ```
+
+### `ApplyCharacterRequest` 新增字段
+- `personality_custom: str` — 自定义性格描述
+- `chosen_sect: str` — 选择的初始宗门（"无宗门"时为 ""）
+
+### 响应新增字段
+- `location` — 玩家初始位置（城市名）
+- `sect` — 所选宗门
+- `gender`, `age`, `personality`, `identity_desc`, `background_summary`, `spiritual_root`, `clothing`, `monthly_income`
+- `golden_finger_name`, `golden_finger_tagline`
+
+### LLM Prompt 中包含的信息
+`player_panel` 中的 【用户扮演角色】 板块含：
+- 姓名、性别、年龄、修为
+- 性格、身份、出身、灵根
+- 所属宗门（`所属宗门：xxx`）
+- 衣物、经济、道具
+- 金手指（名称 + 印象 + 设定）
+- 最近行程
+- 具体位置
 
 ---
 

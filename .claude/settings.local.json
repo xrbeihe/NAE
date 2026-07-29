@@ -145,7 +145,20 @@
       "Bash(findstr 5173)",
       "Bash(where node *)",
       "Bash(where npx *)",
-      "Bash(/d/ANE/.venv/Scripts/python.exe -c ' *)"
+      "Bash(/d/ANE/.venv/Scripts/python.exe -c ' *)",
+      "Bash(\".venv/Scripts/python.exe\" -m pytest tests/ -v)",
+      "Bash(\".venv/Scripts/python.exe\" -m pytest tests/ -v --tb=short)",
+      "Bash(.venv/Scripts/python.exe -c ' *)",
+      "Bash(PYTHONPATH=. ../.venv/Scripts/python.exe -c ' *)",
+      "Bash(\".venv/Scripts/python.exe\" -c \"import sys; sys.path.insert\\(0, 'backend'\\); from ane.modules.player_manager import player_manager; d = player_manager.get_templates\\(\\); ps = d.get\\('personalities', []\\); [print\\(p\\) for p in ps]\")",
+      "Bash(D:/.venv/Scripts/python.exe -c ' *)",
+      "Bash(powershell -Command \"\\(Get-Content 'D:\\\\ANE\\\\frontend\\\\app.html' -Raw\\) -replace ' onclick=\\\\\"if\\\\\\(!event\\\\.target\\\\.closest\\\\\\(''.del-btn''\\\\\\)\\\\\\)switchSession\\\\\\(%27'' \\\\+ s\\\\.session_id \\\\+ ''%27\\\\\\)\\\\\\)\\\\\"', '' | Set-Content 'D:\\\\ANE\\\\frontend\\\\app.html' -NoNewline\")",
+      "Bash(git checkout *)",
+      "Bash(.venv/Scripts/python _fix_app_html.py)",
+      "Bash(.venv/Scripts/python fix_app_html.py)",
+      "Bash(.venv/Scripts/python check_encoding.py)",
+      "Bash(.venv/Scripts/python diagnose2.py)",
+      "Bash(.venv/Scripts/python fix_encoding.py)"
     ]
   }
 }

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>登录 — AI Narrative Engine</title>
+<style>
+  :root {
+    --bg: #1a1410;
+    --panel: #231d16;
+    --border: #3a3026;
+    --text: #d4c8b8;
+    --accent: #c9a96e;
+    --accent-dim: #6b5a3e;
+    --input-bg: #2a2218;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: "Microsoft YaHei", "SimSun", serif;
+    background: var(--bg); color: var(--text);
+    height: 100vh; height: 100dvh;
+  }
+  #auth-page {
+    display: flex; position: fixed; inset:0; z-index:9999;
+    background: var(--bg); align-items: center; justify-content: center;
+  }
+  #auth-box {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 40px; width: 340px; text-align: center;
+  }
+  #auth-title { margin: 0 0 8px; color: var(--accent); }
+  #auth-error { color: #c66; font-size: 13px; min-height: 1.2em; }
+  #auth-page input[type="text"],
+  #auth-page input[type="password"],
+  #auth-page select {
+    width: 100%; padding: 10px 14px; margin: 6px 0;
+    background: var(--input-bg); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text); font-size: 14px;
+    box-sizing: border-box;
+    font-family: inherit;
+  }
+  #auth-page input:focus { border-color: var(--accent); outline: none; }
+  #auth-page select {
+    appearance: auto; -webkit-appearance: auto;
+  }
+  #auth-adult-wrap { display: none; margin: 10px 0; text-align: left; font-size: 13px; color: var(--text); }
+  #auth-adult-wrap label { display: block; margin-bottom: 6px; color: var(--accent-dim); }
+  #auth-adult-hint, #auth-minor-hint {
+    margin-top: 8px; padding: 8px 10px;
+    background: var(--input-bg); border: 1px solid var(--border);
+    border-radius: 4px; font-size: 12px; color: var(--accent-dim);
+    line-height: 1.5; display: none;
+  }
+  #auth-submit-btn {
+    width: 100%; padding: 10px; margin-top: 10px;
+    background: var(--accent); color: #1a1410;
+    border: none; border-radius: 6px;
+    font-size: 15px; cursor: pointer; font-family: inherit;
+  }
+  #auth-submit-btn:hover { opacity: 0.85; }
+  #auth-toggle-text { margin-top: 14px; font-size: 13px; color: var(--accent-dim); }
+  #auth-toggle-text a { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div id="auth-page">
+  <div id="auth-box">
+    <h2 id="auth-title">登录</h2>
+    <p id="auth-error"></p>
+    <input id="auth-username" type="text" placeholder="用户名" autocomplete="username">
+    <input id="auth-password" type="password" placeholder="密码" autocomplete="current-password">
+    <div id="auth-adult-wrap">
+      <label>你是否已满18周岁？</label>
+      <select id="auth-adult" onchange="onAdultChange()">
+        <option value="no" selected>否，我未满18岁</option>
+        <option value="yes">是，我已成年</option>
+      </select>
+      <div id="auth-adult-hint">
+        你可以在发送内容的末尾添加 <strong>HO</strong>（H is Open）来标记该轮为特殊内容。
+        例如：<em>我要......HO</em>
+      </div>
+      <div id="auth-minor-hint">欢迎你，小朋友！🖐</div>
+    </div>
+    <button id="auth-submit-btn" onclick="handleAuthSubmit()">登录</button>
+    <p id="auth-toggle-text">
+      没有账号？<a href="#" onclick="toggleAuthMode();return false" style="color:var(--accent)">注册</a>
+    </p>
+  </div>
+</div>
+
+<script src="/public/common.js"></script>
+<script>
+// ── If already logged in, skip to home ──
+if (isLoggedIn()) {
+  location.href = '/';
+}
+
+function showAuthError(msg) {
+  document.getElementById('auth-error').textContent = msg;
+}
+
+async function handleLogin() {
+  const un = document.getElementById('auth-username').value.trim();
+  const pw = document.getElementById('auth-password').value;
+  const errEl = document.getElementById('auth-error');
+  errEl.textContent = '';
+  if (!un || !pw) { errEl.textContent = '请输入用户名和密码'; return; }
+  try {
+    const res = await fetch('/auth/login', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:un, password:pw})});
+    if (!res.ok) { const d = await res.json(); errEl.textContent = d.detail || '登录失败'; return; }
+    const data = await res.json();
+    setToken(data.token);
+    location.href = '/';
+  } catch(e) { errEl.textContent = '网络错误'; }
+}
+
+async function handleRegister() {
+  const un = document.getElementById('auth-username').value.trim();
+  const pw = document.getElementById('auth-password').value;
+  const errEl = document.getElementById('auth-error');
+  errEl.textContent = '';
+  if (!un || !pw) { errEl.textContent = '请输入用户名和密码'; return; }
+  if (pw.length < 4) { errEl.textContent = '密码至少4位'; return; }
+  const isAdult = document.getElementById('auth-adult').value === 'yes';
+  try {
+    const res = await fetch('/auth/register', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:un, password:pw, display_name:un, is_adult:isAdult})});
+    if (!res.ok) { const d = await res.json(); errEl.textContent = d.detail || '注册失败'; return; }
+    const data = await res.json();
+    setToken(data.token);
+    location.href = '/';
+  } catch(e) { errEl.textContent = '网络错误'; }
+}
+
+function handleAuthSubmit() {
+  const isLogin = document.getElementById('auth-submit-btn').textContent === '登录';
+  if (isLogin) { handleLogin(); } else { handleRegister(); }
+}
+
+function toggleAuthMode() {
+  const btn = document.getElementById('auth-submit-btn');
+  const toggle = document.getElementById('auth-toggle-text');
+  const title = document.getElementById('auth-title');
+  const adultWrap = document.getElementById('auth-adult-wrap');
+  const isLogin = btn.textContent === '登录';
+  if (isLogin) {
+    btn.textContent = '注册';
+    toggle.innerHTML = '已有账号？<a href="#" onclick="toggleAuthMode();return false">登录</a>';
+    title.textContent = '注册新账号';
+    adultWrap.style.display = 'block';
+  } else {
+    btn.textContent = '登录';
+    toggle.innerHTML = '没有账号？<a href="#" onclick="toggleAuthMode();return false">注册</a>';
+    title.textContent = '登录';
+    adultWrap.style.display = 'none';
+  }
+}
+
+function onAdultChange() {
+  const val = document.getElementById('auth-adult').value;
+  document.getElementById('auth-adult-hint').style.display = val === 'yes' ? 'block' : 'none';
+  document.getElementById('auth-minor-hint').style.display = val === 'no' ? 'block' : 'none';
+}
+
+frontendLog('INFO', 'Login page loaded');
+</script>
+</body>
+</html>
