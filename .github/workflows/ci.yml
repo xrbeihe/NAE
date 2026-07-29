@@ -44,9 +44,7 @@ jobs:
           echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" | sudo tee -a /etc/ane/.env
           echo "ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}" | sudo tee -a /etc/ane/.env
           sudo chmod 600 /etc/ane/.env
-        env:
-          DEBIAN_FRONTEND: noninteractive
-        shell: bash
+        shell: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
       - name: Ensure systemd uses /etc/ane/.env
         run: |
           if ! grep -q 'EnvironmentFile=/etc/ane/.env' /etc/systemd/system/ane.service; then
