@@ -141,7 +141,8 @@
   #loading-indicator.active { display: block; }
 
   /* ── player ball ── */
-  #player-ball { position: fixed; right: 16px; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; border-radius: 50%; background: var(--accent); color: var(--panel); display: none; align-items: center; justify-content: center; cursor: pointer; z-index: 500; font-size: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.4); user-select: none; }
+  #player-ball { position: fixed; right: 16px; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; border-radius: 50%; background: var(--accent); color: var(--panel); display: none; align-items: center; justify-content: center; cursor: grab; z-index: 500; font-size: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.4); user-select: none; touch-action: none; }
+  #player-ball:active { cursor: grabbing; }
   #player-ball:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.6); }
   #player-ball-panel { display: none; position: fixed; z-index: 501; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; width: 320px; max-height: 60vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.5); font-size: 12px; color: var(--text); line-height: 1.6; white-space: pre-wrap; touch-action: none; }
   #player-ball-panel.visible { display: block; }
@@ -1282,8 +1283,8 @@ function showRelationshipGraph() {
 // ── Info panel ──
 function updateInfoPanel(text) {
   var ball = document.getElementById('player-ball'); var panel = document.getElementById('player-ball-panel');
-  if (!text || text.startsWith('（无玩家数据）') || text === '【主角面板】\n（无）') { ball.style.display = 'none'; panel.classList.remove('visible'); panel.innerHTML = ''; return; }
-  ball.style.display = 'flex'; panel.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-weight:bold;color:var(--accent);font-size:13px">🧑 角色信息</span><span id="panel-avatar-btn" onclick="showAvatarPreview()" style="cursor:pointer;font-size:13px;padding:2px 6px;border:1px solid var(--border);border-radius:4px;color:var(--accent-dim);flex-shrink:0">🖼️</span></div><div style="font-size:12px;line-height:1.6;white-space:pre-wrap;color:var(--text)">' + escHtml(text) + '</div>';
+  if (!text || text.startsWith('（无玩家数据）') || text === '【主角面板】\n（无）') { ball.style.display = 'none'; panel.classList.remove('visible'); panel.innerHTML = ''; ball.style.cursor = ''; return; }
+  ball.style.display = 'flex'; ball.style.cursor = 'grab'; panel.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-weight:bold;color:var(--accent);font-size:13px">🧑 角色信息</span><span id="panel-avatar-btn" onclick="showAvatarPreview()" style="cursor:pointer;font-size:13px;padding:2px 6px;border:1px solid var(--border);border-radius:4px;color:var(--accent-dim);flex-shrink:0">🖼️</span></div><div style="font-size:12px;line-height:1.6;white-space:pre-wrap;color:var(--text)">' + escHtml(text) + '</div>';
   ball.textContent = text.includes('｜ 女 ｜') ? '👩' : '🧑';
 }
 function togglePlayerBall() {
@@ -1331,6 +1332,47 @@ function setupPanelDrag() {
   panel.addEventListener('mousedown', function(e) { if (e.target.id === 'panel-avatar-btn') return; onStart(e.clientX, e.clientY); });
   panel.addEventListener('touchstart', function(e) { if (e.touches.length === 1) { var t = e.target; if (t && t.id === 'panel-avatar-btn') return; onStart(e.touches[0].clientX, e.touches[0].clientY); } }, {passive: true});
 }
+
+// ── Ball drag (reposition the ball itself) ──
+(function() {
+  var ball = document.getElementById('player-ball');
+  if (!ball) return;
+  var bx, by, origTop, origRight, dragging = false;
+  ball.addEventListener('mousedown', function(e) {
+    dragging = true; bx = e.clientX; by = e.clientY;
+    var r = ball.getBoundingClientRect();
+    // Convert percentage top to px
+    origTop = r.top; origRight = window.innerWidth - r.right;
+    ball.style.top = origTop + 'px'; ball.style.right = origRight + 'px';
+    ball.style.transform = 'none';
+    function onMove(ev) {
+      if (!dragging) return;
+      ball.style.top = Math.max(0, Math.min(window.innerHeight - 44, origTop + (ev.clientY - by))) + 'px';
+      ball.style.right = Math.max(0, Math.min(window.innerWidth - 44, origRight - (ev.clientX - bx))) + 'px';
+    }
+    function onEnd() { dragging = false;
+      document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onEnd); }
+    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onEnd);
+    e.preventDefault();
+  });
+  ball.addEventListener('touchstart', function(e) {
+    if (e.touches.length !== 1) return;
+    dragging = true; bx = e.touches[0].clientX; by = e.touches[0].clientY;
+    var r = ball.getBoundingClientRect();
+    origTop = r.top; origRight = window.innerWidth - r.right;
+    ball.style.top = origTop + 'px'; ball.style.right = origRight + 'px';
+    ball.style.transform = 'none';
+    function onMove(ev) {
+      if (!dragging) return;
+      ball.style.top = Math.max(0, Math.min(window.innerHeight - 44, origTop + (ev.touches[0].clientY - by))) + 'px';
+      ball.style.right = Math.max(0, Math.min(window.innerWidth - 44, origRight - (ev.touches[0].clientX - bx))) + 'px';
+    }
+    function onEnd() { dragging = false;
+      document.removeEventListener('touchmove', onMove); document.removeEventListener('touchend', onEnd); }
+    document.addEventListener('touchmove', onMove, {passive: false}); document.addEventListener('touchend', onEnd);
+    e.preventDefault();
+  }, {passive: false});
+})();
 
 // ── Modeled NPCs ──
 function renderModeledNpcs(npcs) {
@@ -2051,10 +2093,10 @@ async function clearLogs() {
   if (lastSession) {
     var cards = document.querySelectorAll('#session-list .session-card');
     for (var c of cards) {
-      if (c.dataset.sid === lastSession) { switchSession(lastSession); return; }
+      if (c.dataset.sid === lastSession) { await switchSession(lastSession); break; }
     }
   }
-  // 没有上次会话，刷新球态：显示球但隐藏面板
+  // 确保球可见
   var ball = document.getElementById('player-ball');
   if (ball) ball.style.display = 'flex';
   // 停留在 home-page（默认可见）
