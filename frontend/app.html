@@ -1106,25 +1106,137 @@ function showNpcConfirmDialog(names) {
 function showRelationshipGraph() {
   if (!sessionId) return alert('请先创建或选择世界');
   var overlay = document.createElement('div'); overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;';
-  var box = document.createElement('div'); box.style.cssText = 'background:#1a1a2e;border:1px solid #e94560;border-radius:12px;padding:24px;max-width:600px;width:90%;color:#eee;font-size:13px;max-height:80vh;overflow-y:auto;';
-  box.innerHTML = '<div style="text-align:center;padding:20px;color:#888;">⏳ 加载关系网...</div>';
+  var box = document.createElement('div'); box.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:0;width:90%;max-width:800px;height:80vh;display:flex;flex-direction:column;overflow:hidden;';
+  box.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0"><span style="font-size:15px;color:var(--accent);font-weight:bold">🚻 关系网图谱</span><span onclick="document.body.removeChild(this.closest(\'[data-rg]\').parentElement.parentElement)" style="cursor:pointer;font-size:18px;color:var(--accent-dim);padding:2px 6px">✕</span></div><div id="rg-svg-wrap" style="flex:1;position:relative"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--accent-dim);font-size:13px">⏳ 加载关系网...</div></div>';
   overlay.appendChild(box); document.body.appendChild(overlay);
+  overlay.dataset.rg = '1';
   overlay.onclick = function(e) { if (e.target === overlay) document.body.removeChild(overlay); };
-  apiFetch('/sessions/' + sessionId + '/relationship-graph').then(function(r) { return r.json(); }).then(function(data) {
-    if (!data.edges || !data.edges.length) { box.innerHTML = '<div style="text-align:center;padding:20px;color:#888;">暂无关系数据</div><div style="text-align:center;margin-top:12px"><button onclick="this.closest(\'div\').parentElement.parentElement.remove()" style="padding:6px 16px;border:none;border-radius:4px;background:#e94560;color:white;cursor:pointer;">关闭</button></div>'; return; }
-    var groups = {}; data.edges.forEach(function(e) { if (!groups[e.source]) groups[e.source] = []; groups[e.source].push(e); });
-    var html = '<div style="margin-bottom:12px;font-size:14px;font-weight:bold">🚻 关系网</div>';
-    Object.entries(groups).forEach(function(g) {
-      html += '<div style="margin-bottom:10px"><b>' + escHtml(g[0]) + '</b>';
-      g[1].forEach(function(r) {
-        var c = r.affinity >= 50 ? '#5a8' : r.affinity >= 0 ? '#aa8' : '#c66';
-        html += '<div style="margin-left:16px;font-size:12px;color:#bbb;border-left:2px solid ' + c + ';padding-left:8px;margin-top:4px"><span style="color:' + c + '">→ ' + escHtml(r.target) + '</span> <span style="color:#888">[' + escHtml(r.type) + ']</span>' + (r.description ? '<br><span style="color:#666;font-size:11px">' + escHtml(r.description) + '</span>' : '') + ' <span style="color:' + c + ';float:right">' + r.affinity + '</span></div>';
+  // 加载D3
+  function loadD3(retry) {
+    if (typeof d3 !== 'undefined') { renderGraph(); return; }
+    if (retry > 5) { document.querySelector('#rg-svg-wrap').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--danger);font-size:13px">❌ 加载D3失败，请刷新重试</div>'; return; }
+    var s = document.createElement('script'); s.src = 'https://d3js.org/d3.v7.min.js'; s.onload = renderGraph; s.onerror = function() { setTimeout(function() { loadD3(retry + 1); }, 2000); };
+    document.head.appendChild(s);
+  }
+  function renderGraph() {
+    var wrap = document.getElementById('rg-svg-wrap'); if (!wrap) return;
+    wrap.innerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--accent-dim);font-size:13px">⏳ 加载关系网...</div>';
+    apiFetch('/sessions/' + sessionId + '/relationship-graph').then(function(r) { return r.json(); }).then(function(data) {
+      if (!data.edges || !data.edges.length) {
+        wrap.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--accent-dim);font-size:13px"><div style="font-size:32px;margin-bottom:8px">📭</div>暂无关系数据</div>';
+        return;
+      }
+      // Convert edges to D3 format: collect unique nodes
+      var nodeMap = {};
+      data.edges.forEach(function(e) {
+        if (!nodeMap[e.source]) nodeMap[e.source] = {id: e.source};
+        if (!nodeMap[e.target]) nodeMap[e.target] = {id: e.target};
       });
-      html += '</div>';
-    });
-    html += '<div style="text-align:center;margin-top:12px"><button onclick="this.closest(\'div\').parentElement.parentElement.remove()" style="padding:6px 16px;border:none;border-radius:4px;background:#e94560;color:white;cursor:pointer;">关闭</button></div>';
-    box.innerHTML = html;
-  }).catch(function() { box.innerHTML = '<div style="text-align:center;padding:20px;color:#888;">加载失败</div>'; });
+      var nodes = Object.values(nodeMap);
+      var links = data.edges.map(function(e) { return {source: e.source, target: e.target, type: e.type, desc: e.description || '', affinity: e.affinity || 0}; });
+      // Find player node for color highlighting
+      var playerId = null;
+      apiFetch('/sessions/' + sessionId).then(function(r) { return r.json(); }).then(function(sd) { playerId = sd.player_name; }).catch(function() {});
+
+      var w = wrap.clientWidth || 700, h = wrap.clientHeight || 500;
+      wrap.innerHTML = '';
+      var svg = d3.select(wrap).append('svg').attr('width', w).attr('height', h)
+        .style('background', 'var(--panel)').style('display', 'block');
+      // zoom
+      var g = svg.append('g');
+      svg.call(d3.zoom().scaleExtent([0.2, 4]).on('zoom', function(ev) { g.attr('transform', ev.transform); }));
+
+      // Color scale by affinity
+      function affinityColor(a) { return a > 30 ? '#5a8' : a > -30 ? '#aa8' : '#c66'; }
+      function affinityStroke(a) { return a > 30 ? '#3a6' : a > -30 ? '#885' : '#a44'; }
+
+      // Simulation
+      var sim = d3.forceSimulation(nodes)
+        .force('link', d3.forceLink(links).distance(120).strength(0.4))
+        .force('charge', d3.forceManyBody().strength(-250))
+        .force('center', d3.forceCenter(w / 2, h / 2))
+        .force('collide', d3.forceCollide(35));
+
+      // Lines (render under nodes)
+      var link = g.append('g').selectAll('line').data(links).join('line')
+        .attr('stroke', function(d) { return affinityStroke(d.affinity); })
+        .attr('stroke-width', 1.5).attr('stroke-opacity', 0.5)
+        .attr('marker-end', '');
+
+      // Link labels (type text)
+      var linkLabel = g.append('g').selectAll('text').data(links).join('text')
+        .attr('font-size', 10).attr('fill', 'var(--accent-dim)').attr('text-anchor', 'middle')
+        .attr('dy', -4).text(function(d) { return d.type; }).style('pointer-events', 'none');
+
+      // Node groups
+      var nodeG = g.append('g').selectAll('g').data(nodes).join('g')
+        .call(d3.drag()
+          .on('start', function(ev, d) { if (!ev.active) sim.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+          .on('drag', function(ev, d) { d.fx = ev.x; d.fy = ev.y; })
+          .on('end', function(ev, d) { if (!ev.active) sim.alphaTarget(0); d.fx = null; d.fy = null; })
+        );
+
+      // Node circles — player gets gold
+      nodeG.append('circle')
+        .attr('r', function(d) { return d.id === playerId ? 18 : 12; })
+        .attr('fill', function(d) { return d.id === playerId ? 'var(--accent)' : affinityColor(0); })
+        .attr('stroke', function(d) { return d.id === playerId ? '#fff' : 'var(--border)'; })
+        .attr('stroke-width', 2);
+
+      // Node labels — use Chinese-friendly font
+      nodeG.append('text')
+        .attr('dx', function(d) { return d.id === playerId ? 22 : 14; })
+        .attr('dy', 5).attr('font-size', function(d) { return d.id === playerId ? 14 : 12; })
+        .attr('fill', 'var(--text)').style('font-family', '"Microsoft YaHei","SimSun",serif')
+        .style('pointer-events', 'none').style('text-shadow', '0 1px 2px rgba(0,0,0,0.8)')
+        .text(function(d) { return d.id; });
+
+      // Tooltip overlay for affinity/description
+      var tooltip = d3.select(wrap).append('div')
+        .style('position', 'absolute').style('bottom', '12px').style('left', '12px')
+        .style('background', 'var(--input-bg)').style('border', '1px solid var(--border)')
+        .style('border-radius', '6px').style('padding', '6px 10px')
+        .style('font-size', '11px').style('color', 'var(--text)').style('line-height', '1.5')
+        .style('max-width', '60%').style('pointer-events', 'none').style('opacity', 0);
+
+      nodeG.on('mouseenter', function(ev, d) {
+        var rels = links.filter(function(l) { return l.source.id === d.id || l.target.id === d.id; });
+        var html = '<b>' + escHtml(d.id) + '</b>';
+        if (rels.length) {
+          html += '<br>';
+          rels.forEach(function(r) {
+            var other = r.source.id === d.id ? r.target.id : r.source.id;
+            var dir = r.source.id === d.id ? '→' : '←';
+            html += '<span style="color:' + affinityColor(r.affinity) + '">' + dir + ' ' + escHtml(other) + ' [' + escHtml(r.type) + '] ' + r.affinity + '</span>';
+            if (r.desc) html += '<br><span style="color:var(--accent-dim)">  ' + escHtml(r.desc) + '</span>';
+          });
+        }
+        tooltip.html(html).style('opacity', 1);
+        d3.select(this).select('circle').attr('stroke', 'var(--accent)').attr('stroke-width', 3);
+      }).on('mouseleave', function() {
+        tooltip.style('opacity', 0);
+        d3.select(this).select('circle').attr('stroke', function(d) { return d.id === playerId ? '#fff' : 'var(--border)'; }).attr('stroke-width', 2);
+      });
+
+      sim.on('tick', function() {
+        link.attr('x1', function(d) { return d.source.x; }).attr('y1', function(d) { return d.source.y; })
+            .attr('x2', function(d) { return d.target.x; }).attr('y2', function(d) { return d.target.y; });
+        linkLabel.attr('x', function(d) { return (d.source.x + d.target.x) / 2; })
+                 .attr('y', function(d) { return (d.source.y + d.target.y) / 2; });
+        nodeG.attr('transform', function(d) { return 'translate(' + d.x + ',' + d.y + ')'; });
+      });
+
+      // ResizeObserver: update on container resize
+      if (window.ResizeObserver) {
+        var ro = new ResizeObserver(function() {
+          var nw = wrap.clientWidth, nh = wrap.clientHeight;
+          if (nw > 0 && nh > 0) { svg.attr('width', nw).attr('height', nh); sim.force('center', d3.forceCenter(nw / 2, nh / 2)).alpha(0.3).restart(); }
+        });
+        ro.observe(wrap);
+      }
+    }).catch(function() { wrap.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--danger);font-size:13px">❌ 加载失败</div>'; });
+  }
+  loadD3(0);
 }
 
 // ── Info panel ──
