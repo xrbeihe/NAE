@@ -516,11 +516,16 @@
       <div id="create-npc-tags" style="margin-top:10px">
         <label style="display:block;color:var(--accent-dim);font-size:12px;margin-bottom:4px">标签（可选）</label>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <label style="font-size:12px;color:var(--accent-dim);cursor:pointer;display:flex;align-items:center;gap:3px;padding:4px 8px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px" onclick="tagClick(this)"><input type="checkbox" value="重要人物" checked style="accent-color:var(--accent);cursor:pointer"> 重要人物</label>
-          <label style="font-size:12px;color:var(--accent-dim);cursor:pointer;display:flex;align-items:center;gap:3px;padding:4px 8px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px" onclick="tagClick(this)"><input type="checkbox" value="反派" style="accent-color:var(--accent);cursor:pointer"> 反派</label>
-          <label style="font-size:12px;color:var(--accent-dim);cursor:pointer;display:flex;align-items:center;gap:3px;padding:4px 8px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px" onclick="tagClick(this)"><input type="checkbox" value="路人" style="accent-color:var(--accent);cursor:pointer"> 路人</label>
-          <label style="font-size:12px;color:var(--accent-dim);cursor:pointer;display:flex;align-items:center;gap:3px;padding:4px 8px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px" onclick="tagClick(this)"><input type="checkbox" value="背景板" style="accent-color:var(--accent);cursor:pointer"> 背景板</label>
+          <label style="font-size:12px;color:var(--accent-dim);cursor:pointer;display:flex;align-items:center;gap:3px;padding:4px 8px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;user-select:none"><input type="checkbox" value="重要人物" checked style="accent-color:var(--accent);cursor:pointer"> 重要人物</label>
+          <label style="font-size:12px;color:var(--accent-dim);cursor:pointer;display:flex;align-items:center;gap:3px;padding:4px 8px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;user-select:none"><input type="checkbox" value="反派" style="accent-color:var(--accent);cursor:pointer"> 反派</label>
+          <label style="font-size:12px;color:var(--accent-dim);cursor:pointer;display:flex;align-items:center;gap:3px;padding:4px 8px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;user-select:none"><input type="checkbox" value="路人" style="accent-color:var(--accent);cursor:pointer"> 路人</label>
+          <label style="font-size:12px;color:var(--accent-dim);cursor:pointer;display:flex;align-items:center;gap:3px;padding:4px 8px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;user-select:none"><input type="checkbox" value="背景板" style="accent-color:var(--accent);cursor:pointer"> 背景板</label>
         </div>
+        <div style="display:flex;gap:4px;margin-top:6px;align-items:center">
+          <input id="create-npc-custom-tag" type="text" placeholder="自定义标签" maxlength="20" style="flex:1;padding:5px 8px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px;font-family:inherit;min-width:0">
+          <span onclick="addCustomTag()" style="padding:4px 8px;background:var(--accent);color:var(--panel);border:none;border-radius:4px;cursor:pointer;font-size:11px;font-family:inherit;white-space:nowrap">+添加</span>
+        </div>
+        <div id="custom-tags-display" style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px"></div>
       </div>
       <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
         <button onclick="closeCreateNpcModal()" style="padding:8px 20px;background:transparent;border:1px solid var(--border);color:var(--accent-dim);border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit">取消</button>
@@ -1275,7 +1280,35 @@ function renderPromptSections() {
 
 function closeCreateNpcModal() { document.getElementById('create-npc-modal').style.display = 'none'; }
 
-function tagClick(el) { var cb = el.querySelector('input[type=checkbox]'); if (cb) cb.checked = !cb.checked; }
+var _customTags = [];
+
+function addCustomTag() {
+  var inp = document.getElementById('create-npc-custom-tag');
+  var val = inp.value.trim();
+  if (!val) return;
+  if (_customTags.indexOf(val) !== -1) { inp.value = ''; return; }
+  _customTags.push(val);
+  inp.value = '';
+  renderCustomTags();
+}
+
+function removeCustomTag(tag) {
+  _customTags = _customTags.filter(function(t) { return t !== tag; });
+  renderCustomTags();
+}
+
+function renderCustomTags() {
+  var d = document.getElementById('custom-tags-display');
+  d.innerHTML = _customTags.map(function(t) {
+    return '<span style="padding:2px 7px;background:var(--panel);border:1px solid var(--border);border-radius:3px;font-size:11px;color:var(--accent-dim);display:inline-flex;align-items:center;gap:4px">'
+      + escHtml(t)
+      + '<span onclick="removeCustomTag(\'' + escAttr(t) + '\')" style="cursor:pointer;font-size:12px;color:var(--danger);line-height:1">&times;</span></span>';
+  }).join('');
+}
+
+document.getElementById('create-npc-custom-tag').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') { e.preventDefault(); addCustomTag(); }
+});
 
 function randomRollNpc() {
   var surnames = _promptSurnames, givenF = _promptGivenFemale, givenM = _promptGivenMale;
@@ -1315,6 +1348,11 @@ function showCreateNpcModal() {
   document.getElementById('create-npc-input').value = '';
   document.getElementById('roll-name-chips').innerHTML = '';
   _promptRolledNames = [];
+  _customTags = [];
+  document.getElementById('create-npc-custom-tag').value = '';
+  document.getElementById('custom-tags-display').innerHTML = '';
+  // 重置勾选框（保留重要人物默认勾选）
+  document.querySelectorAll('#create-npc-tags input[type=checkbox]').forEach(function(cb) { cb.checked = cb.value === '重要人物'; });
   renderPromptSections();
   document.getElementById('create-npc-modal').style.display = 'flex';
   setTimeout(function() { document.getElementById('create-npc-input').focus(); }, 100);
@@ -1323,6 +1361,7 @@ function submitCreateNpc() {
   var input = document.getElementById('create-npc-input').value.trim();
   if (!input) { document.getElementById('create-npc-input').focus(); document.getElementById('create-npc-input').style.borderColor = 'var(--danger)'; setTimeout(function() { document.getElementById('create-npc-input').style.borderColor = ''; }, 1500); return; }
   var cbs = document.querySelectorAll('#create-npc-tags input[type=checkbox]:checked'); var tags = Array.from(cbs).map(function(cb) { return cb.value; });
+  if (_customTags && _customTags.length) tags = tags.concat(_customTags);
   var btn = document.getElementById('create-npc-submit-btn'); btn.disabled = true; btn.textContent = '⏳ 建模中...';
   npcLibCreate(input, tags.length ? tags : null).finally(function() { btn.disabled = false; btn.textContent = '✨ 开始建模'; });
 }
