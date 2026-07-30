@@ -1252,7 +1252,11 @@ function showRelationshipGraph() {
         });
         ro.observe(wrap);
       }
-    }).catch(function() { wrap.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--danger);font-size:13px">❌ 加载失败</div>'; });
+    }).catch(function(e) {
+        console.error('🚻 关系图加载错误:', e, 'sessionId:', sessionId);
+        frontendLog('ERROR', '关系图加载失败: ' + (e && e.message ? e.message : e));
+        wrap.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--danger);font-size:13px">❌ 加载失败 <span style="cursor:pointer;color:var(--accent);text-decoration:underline;margin-left:8px" onclick="showRelationshipGraph()">重试</span></div>';
+      });
   }
   loadD3(0);
 }
