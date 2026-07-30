@@ -25,25 +25,6 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 
-def _sync_library_npc_to_sessions(db, user_npc):
-    """Sync NPC model_data to all sessions that imported this library NPC."""
-    from ane.database.models import NPC as NPCModel, select
-    basic = user_npc.model_data.get("basic", {})
-    result = db.execute(
-        select(NPCModel).where(NPCModel.source_user_npc_id == user_npc.id)
-    )
-    for session_npc in result.scalars().all():
-        lts = dict(session_npc.long_term_state or {})
-        lts["model"] = user_npc.model_data
-        session_npc.long_term_state = lts
-        if basic.get("identity"): session_npc.identity = basic["identity"]
-        if basic.get("cultivation"): session_npc.cultivation = basic["cultivation"]
-        if basic.get("gender"): session_npc.gender = basic["gender"]
-        if basic.get("age"): session_npc.age = int(basic["age"])
-        pc = user_npc.model_data.get("personality", {}).get("core", "")
-        if pc: session_npc.personality = pc
-
-
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
 
@@ -446,6 +427,8 @@ async def process_turn(
         mark_important_npc=req.mark_important_npc,
         load_model_data=req.load_model_data,
         user_id=user.id,
+        word_count_min=req.word_count_min,
+        word_count_max=req.word_count_max,
     )
     return TurnResponse(
         narrative=turn_result.narrative,

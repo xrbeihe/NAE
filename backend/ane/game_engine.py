@@ -227,6 +227,8 @@ class GameEngine:
         mark_important_npc: bool = False,
         load_model_data: bool = True,
         user_id: str = "",
+        word_count_min: int = 500,
+        word_count_max: int = 1200,
     ) -> TurnResult:
         """Run the full turn pipeline.
 
@@ -336,6 +338,8 @@ class GameEngine:
         # Step 8: Build prompt context
         ctx = PromptContext()
         ctx.user_input = validation.cleaned_input
+        ctx.word_count_min = word_count_min
+        ctx.word_count_max = word_count_max
 
         # World context
         ctx.world = WorldContext(name="青云界")
@@ -553,7 +557,7 @@ class GameEngine:
                 if change_target:
                     npc_obj = await db.get(NPC, change_target)
                     if npc_obj and npc_obj.session_id == session_id:
-                        await npc_manager.mark_important(db, change_target)
+                        await npc_manager.mark_important(db, change_target, session_id=session_id)
                         logger.info(f"step15: npc_important {change_target}")
                     else:
                         logger.warning(f"step15: npc_important target {change_target} not found or wrong session")

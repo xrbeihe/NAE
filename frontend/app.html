@@ -256,6 +256,7 @@
     /* ── session-bar 按钮左对齐 ── */
     #session-bar { justify-content: flex-start; }
     #session-bar > div:first-of-type { margin-left: 0; }
+    #word-count-select { max-width: 80px; font-size: 10px !important; }
   }
   @media (max-width: 480px) {
     #session-sidebar { max-height: 35vh; }
@@ -345,6 +346,14 @@
         <button id="model-btn" onclick="showModelPopup()">✨<span id="model-btn-label">loading</span></button>
         <select id="model-select" style="display:none"></select>
         <button id="color-btn" onclick="showColorPopup()" style="background:transparent;border:1px solid var(--border);color:var(--accent-dim);padding:2px 6px;border-radius:3px;cursor:pointer;font-size:12px;font-family:inherit">🎨</button>
+        <select id="word-count-select" onchange="onWordCountChange(this)" style="background:transparent;border:1px solid var(--border);color:var(--accent-dim);padding:2px 6px;border-radius:3px;font-size:11px;font-family:inherit;cursor:pointer;max-width:100px">
+          <option value="200-500">200-500字</option>
+          <option value="500-800">500-800字</option>
+          <option value="500-1200" selected>500-1200字</option>
+          <option value="800-1500">800-1500字</option>
+          <option value="1000-2000">1000-2000字</option>
+          <option value="1500-2000">1500-2000字</option>
+        </select>
         <button class="cmd-btn" onclick="clearLogs()">🗑 清空日志</button>
       </div>
     </div>
@@ -552,6 +561,15 @@ let _pending_world_intro = null;
 let lastTurnNumber = 0;
 let _npcLibData = [];
 let _npcImportedData = {};
+
+// ── 字数范围初始化 ──
+(function() {
+  try {
+    var saved = localStorage.getItem('ane_word_count');
+    var sel = document.getElementById('word-count-select');
+    if (sel && saved) { sel.value = saved; }
+  } catch(e) {}
+})();
 
 // ── User menu ──
 function toggleUserMenu() {
@@ -944,7 +962,15 @@ async function sendTurn() {
   addMsg('user', text);
   var sb = document.getElementById('send-btn'); var ld = document.getElementById('loading-indicator'); sb.disabled = true; ld.classList.add('active');
   try {
-    var tr = await apiFetch('/sessions/' + sessionId + '/turn', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({input: text, model: selectedModel, load_model_data: document.getElementById('load-model-check').checked}) });
+    var wcSelect = document.getElementById('word-count-select');
+  var wcMin = 500, wcMax = 1200;
+  if (wcSelect) {
+    var wcVal = wcSelect.value || '500-1200';
+    var parts = wcVal.split('-');
+    wcMin = parseInt(parts[0]) || 500;
+    wcMax = parseInt(parts[1]) || 1200;
+  }
+  var tr = await apiFetch('/sessions/' + sessionId + '/turn', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({input: text, model: selectedModel, load_model_data: document.getElementById('load-model-check').checked, word_count_min: wcMin, word_count_max: wcMax}) });
     var td = await tr.json();
     if (td.detail) { addMsg('system', '天道运转出错: ' + td.detail); sb.disabled = false; ld.classList.remove('active'); return; }
     addMsg('ai', td.narrative, _currentTurnNumber); _currentTurnNumber++;
@@ -958,6 +984,11 @@ async function sendTurn() {
     if (td.npc_updates && td.npc_updates.length) addMsg('system', '【世界动态】\n' + td.npc_updates.map(function(u) { return '• ' + u.description; }).join('\n'));
   } catch(e) { addMsg('system', '请求失败: ' + e.message); }
   sb.disabled = false; ld.classList.remove('active'); document.getElementById('important-npc-check').checked = false;
+}
+
+// ── 字数选择 ──
+function onWordCountChange(sel) {
+  try { localStorage.setItem('ane_word_count', sel.value); } catch(e) {}
 }
 
 // ── UI helpers ──

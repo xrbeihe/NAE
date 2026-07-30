@@ -27,7 +27,7 @@ SYSTEM_PROMPT = """你是一个修仙世界的叙事引擎。你的职责是讲�
 【叙事原则】
 - 你负责叙事：环境、动作、心理、对话都在 narrative 字段中。state_changes 只标记数据库需要记录的事实变更。
 - 文风追求网文感：直白鲜活，信息密度高，节奏明快。多用短句和动作推进。
-  每轮输出正文的**中文字数**须达到1000-1200汉字（不含标点和空格，仅计汉字字符）。低于1000汉字会被系统判定为过短。LLM输出时请自行估算字数：约15-18个汉字为一行，1000汉字约需55-65行连续叙事。
+  {word_count_rule}
   （示例："晨雾未散，街角的炊烟已经升起来了。你站在城门口，深吸了一口带着药草清香的空气。"）
 - 每段叙事可以在自然收尾处留下悬念钩子——远处传来的脚步声、NPC欲言又止的神情、怀中古书的异常发热。
 - 避免"值得注意的是""综上所述""本质上"等AI经典句式。少用"好像""仿佛""如同"等明喻词。
@@ -170,19 +170,9 @@ NSFW_PROMPT = """
 【性爱场景核心规范——按场景类型选择模式】
 本规范将性爱场景分为两种模式，LLM需根据场景性质和玩家指令选择对应的描写策略。
 
-【Type 1 — 刺激插曲】
-一次性、狭窄场景、快节奏。一轮内给出完整闭环的性爱过程（挑逗→前戏→进入→多次高潮/射精→事后）。
-NPC在这一轮中完成从开始到结束的完整反应链，不留悬置的叙事钩子。
-字数上限2000汉字，尽量多写，充分榨干本轮感官。体位根据场景选择，可多次高潮多次射精。
-核心：NPC不拖沓不空转——但如果玩家意犹未尽，可在下一轮输入新动作继续，NPC自然承接但不主动为"再来一次"铺设延展线。
+{nsfw_type1_rule}
 
-【Type 2 — 情节性性爱】
-适用于初夜、久别重逢的干柴烈火、感情升温后的温柔缠绵、关键节点上的结合（定情、双修、和解性爱等）。
-可以有试探性接触→情感对话推进→逐步升温→激烈→温存余韵的过程。
-不必一轮内走完前戏到事后，但每轮必须有阶段性的推进结果（如"他的手抚上了你的腰"→"衣物已褪去大半"→"进入了"→事后相拥"——每轮走到一个自然节点即可）。
-如果场景需跨多轮（如通宵欢好、三日双修），每轮结束时给出阶段性闭环（一次完整的回合结束、体位切换的自然间隙、一次高潮后的喘息），并在叙事中暗示后续方向（"夜还长""她的呼吸刚平复，手指又不安分地滑向你"）。
-对话和情绪描写的占比应高于Type 1，严禁因追求感官密度而牺牲情感推进。
-字数800-1500字/轮，不设上限硬顶，以情绪和情节完整为准。
+{nsfw_type2_rule}
 
 【两类通用规则】
 - 描写规范（极致细节、直白词汇、微观动态描绘）对两类都适用。
@@ -532,6 +522,10 @@ class PromptContext:
     nsfw_active: bool = False       # True when intent is nsfw — controls NPC model NSFW block injection
     is_modeling_turn: bool = False  # True when this turn is the llm_modeling turn — triggers full-detail description
 
+    # ── Word count range (user-configurable) ──
+    word_count_min: int = 500
+    word_count_max: int = 1200
+
     # ── Legacy flat fields (backward compat) ──
     world_context: str = ""
     location_context: str = ""
@@ -557,11 +551,41 @@ class PromptBuilder:
         """Assemble the full Htem prompt from context, in fixed order."""
         blocks: list[str] = []
 
+        # ── Word count rules ──
+        wc_min = ctx.word_count_min
+        wc_max = ctx.word_count_max
+        if wc_min < 100: wc_min = 100
+        if wc_max > 5000: wc_max = 5000
+        if wc_min > wc_max: wc_min, wc_max = wc_max, wc_min
+        _wc_rule = (
+            f"每轮输出正文的**中文字数**须达到{wc_min}-{wc_max}汉字"
+            f"（不含标点和空格，仅计汉字字符）。"
+            f"低于{wc_min}汉字会被系统判定为过短。"
+            f"LLM输出时请自行估算字数：约15-18个汉字为一行，{wc_min}汉字约需{max(1, wc_min // 17)}-{max(1, wc_max // 15)}行连续叙事。"
+        )
+        _nsfw_t1 = (
+            f"【Type 1 — 刺激插曲】\n"
+            f"一次性、狭窄场景、快节奏。一轮内给出完整闭环的性爱过程（挑逗→前戏→进入→多次高潮/射精→事后）。\n"
+            f"NPC在这一轮中完成从开始到结束的完整反应链，不留悬置的叙事钩子。\n"
+            f"字数上限{wc_max}汉字，尽量多写，充分榨干本轮感官。体位根据场景选择，可多次高潮多次射精。\n"
+            f"核心：NPC不拖沓不空转——但如果玩家意犹未尽，可在下一轮输入新动作继续，NPC自然承接但不主动为\"再来一次\"铺设延展线。\n"
+        )
+        _nsfw_t2 = (
+            f"【Type 2 — 情节性性爱】\n"
+            f"适用于初夜、久别重逢的干柴烈火、感情升温后的温柔缠绵、关键节点上的结合（定情、双修、和解性爱等）。\n"
+            f"可以有试探性接触→情感对话推进→逐步升温→激烈→温存余韵的过程。\n"
+            f"不必一轮内走完前戏到事后，但每轮必须有阶段性的推进结果（如\"他的手抚上了你的腰\"→\"衣物已褪去大半\"→\"进入了\"→事后相拥\"——每轮走到一个自然节点即可）。\n"
+            f"如果场景需跨多轮（如通宵欢好、三日双修），每轮结束时给出阶段性闭环（一次完整的回合结束、体位切换的自然间隙、一次高潮后的喘息），并在叙事中暗示后续方向（\"夜还长\"\"她的呼吸刚平复，手指又不安分地滑向你\"）。\n"
+            f"对话和情绪描写的占比应高于Type 1，严禁因追求感官密度而牺牲情感推进。\n"
+            f"字数{wc_min}-{wc_max}字/轮，不设上限硬顶，以情绪和情节完整为准。\n"
+        )
+
         # P0: System (includes Output Rules)
-        system = ctx.system
+        system = ctx.system.replace("{word_count_rule}", _wc_rule)
         # Inject NSFW block when active
         if ctx.nsfw_active or ctx.nsfw_material:
-            system += NSFW_PROMPT
+            nsfw = NSFW_PROMPT.replace("{nsfw_type1_rule}", _nsfw_t1).replace("{nsfw_type2_rule}", _nsfw_t2)
+            system += nsfw
         blocks.append(system)
 
         # P0: World

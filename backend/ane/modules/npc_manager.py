@@ -37,8 +37,11 @@ class NPCManager:
         )
         return list(result.scalars().all())
 
-    async def get_by_id(self, db: AsyncSession, npc_id: str) -> NPC | None:
-        result = await db.execute(select(NPC).where(NPC.id == npc_id))
+    async def get_by_id(self, db: AsyncSession, npc_id: str, session_id: str | None = None) -> NPC | None:
+        stmt = select(NPC).where(NPC.id == npc_id)
+        if session_id:
+            stmt = stmt.where(NPC.session_id == session_id)
+        result = await db.execute(stmt)
         return result.scalar_one_or_none()
 
     async def get_important(
@@ -53,27 +56,27 @@ class NPCManager:
         )
         return list(result.scalars().all())
 
-    async def mark_important(self, db: AsyncSession, npc_id: str) -> NPC | None:
-        """Mark an NPC as important."""
-        npc = await self.get_by_id(db, npc_id)
+    async def mark_important(self, db: AsyncSession, npc_id: str, session_id: str | None = None) -> NPC | None:
+        """Mark an NPC as important. session_id optional but recommended for security."""
+        npc = await self.get_by_id(db, npc_id, session_id=session_id)
         if npc:
             npc.is_important = True
             await db.flush()
         return npc
 
     async def update_location(
-        self, db: AsyncSession, npc_id: str, location: str
+        self, db: AsyncSession, npc_id: str, location: str, session_id: str | None = None
     ) -> NPC | None:
-        npc = await self.get_by_id(db, npc_id)
+        npc = await self.get_by_id(db, npc_id, session_id=session_id)
         if npc:
             npc.location = location
             await db.flush()
         return npc
 
     async def update_state(
-        self, db: AsyncSession, npc_id: str, key: str, value
+        self, db: AsyncSession, npc_id: str, key: str, value, session_id: str | None = None
     ) -> NPC | None:
-        npc = await self.get_by_id(db, npc_id)
+        npc = await self.get_by_id(db, npc_id, session_id=session_id)
         if npc:
             state = dict(npc.long_term_state or {})
             state[key] = value

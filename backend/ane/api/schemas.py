@@ -76,6 +76,8 @@ class TurnRequest(BaseModel):
     model: str | None = Field(default=None, description="模型标识，如 openai:gpt-4o")
     mark_important_npc: bool = Field(default=False, description="用户勾选了'重要人物'按钮")
     load_model_data: bool = Field(default=True, description="是否自动加载已建模人物数据")
+    word_count_min: int = Field(default=500, ge=100, le=5000, description="最低字数")
+    word_count_max: int = Field(default=1200, ge=200, le=5000, description="最高字数")
 
 
 class TurnResponse(BaseModel):
