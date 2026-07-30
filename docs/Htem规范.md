@@ -4,6 +4,8 @@
 > 适用项目：AI Narrative Engine (ANE)  
 > 设计原则：所有数据来源于数据库，由 Prompt Builder 自动组装生成
 
+> ⚠️ **设计规范/历史参考**：本文档是HTEM格式的原始设计方案，部分内容未在代码中完全实现或已被替代。当前 Prompt Builder 使用简化版Htem格式，实际输出以代码为准。
+
 ---
 
 ## 目录
@@ -66,7 +68,7 @@
 | 3 | NPC | `[重要人物]` / `[当前交互角色]` | 高 | 随场景切换 | 有（扁平字段） |
 | 4 | Scene | `[当前场景]` | 高 | 随位置变化 | 有（基础字段） |
 | 5 | Constraints | `[场景约束]` | 高 | 随场景切换 | 有（叙事约束模块） |
-| 6 | Agentic State | `[本轮代理]` | 中 | 每轮可能变 | **缺失** |
+| 6 | Agentic State | `[本轮代理]` | 中 | 每轮可能变 | 已实现（Prompt Builder 6.2） |
 | 7 | Memory Layers | `[世界事实]` / `[剧情回顾]` / `[最近对话]` | 中/低 | 每轮递增 | 有（三层记忆） |
 | 8 | Story / Related | `[相关的未登场人物]` | 低 | 随场景切换 | **缺失** |
 | 9 | Action Suggestions | `[推荐行动]` | 低（可选） | 每轮生成 | **缺失** |
@@ -816,44 +818,6 @@ class PromptBuilder:
 1. 接收结构化输入
 2. 按本规范定义的字段格式输出
 3. 空值时返回空字符串（上层跳过）
-
----
-
-## 8. 实施路线图
-
-### Phase 1+ — 立即（1-2 周）
-
-| 步骤 | 内容 | 涉及文件 |
-|------|------|---------|
-| 1 | 定义 `WorldContext`, `PlayerContext`, `NPCContext`, `SceneContext`, `AgenticContext` dataclass | `prompt_builder.py`（新增） |
-| 2 | 重构 `PromptBuilder.build()`，按新板块顺序组装，使用 `————————` 分隔符 | `prompt_builder.py` |
-| 3 | 实现 `_build_player_block()` 新版本（结构化子字段） | `prompt_builder.py` |
-| 4 | 实现 `_build_npc_block()` 区分完整/精简格式 | `prompt_builder.py` |
-| 5 | `_build_scene_block()` 增加在场人物列表和环境氛围 | `prompt_builder.py` |
-| 6 | 重构 `narrative_constraints.to_prompt_block()` 支持 hard/soft/triggers 分类 | `narrative_constraints.py` |
-| 7 | `AgenticContext` 在 Game Engine turn 管线中自动生成 | `game_engine.py` |
-| 8 | `Retrieval Engine` 增加 `related_but_absent` 检索逻辑 | `retrieval_engine.py` |
-| 9 | NSFW/NTR/未成年 材料注入 | ✅ game_engine.py + 3个 json |
-| 10 | 孕期安全规则 | ✅ prompt_builder.py Rule 37-40 |
-
-### Phase 2 — 后续
-
-| 步骤 | 内容 |
-|------|------|
-| 11 | NPC 模板生成时自动填充 `attributes` 子字段（穿着、心性等） |
-| 12 | `WorldRegion` 模板增加 `attributes`（势力、法律、氛围） |
-| 13 | 实现 `ActionSuggestions` 规则引擎 |
-| 14 | `short_term_state` 的每场景清空机制 |
-
-### Phase 3 — 远期
-
-| 步骤 | 内容 |
-|------|------|
-| 15 | Token 预算感知的自动裁剪 |
-| 16 | LLM 驱动的 action suggestion 生成 |
-| 17 | `short_term_state` 的 AI 自动更新（从 narrative 推断 NPC 姿势/状态变化） |
-
----
 
 ## 附录 A：完整 Htem 示例
 

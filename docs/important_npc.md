@@ -1,12 +1,12 @@
-# 重要人物标记系统（完整 LLM 链路）
+# 局内建模标记系统（完整 LLM 链路）
 
 ## 总览
 
-重要人物系统由**互斥操作**按钮 + 快捷建模按钮（🧑/👩）+ 三层记忆架构组成：
+局内建模系统由**互斥操作**按钮 + 快捷建模按钮（🧑/👩）+ 三层记忆架构组成：
 
 ```
 前端 UI（互斥，勾一个自动取消另一个）:
-  [ ] ⭐ 重要人物     → 创建/更新人物档案（走独立 /npc-modeling 端点）
+  [ ] ⭐ 局内建模     → 创建/更新人物档案（走独立 /npc-modeling 端点）
   [✓] 📦 加载建模     → 检测输入中的已建模人名，自动注入完整数据到 Prompt
                        默认勾选，勾⭐时自动取消，勾📦时自动取消⭐
 
@@ -16,8 +16,13 @@
   流程同 ⭐，但自动确定性别方向，省去用户写「她/他」的麻烦
 
 信息查看按钮:
-  ！→ 重要人物构建说明
+  ！→ 局内建模构建说明
 
+NPC 编辑弹窗（前端 NPC 总库表）:
+  每行 NPC 右侧有「查看」和「编辑」按钮
+  - 查看：只读展示该 NPC 的完整 model_data（含身份、修为、外貌、关系等）
+  - 编辑：可修改该 NPC 的 name / identity / cultivation / gender / age / personality / tags
+  - 确认后提交到 `POST /npc-modeling/{npc_id}/edit` 更新 DB
 
 后端记忆:
   shortmemory ×5 → 短期记忆（最近5轮摘要）
@@ -230,7 +235,7 @@ for db_npc in all_important_npcs:
 | Prompt 展示 | `prompt_builder.py` | `_build_important_npcs_block() / _build_conversation_block() / _build_facts_block()` |
 | 路由 + 确认 | `api/routes.py` | `npc_modeling() / npc_modeling_confirm()` |
 | 请求 Schema | `api/schemas.py` | `NpcModelingRequest / NpcModelingResponse / NpcModelingConfirmRequest` |
-| 前端弹窗 | `frontend/index.html` | `showNpcConfirmDialog() / formatNpcModel()` |
-| 快捷建模 | `frontend/index.html` | `startModeling(gender)` → 🧑/👩 |
+| 前端弹窗 | `frontend/app.html` | `showNpcConfirmDialog() / formatNpcModel()` |
+| 快捷建模 | `frontend/app.html` | `startModeling(gender)` → 🧑/👩 |
 | 记忆面板 | （💭 按钮已关闭，暂时不可用） |
 | 面板 Schema | `api/schemas.py` | `MemoryPanelEntry / MemoryPanelResponse` |

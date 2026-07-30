@@ -1,6 +1,8 @@
 
 # ANE Platform — Multi-Worldview AI Narrative Engine
 
+> 📌 **愿景文档**：本文档是 ANE Platform 未来的规划蓝图，部分功能尚未实施。当前实现以 CLAUDE.md 和代码为准。
+
 > 版本：v0.1（草案）
 > 基于：ANE 修仙版 Phase 1 MVP（代码现状 2026-07-26）
 

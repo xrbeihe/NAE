@@ -1,4 +1,4 @@
-# ANE 模块参考 — 13 个独立模块 (+ Auth + JSONLoader 基础设施) 速查
+# ANE 模块参考 — 14 个独立模块 (+ Auth + JSONLoader 基础设施) 速查
 
 > 全部单例。所有模块在 `game_engine.py` 中导入并通过 turn 管线编排。
 > 模块间禁止直接耦合；交流通过 Event Bus + 方法调用（GameEngine 统一调度）。
@@ -13,13 +13,13 @@
 | TimeManager | `time_manager.py` | tick 推进 + Phase 1 内联 Scheduler | GameEngine, API routes |
 | NarrativeConstraints | `narrative_constraints.py` | 硬/软约束 + 条件触发 | GameEngine → PromptBuilder |
 | RetrievalEngine | `retrieval_engine.py` | Active Set 构建 + related_absent 检索 | GameEngine |
-| MemoryManager | `memory_manager.py` | 三层记忆（Conv/Summary/Facts）+ llm_summary 日志 + HTEM 缓存 | GameEngine, API routes |
+| MemoryManager | `memory_manager.py` | 三层记忆（Conv/Shortmemory/Longmemory）+ llm_summary 日志 | GameEngine, API routes |
 | PromptBuilder | `prompt_builder.py` | 唯一生成 Prompt 的模块（Htem 格式） | GameEngine |
 | ModelAdapter | `model_adapter.py` | 统一 LLM 调用接口（6 Provider + Ollama）+ Token 用量追踪 | GameEngine（_llm_nameget/llm_main/llm_summary/NPC_MODELING/summary） |
 | OutputParser | `output_parser.py` | JSON 提取 + 校验 + 套话移除 + character_model 支持 | GameEngine |
 | EventBus | `event_bus.py` | 内存 Pub/Sub 路由（当前 handler 为日志级别） | GameEngine |
 | PlayerManager | `player_manager.py` | Player CRUD + 模板 + apply_character | GameEngine, API routes |
-| NPCManager | `npc_manager.py` | NPC CRUD + 随机生成 + mark_important | GameEngine |
+| NPCManager | `npc_manager.py` | NPC CRUD + mark_important | GameEngine |
 | WorldManager | `world_manager.py` | 世界区域 CRUD + 初始生成 + 位置层级上下文 | GameEngine |
 | **NPC Modeler** | **`npc_modeler.py`** | **结构化人物档案建模：解析 LLM 输出 + 渲染模型到 Prompt** | **GameEngine** |
 | JSONLoader | `content/json_loader.py` | 中文 JSON 文件惰性加载 + 缓存 | Player/NPC/World/NSFW 模板 |
@@ -106,32 +106,29 @@ get_active_set(db, session_id, player_location) -> ActiveSet
 
 ```python
 # 三层记忆
-add_conversation_turn(db, session_id, turn_number, user_input, ai_response, nearby_characters, prompt) -> str
+add_conversation_turn(db, session_id, turn_number, user_input, ai_response, nearby_characters, prompt) -> list[str]
 get_conversation(db, session_id) -> list[Memory]
 get_full_conversation(db, session_id) -> list[Memory]
 get_prompts(db, session_id) -> list[Memory]
 
-# Facts 管理
-add_fact(db, session_id, content, category, priority)
-get_facts(db, session_id) -> list[Fact]
-remove_fact(db, fact_id)
-
-# Summary
+# Summary / shortmemory
+add_summary_entry(db, session_id, turn_number, content) -> list[str]
+get_summaries_since(db, session_id, from_turn=0) -> list[Memory]
 get_latest_summary(db, session_id) -> Memory | None
 save_summary(db, session_id, turn_number, content)
 
-# HTEM
-get_htem_directory(db, session_id) -> str
-save_htem_directory(db, session_id, text)
+# Longmemory（纪元记录）
+get_longmemory_entries(db, session_id) -> list[Memory]
+add_longmemory_entry(db, session_id, turn_start, turn_end, time_range, content)
 ```
 
-- `add_conversation_turn` 写入三种 `memory_type`：
+- `add_conversation_turn` 写入两种 `memory_type`：
   - `conversation` — 完整对话 + `【附近人物】` JSON 前缀存储，前端渲染用
   - `shortmemory` — llm_summary 压缩版（给下轮 Prompt 用），调用 `compact_narrative_with_llm()`
   - `prompt` — 完整 Prompt，**永久保留，永不裁剪**
 - **`nearby_characters` 设计原则**：只存在 conversation 记录中供前端恢复卡片，**永不回流到后续 Prompt**。
   shortmemory 版本不包含 nearby——对 LLM 来说这些是"一次性垃圾数据"。
-- 此外还有：`longmemory`（纪元记录）、`htem_directory`（HTEM 缓存）
+- 此外还有：`longmemory`（纪元记录）
 - **重要NPC保护**：提及重要NPC的记忆条目不会被裁剪
 - shortmemory / conversation 保留最近 20 轮，prompt 永久保留
 - llm_summary 调用日志写入 `user_logs/llm_summary/年月.log`（容错：失败时回退到截取前 200 字）
@@ -232,20 +229,16 @@ get_templates() -> dict
 ```python
 create(db, session_id, **kwargs) -> NPC
 get_by_session(db, session_id) -> list[NPC]
-get_core(db, session_id) -> list[NPC]        # core NPCs
+get_by_id(db, npc_id) -> NPC | None
+get_by_location(db, session_id, location) -> list[NPC]
 get_important(db, session_id) -> list[NPC]    # marked important
 mark_important(db, npc_id) -> NPC | None
 update_state(db, npc_id, key, value)
 update_location(db, npc_id, location)
-generate_initial_npcs(db, session_id, total=30, core_count=8) -> list[NPC]
-_random_name(exclude: set) -> str
 ```
 
-- `generate_initial_npcs()` 从 `npc_templates.json` 加载数据（通过 `npc_templates.py` 封装层）
-  - 核心 NPC（8 个）：从 `CORE_ARCHETYPES` 原型池随机选取，每个原型包含完整 portrait（年龄/身高/体重/衣着/能力/关系等），写入 `long_term_state`/`equipment`/`abilities`/`relations`/`short_term_state`/`appearance`
-  - 次要 NPC（22 个）：随机姓名 + 身份 + 修为 + 性格，lean portrait
-  - `_random_name()`：姓氏池（30+）× 随机名池（男/女各 30+），检测去重
-- `mark_important()` 同时设置 `is_important=True` 和 `is_core=True`
+- NPCs are created on demand (by llm_main, player import, or NPC_MODELING), not pre-generated.
+- `mark_important()` sets `is_important=True`.
 
 ---
 
@@ -261,7 +254,6 @@ render_model_for_prompt(model: dict, include_nsfw: bool = False) -> str
 - 验证：必须有 `basic.name`，否则返回 None
 - 输出保存到 `NPC.long_term_state["model"]`
 - `render_model_for_prompt()`：将 model 渲染为格式化文本块，按 16 个维度输出
-- **完全替代了文档中的 HTEM Phase 2 方案**
 
 ---
 
@@ -361,6 +353,27 @@ get_current_user(credentials, db) -> User               # 强制认证
 - 算法：HS256
 - 所有 `/sessions/*` 路由通过 `Depends(get_current_user)` 强制认证
 - 用户数据按 `user.id` 隔离
+
+---
+
+## API Routes (`api/routes.py`)
+
+The API layer (FastAPI router under `/sessions/*`) complements the modules above. Key endpoint groups:
+
+| 功能 | 主要端点 |
+|------|----------|
+| Session CRUD | `GET/POST /sessions`, `GET/DELETE /sessions/{id}` |
+| Turn processing | `POST /sessions/{id}/turn` |
+| NPC Library（跨世界总库） | `GET/POST/PUT/DELETE /sessions/{id}/npc-library` |
+| NPC import/export | `GET /sessions/{id}/npcs/imported`, `POST/DELETE /sessions/{id}/npcs/import/{name}` |
+| Important NPCs | `GET /sessions/{id}/important-npcs` |
+| NPC Modeling | `POST /sessions/{id}/npc-modeling`, `POST …/confirm` |
+| Character creation | `POST /sessions/{id}/character` |
+| Memory retrieval | `GET /sessions/{id}/memories` |
+
+- All routes require JWT authentication (`Depends(get_current_user)`)
+- User data is isolated by `user.id`
+- The NPC Library endpoints provide cross-session NPC storage (independent of per-session NPC CRUD in NPCManager)
 
 ---
 

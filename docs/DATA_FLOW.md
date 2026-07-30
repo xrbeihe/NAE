@@ -21,7 +21,7 @@
   │
   ▼
 ┌─ Step 2: System Command 检测 ─────────────────────────────────┐
-│ /status, /help, /summary, /facts, /addfact, /describe-world   │
+│ /status, /help, /describe-world, 描述这个世界                   │
 │ 命中时直接返回 TurnResult(is_system_command=True)，绕过 LLM    │
 └───────────────────────────────────────────────────────────────┘
   │
@@ -29,7 +29,7 @@
 ┌─ Step 3: Extract Player Info ─────────────────────────────────┐
 │ 从玩家输入中自动提取（姓名/修为/师尊关系）→ 更新 DB            │
 │ 正则匹配："我是XXX" → name, "我修为是X" → cultivation,        │
-│           "师尊叫XXX" → master_name → 写为 Fact               │
+│           "师尊叫XXX" → master_name                           │
 │ 注意：修为提取限定"我"自称场景，防止"她是金丹期"被误提取       │
 └───────────────────────────────────────────────────────────────┘
   │
@@ -51,7 +51,6 @@
   ▼
 ┌─ Step 6: Retrieval Engine ────────────────────────────────────┐
 │ 构建 Active Set：核心 NPC + 同位置 NPC + 位置层级上下文        │
-│ 还检索 "related absent" NPC（通过 Fact 引擎探索）               │
 │ 输出: ActiveSet(core_npcs, nearby_npcs, location_context,     │
 │                 related_absent)                                │
 └───────────────────────────────────────────────────────────────┘
@@ -66,18 +65,17 @@
   │
   ▼
 ┌─ Step 7: Memory Manager ──────────────────────────────────────┐
-│ 加载三层记忆：                                                 │
+│ 加载两层记忆：                                                 │
 │   Conversation — 最后 N 轮压缩对话（滑动窗口，默认 20）        │
 │   Summary     — 剧情摘要（LLM 生成 / 手动 / 自动触发）         │
-│   Facts       — 世界事实（key-value 事实，优先级排序）          │
 │ 重要NPC条目被保护：提及重要NPC的记忆条目不会被裁剪             │
 └───────────────────────────────────────────────────────────────┘
   │
   ▼
 ┌─ Step 8: Build Prompt Context ────────────────────────────────┐
-│ 组装 PromptContext 结构化数据（Htem）：                         │
+│ 组装 PromptContext 结构化数据（Htem格式）：                      │
 │  World → Player → core_npcs → nearby_npcs → Scene →           │
-│  Constraints → Agentic State → Facts(关系优先) → LongMemory →  │
+│  Constraints → Agentic State → LongMemory →                   │
 │  ShortMemory(5轮) → related_absent                            │
 │  → user_input                                                  │
 │                                                               │
@@ -109,7 +107,7 @@
 │ 唯一允许生成 Prompt 的模块。按 Htem 格式组装：                 │
 │  System → World → Player（含出身+身份+灵根+金手指）→ Scene →  │
 │  Important NPCs → Interactive NPC → Constraints → NSFW/NTR    │
-│  Material → Agentic State → Facts(关系优先+世界记录) →        │
+│  Material → Agentic State →                                   │
 │  LongMemory → ShortMemory(5轮) → Related Characters →         │
 │  Action Suggestions → User Input                               │
 │ 建模登场轮额外注入【建模登场——强制完整外貌描写】块            │
@@ -147,7 +145,7 @@
 │ state_changes 通过 Event Bus 分发 → 各 handler 处理           │
 │ 当前 handler 全部为日志级别（实际 DB 写入在主管线直接执行）     │
 │ npc_nearby → NPCManager.create (background npc)              │
-│ npc_important → NPCManager.mark_important + 创建 Fact         │
+│ npc_important → NPCManager.mark_important                     │
 └───────────────────────────────────────────────────────────────┘
   │
   ▼
@@ -162,25 +160,13 @@
 └───────────────────────────────────────────────────────────────┘
   │
   ▼
-┌─ Step 15: (removed — suggest_summary auto-trigger removed)  ──┐
-│ /summary 命令已删，剧情回顾不再走独立 LLM 调用                  │
+┌─ Step 15: Apply State Changes to DB ──────────────────────────┐
+│ 将 state_changes 直接写入 Player/NPC 表                        │
+│ 实际 DB 写入在主管线按步骤顺序执行                              │
 └───────────────────────────────────────────────────────────────┘
   │
   ▼
-┌─ Step 16: Auto-facts from state_changes ──────────────────────┐
-│ 自动写入 Facts 表（按类型+优先级）：                             │
-│   npc_important           → character (10)                     │
-│   relationship_change     → relationship (10) ★永久            │
-│   cultivation_change      → achievement (8)                    │
-│   location_change(玩家)   → travel (6)                         │
-│   quest_accepted/completed→ achievement (9)                    │
-│   marriage                → relationship (10) ★永久            │
-│   death/breakthrough      → achievement (10)                   │
-│ Prompt 展示: 【人物关系（永久）】优先于【世界记录】              │
-└───────────────────────────────────────────────────────────────┘
-  │
-  ▼
-┌─ Step 17: Build Panels + Return ──────────────────────────────┐
+┌─ Step 16: Build Panels + Return ──────────────────────────────┐
 │ 从数据库读取 player + important NPCs，构建展示面板：           │
 │   player_panel → 主角面板（出身/身份/灵根/金手指等）           │
 │   important_npcs_panel → 重要人物列表（含 model_data 中       │
@@ -273,15 +259,15 @@
 5. 大胆补全不留空
 6. 年龄 ≤40（除非玩家明确说）
 7. 身世不提则不编造
-8. “我”=玩家角色名, spouse=已婚, lover=未婚
+8. "我"=玩家角色名, spouse=已婚, lover=未婚
 ```
 
 ### 建模完成效果
 
 - NPC.is_important = True
-- NPC.long_term_state[“model”] 完整模型
+- NPC.long_term_state["model"] 完整模型
 - NPC.identity / cultivation / gender / age / personality 已同步
-- NPC.long_term_state[“pending_debut”] = True（登场轮触发完整描写）
+- NPC.long_term_state["pending_debut"] = True（登场轮触发完整描写）
 
 ---
 
@@ -305,7 +291,7 @@ for db_npc in all_db_npcs:
 匹配不上 = 不加载该NPC = LLM按常规叙事，不影响流程。
 
 **🔄 pending_debut 登场轮** — 首次建模后第一轮 turn：
-- 检测 `NPC.long_term_state[“pending_debut”]`
+- 检测 `NPC.long_term_state["pending_debut"]`
 - 设置 `ctx.is_modeling_turn = True`
 - Prompt Builder 注入【建模登场——强制完整外貌描写】块
 - 描写完成后清除标记
@@ -352,33 +338,6 @@ for db_npc in all_db_npcs:
   Turn 5: 茶馆听到黑风岭妖兽消息
 ```
 
-### 永久记忆 — Facts（只增不减）
-
-```
-写入方式: 自动（Step 16 处理 state_changes 时）
-存储表: facts
-关键类型:
-  relationship(priority=10)
-    ├─ npc_important → character(10)
-    ├─ relationship_change → relationship(10)  ← 永不裁剪
-    └─ marriage → relationship(10)             ← 永不裁剪
-  achievement(priority=8-10)
-    ├─ cultivation_change → achievement(8)
-    ├─ quest_accepted/completed → achievement(9)
-    └─ death/breakthrough → achievement(10)
-  travel(priority=6)
-    └─ location_change(玩家) → travel(6)
-
-Prompt展示:
-  【人物关系（永久）】  ← 永远排在最前面
-    张海: 玩家的母亲
-    张大强: 张海的丈夫
-    白慕彩: 玩家的师尊
-  【世界记录】
-    [achievement] 张海修为变为炼气期
-    [travel] 玩家到达落雁城
-```
-
 ---
 
 ## 每轮 Prompt 注入内容清单（按顺序）
@@ -394,15 +353,13 @@ Prompt展示:
 8. NSFW/NTR Material（按需）
 9. Agentic State（可交互NPC列表）
 ━━━━━━━━━━━━━━━━━━━━━━━━━
-10. 【人物关系（永久）】 ← 高优先级Facts
-11. 【世界记录】          ← 普通Facts
-12. 【纪元记录】          ← LongMemory（全部）
-13. 💾短记忆区(5轮)      ← ShortMemory
-15. Related Characters    ← 不在场的相关人物
-16. Action Suggestions    ← 推荐行动
-17. 【玩家输入】          ← 本轮输入
+10. 【纪元记录】          ← LongMemory（全部）
+11. 💾短记忆区(5轮)      ← ShortMemory
+12. Related Characters    ← 不在场的相关人物
+13. Action Suggestions    ← 推荐行动
+14. 【玩家输入】          ← 本轮输入
 ━━━━━━━━━━━━━━━━━━━━━━━━━
-18. 【建模登场指令】      ← 仅is_modeling_turn=True时
+15. 【建模登场指令】      ← 仅is_modeling_turn=True时
 ```
 
 ---
@@ -411,37 +368,37 @@ Prompt展示:
 
 ```python
 {
-  “basic”: {“name”,”race”,”gender”,”age”,”height”,”cultivation”,”identity”,”faction”,”position”},
-  “appearance”: {“overall_impression”,”body_proportion”,”aura”,
-                  “face”: {“shape”,”features”,”eyes”,”lashes”,”eyebrows”,”nose”,”lips”,”teeth”,”dimples”,”tear_mole”,”expression_habit”},
-                  “skin”: {“color”,”luster”,”fineness”},
-                  “hair”: {“length”,”style”,”color”,”ornament”},
-                  “neck”,”collarbone”,”shoulders”,
-                  “chest”: {“size”,”shape”,”fullness”},
-                  “waist”: {“muscle_line”,”slimness”,”softness”},
-                  “belly”,
-                  “buttocks”: {“size”,”curve”}, “hips”,
-                  “legs”: {“length”,”muscle_tone”,”thighs”},
-                  “feet”: {“shape”,”size”,”barefoot”},
-                  “hands”: {“fingers”,”back”}},
-  “voice”: {“timbre”,”speed”,”volume”},
-  “clothing”: {“type”,”color”,”material”,”pattern”,”collar”,”outerwear”,”belt”,”hosiery”,”shoes”},
-  “jewelry”: {“earrings”,”necklace”,”rings”,”bracelets”},
-  “equipment”: [{“name”,”description”,”position”}],
-  “behavior”: {“stance”,”sitting”,”gait”,”smile”,”mannerisms”,”speech_rhythm”,”catchphrase”},
-  “speech_style”: {“word_habits”,”particles”,”address_player”,”address_others”,”when_angry”},
-  “combat_style”: {“preference”,”weapon_usage”,”battle_cry”,”spirit_power_signature”},
-  “personality”: {“core”,”values”,”principles”,”bottom_line”,”interests”,”fears”,”aversions”,”likes”,”obsession”},
-  “background”: {“history”,”major_events”,”faction_affiliation”,”family”},
-  “cultivation”: {“spiritual_root”,”special_constitution”,”techniques”,”divine_powers”,”ring_storage”,”wealth”},
-  “knowledge_bounds”: {“knows”:[],”does_not_know”:[],”suspicious_of”:[]},
-  “attitude_to_player”: {“surface”,”true_feelings”,”relationship_trend”},
-  “relationships”: {“father”,”mother”,”spouse”,”master”,
-                     “senior_brother”,”senior_sister”,”junior_brother”,”junior_sister”,
-                     “teacher”,”superior”,”subordinate”,
-                     “friends”:[],”enemies”:[],
-                     “lover”,”fiance”,”beloved”,”rival”,”pursuer”},
-  “nsfw”: {“is_virgin”,”fertility”,”desire_toward_target”,”rejection_toward_target”,”male_genital”,”female_genital”}
+  "basic": {"name","race","gender","age","height","cultivation","identity","faction","position"},
+  "appearance": {"overall_impression","body_proportion","aura",
+                  "face": {"shape","features","eyes","lashes","eyebrows","nose","lips","teeth","dimples","tear_mole","expression_habit"},
+                  "skin": {"color","luster","fineness"},
+                  "hair": {"length","style","color","ornament"},
+                  "neck","collarbone","shoulders",
+                  "chest": {"size","shape","fullness"},
+                  "waist": {"muscle_line","slimness","softness"},
+                  "belly",
+                  "buttocks": {"size","curve"}, "hips",
+                  "legs": {"length","muscle_tone","thighs"},
+                  "feet": {"shape","size","barefoot"},
+                  "hands": {"fingers","back"}},
+  "voice": {"timbre","speed","volume"},
+  "clothing": {"type","color","material","pattern","collar","outerwear","belt","hosiery","shoes"},
+  "jewelry": {"earrings","necklace","rings","bracelets"},
+  "equipment": [{"name","description","position"}],
+  "behavior": {"stance","sitting","gait","smile","mannerisms","speech_rhythm","catchphrase"},
+  "speech_style": {"word_habits","particles","address_player","address_others","when_angry"},
+  "combat_style": {"preference","weapon_usage","battle_cry","spirit_power_signature"},
+  "personality": {"core","values","principles","bottom_line","interests","fears","aversions","likes","obsession"},
+  "background": {"history","major_events","faction_affiliation","family"},
+  "cultivation": {"spiritual_root","special_constitution","techniques","divine_powers","ring_storage","wealth"},
+  "knowledge_bounds": {"knows":[],"does_not_know":[],"suspicious_of":[]},
+  "attitude_to_player": {"surface","true_feelings","relationship_trend"},
+  "relationships": {"father","mother","spouse","master",
+                     "senior_brother","senior_sister","junior_brother","junior_sister",
+                     "teacher","superior","subordinate",
+                     "friends":[],"enemies":[],
+                     "lover","fiance","beloved","rival","pursuer"},
+  "nsfw": {"is_virgin","fertility","desire_toward_target","rejection_toward_target","male_genital","female_genital"}
 }
 ```
 
@@ -460,7 +417,6 @@ Prompt展示:
 | 前端建模卡 | `frontend/index.html` | formatNpcModel() |
 | 记忆管理 | `memory_manager.py` | MemoryManager (全部) |
 | Prompt组装 | `prompt_builder.py` | PromptBuilder (全部) |
-| 自动Facts | `game_engine.py` | process_turn() Step 15 |
 | 后台摘要+LongMemory | `game_engine.py` | GameEngine._run_bg_llm_summary() |
 | 加载建模 | `game_engine.py` | process_turn() Step 6b 📦块 |
 | 输出解析 | `output_parser.py` | parse() + _parse_json() |
@@ -569,8 +525,6 @@ if nearby_characters:
 - 格式已改为紧凑版（多字段连续排列，不空行）
 - shortmemory 版本（llm_summary）**不包含** nearby 数据，**不包含**推荐行动
 
-### 与 state_changes 的区别
-
 ### 前端恢复流程
 
 ```javascript
@@ -585,7 +539,7 @@ if (line.startsWith('【附近人物】')) {
 
 | 数据 | 写入 DB | 回流到 Prompt | 用途 |
 |------|---------|--------------|------|
-| `state_changes` | 是 | 否（通过 Facts/Summary 间接） | 持久化世界状态变更 |
+| `state_changes` | 是 | 否（通过 Summary 间接） | 持久化世界状态变更 |
 | `nearby_characters` | 否（仅存 conversation 记录） | **永不回流** | 玩家端场景氛围渲染 |
 
 ---
@@ -603,7 +557,7 @@ GameEngine 注册以下 handler（当前全部为日志级别，DB 写入在主�
 | `item_removed` | 日志记录 |
 | `npc_status` / `character_status` | 日志记录 |
 | `player_name_change` | 日志记录 |
-| `relationship_change` | 日志记录 + Fact(relationship) |
+| `relationship_change` | 日志记录 |
 | `offstage_npcs` | NPC 创建 + `NPC.relations` + 关系网 |
 | `npc_important` | 日志记录（DB 由 Step 15 写） |
 | `npc_nearby` | NPCManager.create (background npc) |
@@ -637,10 +591,17 @@ GameEngine 注册以下 handler（当前全部为日志级别，DB 写入在主�
 | 命令 | 功能 | 备注 |
 |------|------|------|
 | `/status` | 查看角色状态 | 含位置/修为/物品/标记NPC数 |
-| `/facts` | 列出世界事实 | 按优先级排序 |
-| `/addfact <内容>` | 添加世界事实 | 自动设置 priority=5 |
 | `/help` | 显示帮助 | 静态文本 |
 | `描述这个世界` | 世界概况 | 精确匹配触发 |
+
+---
+
+## 前端新增功能
+
+- **NPC 编辑弹窗**：NPC 总库中各卡片提供"查看/编辑"按钮，点击弹出详细信息弹窗，支持编辑 NPC 属性
+- **世界头像裁剪**：支持上传图像并裁剪作为世界头像
+- **短记忆 + 长记忆查看**：前端提供界面查看 shortmemory（5 轮滑动窗口）和 longmemory（纪元记录，全部保留）
+- **刷新后恢复会话**：浏览器刷新后自动恢复游戏会话，不掉失状态
 
 ---
 
@@ -656,6 +617,5 @@ GameEngine 注册以下 handler（当前全部为日志级别，DB 写入在主�
 8. 每条 turn 管线 16 步完成
 9. NPC_MODELING：重要人物首次建模时，独立 LLM 生成完整人物档案（走独立端点，不阻塞 turn）
 10. 建模后自动注入 `pending_debut` 标记，下一轮 turn 触发完整外貌描写
-11. 三层记忆：shortmemory(5轮) → longmemory(全部保留) → facts(永久，只增不减)
-12. relationship facts 永久保留永不裁剪，prompt 中独立展示
-13. Token 用量追踪：每次 LLM 调用记录到内存，支持按用户/标签查询
+11. 两层记忆：shortmemory(5轮滑动窗口) → longmemory(纪元记录，全部保留)
+12. Token 用量追踪：每次 LLM 调用记录到内存，支持按用户/标签查询

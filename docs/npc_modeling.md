@@ -1,7 +1,6 @@
 # NPC_MODELING 重要人物建模系统
 
-> 版本：1.1
-> 适用版本：ANE Phase 1 MVP
+> 版本：1.2
 
 ---
 
@@ -13,58 +12,61 @@
 
 ## 触发条件
 
-- 玩家在前端勾选「⭐ 重要人物」复选框发送输入
-- `mark_important_npc=True` 传入后端
-- 该 NPC **尚未拥有建模档案**（`long_term_state["model"]` 不存在）
-- 已存在模型的重要人物再次勾选 ⭐ → 不触发建模，直接使用已有模型
+- **标记 turn**：玩家在前端勾选「⭐ 重要人物」复选框发送输入，`mark_important_npc=True` 传入后端
+  - 后端 `process_turn()` 识别 NPC 名，设置 `is_important=True`，写入 `pending_debut` 标记
+  - 不在此刻建模——建模走独立 API
+- **主动建模**：前端通过独立 API 发起，无需勾选 ⭐
+- 已存在模型的重要人物再次建模 → 走 `_llm_cover` 增量更新，不覆盖未涉及的字段
 
 ---
 
 ## 链路
 
-### 标记轮（4 次 API）
+### 建模流程（独立 API，2 步 REST）
+
+建模不再是 turn 管线的一部分，而是**独立 API 端点**。前后端通过两步完成：
 
 ```
-第1次：_extract ──────────── 认人 ────────────────────────────────
-  输入：玩家输入
-  输出：角色名 + 7 个基本字段
-  用途：写入 DB 基本字段 + 注入 prompt 的【重要人物】块
+Step 1: POST /sessions/{session_id}/npc-modeling
+  ── 前置检查 ─────────────────────────────────────────────────
+  输入：玩家输入文本
+  动作：_llm_nameget_multi 提取全部人名
+        → 每人查 DB：有模型 → updated[] | 无模型 → new_names[]
+  输出：{updated: [{npc_name}], new_names: [npc名字...]}
+  用途：前端根据结果弹出确认框
 
-   │
-   ▼
+Step 2: POST /sessions/{session_id}/npc-modeling/confirm
+  ── 执行建模 ─────────────────────────────────────────────────
+  输入：{name: "NPC名", input: "玩家输入", is_new: bool}
 
-第2次：NPC_MODELING ────── 从玩家输入中构建模板 ──────────────────
-  输入：玩家输入（"一袭白衣、容貌清冷绝美"）
-  输出：完整 16 块 JSON（没填的字段由 LLM 自动推演补全）
-  用途：模型存入 NPC.long_term_state["model"]
-        同时注入 temp_npc.model_data
+  情况A —— 已有模型的 NPC → _llm_cover 增量更新
+    _llm_cover 读取现有模型，只改动玩家新输入涉及的字段
+    输出部分 JSON 子树 → 后端 _deep_merge 到完整模型
 
-   │
-   ▼
-
-第3次：llm_main ────────────── 带模型写叙事 ──────────────────────
-  输入：完整 Prompt（【重要人物】块已包含模型全部数据）
-  输出：narrative + nearby_characters + state_changes
-  特点：模型在 prompt 里，LLM 直接引用细节写出场描写
-        "写到眼睛就去查丹凤眼浅褐瞳，写到手指就参考修长如葱"
-
-   │
-   ▼
-
-第4次：llm_summary ────────── 记笔记 ────────────────────────────
-  输入：llm_main 叙事 + 玩家输入
-  输出：结构化场景事实（shortmemory 摘要）
+  情况B —— 全新 NPC → _run_npc_modeling 全量建模
+    LLM 输出 90+ 字段完整 JSON → 校验后写入 long_term_state["model"]
+    basic 字段同步回 NPC 表（identity / cultivation / gender / age）
+    设置 pending_debut 标记，下一轮首次出场时触发精细描写
 ```
 
-**建模当轮**叙事就是精细描写版，不需要等下一轮。
+**建模当轮不产生叙事**——建模和对话解耦。建模后玩家继续走 turn 管线，NPC 出场时带完整档案。
 
-### 普通轮（2 次 API）
+### 普通 turn（2 次 API）
 
 ```
-llm_main（带模型参考写叙事） → llm_summary（记笔记）
+llm_main（load_model_data 检测到已有模型 → 注入完整模板块）→ llm_summary（记笔记）
 ```
 
-prompt 中【重要人物】块渲染完整模板，LLM 按需引用。无额外 API。
+`_render_important_npc_full()` 渲染模板块注入 llm_main prompt。无额外 API。
+
+### 增量更新（_llm_cover）
+
+已存在模型的 NPC 再次建模时，走 `_llm_cover`：
+
+1. 读取现有模型 JSON → 摘要（截断 3000 字符）
+2. 构造 Prompt：已有档案 + 玩家新输入 → LLM 只输出变化的字段
+3. 返回部分 JSON 子树 → `_deep_merge(base, updates)` 递归合并
+4. 未涉及的字段保持不变，不丢失已有数据
 
 ---
 
@@ -136,13 +138,15 @@ prompt 中【重要人物】块渲染完整模板，LLM 按需引用。无额外
 
 ## 系统演化
 
-| 版本 | 标记轮 API 次数 | 建模触发时机 | 模型当轮生效 |
-|------|-----------------|-------------|-------------|
-| v1（初版） | 5 次 | llm_main 之后独立建模 + llm_main 重写 | ✅ 当轮重写 |
-| v1.1（当前） | **4 次** | llm_main 之前从玩家输入建模 | ✅ 当轮直接生效 |
+| 版本 | API 形式 | 建模触发时机 | 当轮生效 |
+|------|---------|-------------|---------|
+| v1（初版） | 内嵌 turn 管线（5 次 API） | llm_main 之后独立建模 + llm_main 重写 | ✅ 当轮重写 |
+| v1.1 | 内嵌 turn 管线（4 次 API） | llm_main 之前从玩家输入建模 | ✅ 当轮直接生效 |
+| **v1.2（当前）** | **独立 API（2 步 REST）** | 玩家通过 `/npc-modeling` 端点主动触发 | ❌ 建模不产叙事，出场时生效 |
 
-- **v1 去掉了 HTEM**，普通轮从 3 次降到 2 次
+- **v1 去掉了 HTEM**，普通 turn 从 3 次降到 2 次
 - **v1.1 把建模移到 llm_main 之前**，不再需要双次重写，不再需要 llm_main 额外输出 `character_model` 字段
+- **v1.2 建模从 turn 管线解耦为独立 API**，新增 `_llm_cover` 增量更新机制
 
 ---
 
@@ -152,8 +156,9 @@ prompt 中【重要人物】块渲染完整模板，LLM 按需引用。无额外
 |------|------|
 | `modules/npc_modeler.py` | `parse_modeling_response()` 校验模型 JSON + 注入 `model_version`；`render_model_for_prompt()` 渲染成 prompt 文本块 |
 | `modules/prompt_builder.py` | `PromptContext` 增加 `nsfw_active` 开关；`_render_important_npc_full()` 检测 `model_data` 存在时渲染完整模板块 |
-| `game_engine.py` | 标记轮：`_extract` 认人 → pre-llm_main 建模 → 存 DB + 注入 `NPCContext.model_data` → llm_main |
-| `output_parser.py` | `ParsedOutput.character_model` 字段（保留但不再使用——建模已前置） |
+| `game_engine.py` | `_run_npc_modeling()` 全量建模；`_llm_cover()` 增量更新；`_deep_merge()` 递归合并；`do_npc_modeling()` 前置检查 |
+| `api/routes.py` | `/npc-modeling` 前置检查 + `/npc-modeling/confirm` 执行建模（新 NPC 全量 / 已有 NPC 增量） |
+| `output_parser.py` | `ParsedOutput.character_model` 字段（保留但不再使用——建模已解耦） |
 
 ### 数据库
 

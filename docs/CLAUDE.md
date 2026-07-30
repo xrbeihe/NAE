@@ -8,25 +8,25 @@
    - 禁止一次性 Read 所有 .py 文件
 
 2. **只在需要时读规范**
-   - 架构规范在 `AI Narrative Engine (ANE).txt`（619行），用 Grep 检索相关段落
+   - 架构规范在 `AI Narrative Engine (ANE).txt`（约690行），用 Grep 检索相关段落
    - 不需要每次读全文
    - 常见关键词：`Phase 1` `Section 5.x` `Prompt Builder` `Event Bus`
 
 3. **不要派 Explore/Plan 子代理做简单探索**
-   - ANE 只有 ~35 个文件、~4000 行，Grep + Glob 足够
+   - ANE 只有 ~38 个文件、~4500 行，Grep + Glob 足够
    - 子代理不共享上下文，会重复读文件
 
 4. **查数据库看 dump，不要跑 Python 脚本查库**
-   - 服务器启动后自动生成 `data/unpacked/ane_dump.txt`（266KB+），包含所有表的数据
-   - 想查看当前 session 数据（玩家属性、NPC 档案、Facts、对话历史、Prompt 记录等），
+   - 服务器启动后自动生成 `data/unpacked/ane_dump.txt`，包含所有表的数据
+   - 想查看当前 session 数据（玩家属性、NPC 档案、对话历史、Prompt 记录等），
      直接 Read 这个 dump 文件，**不要尝试 import 模块或用 Python SQL 查库**
    - dump 每字段截断 200 字符，足以日常查证；需要完整数据直接读 SQLite
 
-4. **修改范围要精准**
+5. **修改范围要精准**
    - 一次只改一个模块
    - 改完 → 跑测试 → 确认通过 → 再改下一个
 
-5. **禁止的行为**
+6. **禁止的行为**
    - 禁止 `cat` 或用 Bash 读文件（用 Read 工具）
    - 禁止并行启动 2+ 子代理读同一批文件
    - 禁止 Edit 后再 Read 验证（工具本身会保证写入正确）
@@ -43,38 +43,42 @@
 │       ├── migrate_users.py       # 数据库迁移脚本
 │       ├── database/
 │       │   ├── engine.py          # 异步 SQLAlchemy 引擎
-│       │   └── models.py          # ORM 模型（8 张表：users + 7 业务表）
+│       │   └── models.py          # ORM 模型（9 张表：users + 8 业务表）
 │       ├── modules/               # 14 个独立模块（全部单例）
 │       │   ├── input_validator.py # 安全检查 + 意图分类 + 中文数字解析
 │       │   ├── time_manager.py    # 时间推进 + Phase 1 内联 Scheduler
 │       │   ├── narrative_constraints.py
-│       │   ├── retrieval_engine.py # Active Set 构建
-│       │   ├── memory_manager.py   # 三层记忆（Conversation/Summary/Facts）
+│       │   ├── retrieval_engine.py # Active Set 构建（NPC + 位置层级）
+│       │   ├── memory_manager.py   # 三层记忆（Conversation/Shortmemory/Longmemory）
 │       │   ├── prompt_builder.py   # 唯一允许生成 Prompt 的模块
-│       │   ├── model_adapter.py    # 6 个 LLM 适配器
+│       │   ├── model_adapter.py    # 6 个 LLM 适配器（deepseek, gemini, openai, claude, sensenova, ollama）
 │       │   ├── output_parser.py    # JSON 提取 + state_change 校验
 │       │   ├── event_bus.py        # 内存 Pub/Sub
-│       │   ├── player_manager.py   # Player CRUD
-│       │   ├── npc_manager.py      # NPC CRUD + 初始生成
-│       │   ├── npc_modeler.py      # 结构化人物档案建模（替代 HTEM）
+│       │   ├── player_manager.py   # Player CRUD + 角色创建
+│       │   ├── npc_manager.py      # NPC CRUD（无初始生成，按需创建）
+│       │   ├── npc_modeler.py      # 结构化人物档案建模（90+字段，替代 HTEM）
 │       │   └── world_manager.py    # 世界区域 CRUD + 初始生成
 │       ├── content/               # JSON 模板数据
-│       │   ├── npc_templates.json  # 姓名/修为/性格/原型
+│       │   ├── world_templates.json  # 宗门/城市模板
+│       │   ├── player_templates.json # 角色创建选项
+│       │   ├── npc_templates.json    # NPC 属性模板
 │       │   └── json_loader.py
 │       ├── api/                   # FastAPI 路由
-│       │   ├── routes.py          # Session/Turn API（认证保护）
-│       │   ├── auth_routes.py     # 注册/登录 API
+│       │   ├── routes.py          # Session/Turn/NPC/记忆 API（认证保护）
+│       │   ├── auth_routes.py     # 注册/登录/改密 API
 │       │   └── schemas.py
-│       └── content/               # JSON 模板数据
-│           ├── npc_templates.json  # 姓名/修为/性格/原型
-│           └── json_loader.py
-├── frontend/              # 前端源码（FastAPI 直接挂载）
-│   ├── index.html         # SPA + 登录/注册页面
-├── .venv/                 # 虚拟环境（Python 依赖）
-├── data/                  # SQLite 数据库文件
-├── tests/                 # 测试
+│       └── tools/                 # 工具脚本
+│           ├── nsfw_harvest.py     # NSFW 素材收割
+│           └── portrait_harvest.py # 角色肖像收割
+├── frontend/              # 前端 SPA（FastAPI 直接挂载）
+│   ├── app.html           # 主应用（首页 NPC 总库 + 聊天界面）
+│   ├── login.html         # 登录/注册
+│   ├── settings.html      # 用户设置（颜色/字体/头像/密码）
+│   └── public/
+│       └── common.js      # 共享工具函数（JWT、日志、颜色、NPC 格式化）
+├── tests/                 # 测试（pytest，87 个用例）
 │   ├── conftest.py        # engine + db fixtures
-│   ├── test_modules.py    # 单元测试（~80 个）
+│   ├── test_modules.py    # 单元测试
 │   └── test_turn.py       # 集成测试
 └── docs/
 ```
@@ -91,6 +95,7 @@
 8. 世界按需加载。
 9. 世界时间由玩家行动驱动。
 10. 每个模块职责单一，禁止直接耦合。
+11. NPC 分为三类：重要（player ⭐）、offstage（llm_main 写入 DB）、background（一次性路人不入库）
 
 > 注意：原则 1 不排斥开局时的静态模板数据（宗门列表、城市描述、NPC 名字池等）。
 > 这些是程序搭舞台的材料，属于原则 4 的范畴，不是 AI 需要维护的"动态状态"。

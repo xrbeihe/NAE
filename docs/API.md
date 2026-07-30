@@ -43,13 +43,11 @@ Token 有效期 7 天。前端存储在 `localStorage`，每次请求自动附�
 1. 创建 `WorldSession` 记录
 2. 创建世界区域（约 7 区域，含区域属性和层级）
 3. 创建玩家 stub（初始名"无名修士"，随机初始位置）
-4. **生成 30 个初始 NPC**（8 核心 + 22 次要，从 `npc_templates.json` 原型池随机选取）
-5. 返回 session_id + 初始世界状态
+4. 返回 session_id + 初始世界状态
 
 ### `GET /sessions/{session_id}` — 返回的额外数据
 - `conversation`: 完整对话历史（`[{turn_number, content}]`，格式为【玩家】xxx\n【AI】yyy\n【附近人物】[...]）
 - `npc_names`: 核心 NPC 的姓名列表
-- `htem_directory`: 当前保存的 HTEM 角色目录（保留兼容，实际被 NPC_MODELING 替代）
 - `world_intro`: 世界简介文本（角色创建时生成，刷新后仍可查看）
 - `prompts`: 全量 Prompt 历史（`[{turn_number, content}]`，按 `memory_type="prompt"` 永久保留）
 - `player_location`: 玩家当前位置
@@ -98,7 +96,7 @@ Token 有效期 7 天。前端存储在 `localStorage`，每次请求自动附�
 | `shortmemory_summary` | llm_summary 提取的短期记忆（场景事实），格式已改为紧凑单列版，包含当前地点/氛围/行动/物品/交互NPC/世界事件/推荐行动 |
 | `player_panel` | 当前主角面板文本（出身/身份/灵根/金手指等），直接在前端系统消息中展示 |
 | `important_npcs_panel` | 已标记为重要的 NPC 列表（含 model_data 中的背景/性格/执念），无则显示"（无）" |
-| `htem_directory` | 已废弃（HTEM 已被 NPC_MODELING 替代），始终返回空字符串 |
+| `recommendations` | 推荐行动列表（最多 10 条），前端显示在输入区上方推荐栏 |
 
 ---
 
@@ -139,16 +137,25 @@ Token 有效期 7 天。前端存储在 `localStorage`，每次请求自动附�
 | 方法 | 路径 | 响应 | 说明 |
 |------|------|------|------|
 | GET | `/sessions/{session_id}/summaries?from_turn=N` | `SummariesResponse` | 获取最近 3 条 shortmemory 摘要（📕 悬浮窗用） |
-| GET | `/sessions/{session_id}/memory-panel` | `MemoryPanelResponse` | 💭 记忆面板（暂时关闭） |
+| GET | `/sessions/{session_id}/memories` | `MemoryResponse` | 返回 shortmemory 列表 + longmemory 列表（📘 弹窗用） |
 
-### `MemoryPanelEntry`
+### `MemoryResponse`
 ```json
 {
-  "category": "longmemory | fact_relationship | npc_important | shortmemory",
-  "turn_number": 6,
-  "content": "..."
+  "short": [{"turn_number": 6, "content": "..."}],
+  "long": [{"turn_number": 11, "content": "..."}]
 }
 ```
+
+---
+
+## 关系网
+
+| 方法 | 路径 | 响应 | 说明 |
+|------|------|------|------|
+| GET | `/sessions/{session_id}/relationship-graph` | `{session_id, edges[]}` | 获取关系网图数据（🚻 弹窗用） |
+
+返回 `edges[]` 每个元素：`{source, target, type, description, affinity}`。
 
 ---
 
