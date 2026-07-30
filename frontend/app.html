@@ -941,8 +941,7 @@ async function sendTurn() {
   var nsfw = ["肉棒","小穴","蜜穴","嫩穴","阴道","阴茎","鸡巴","龟头","阴蒂","阴唇","花蕊","子宫","乳房","乳尖","臀","精液","爱液","淫水","淫液","白浊","精","干你","干她","干我","肏","插入","抽送","抽插","进出","挺进","挺入","吸允","吸奶子","吸奶头","吸乳头","吸得","吸干","吸吮","吮吸","射精","射在","射进","射到","射嘴里","射满","内射","舔弄","舔舐","舔阴","舔穴","舔","抚摸","揉捏","抓揉","把玩","搓","揉","进入","顶入","挺入","深入","顶","套弄","撸动","把弄","握","掰开","撑开","分开","含住","吞吐","深喉","含","吻痕","亲吻","吻","打炮","做爱","交合","性交","交欢","后入","传教士","观音坐莲","老汉推车","69","偷情","通奸","出轨","奸","呻吟","喘息","娇喘","淫叫","浪叫","高潮","颤抖","痉挛","泄身","赤裸","一丝不挂","全裸","裸体","淫荡","风骚","放荡","淫秽","淫","骚","浪","双修","采补","炉鼎","合欢","春药","媚药","淫术","催情","情毒","媚毒","合欢散","春毒","解毒","欲火焚身","欲火","情欲","春情","春意"];
   if (nsfw.filter(function(w) { return text.includes(w); }).length >= 2 && !text.endsWith('HO') && !text.endsWith('HO ')) {
     document.getElementById('ho-hint').style.display = 'block';
-    addMsg('system', '⚠️ 检测到敏感内容，请在末尾加上 **HO** 确认发送，或修改内容。');
-    return;
+    if (!confirm('⚠️ 检测到敏感内容，直接发送可能被AI内容过滤拦截，是否仍然发送？')) return;
   } else { document.getElementById('ho-hint').style.display = 'none'; }
   if (document.getElementById('important-npc-check').checked) {
     document.getElementById('important-npc-check').checked = false;
@@ -1138,10 +1137,18 @@ function showRelationshipGraph() {
         if (!nodeMap[e.target]) nodeMap[e.target] = {id: e.target};
       });
       var nodes = Object.values(nodeMap);
-      var links = data.edges.map(function(e) { return {source: e.source, target: e.target, type: e.type, desc: e.description || '', affinity: e.affinity || 0}; });
-      // Find player node for color highlighting
-      var playerId = null;
-      apiFetch('/sessions/' + sessionId).then(function(r) { return r.json(); }).then(function(sd) { playerId = sd.player_name; }).catch(function() {});
+      // Sanitize links: skip any link referencing a node not in nodeMap (safety net)
+      var links = [];
+      data.edges.forEach(function(e) {
+        if (!nodeMap[e.source] || !nodeMap[e.target]) return; // skip orphan edge
+        links.push({source: e.source, target: e.target, type: e.type, desc: e.description || '', affinity: e.affinity || 0});
+      });
+      if (!links.length) {
+        wrap.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--accent-dim);font-size:13px"><div style="font-size:32px;margin-bottom:8px">📭</div>暂无关系数据</div>';
+        return;
+      }
+      // Use player_name from API if available
+      var playerId = data.player_name || null;
 
       var w = wrap.clientWidth || 700, h = wrap.clientHeight || 500;
       wrap.innerHTML = '';
@@ -1155,9 +1162,9 @@ function showRelationshipGraph() {
       function affinityColor(a) { return a > 30 ? '#5a8' : a > -30 ? '#aa8' : '#c66'; }
       function affinityStroke(a) { return a > 30 ? '#3a6' : a > -30 ? '#885' : '#a44'; }
 
-      // Simulation
+      // Simulation — use .id() so D3 matches links by node.id, not array index
       var sim = d3.forceSimulation(nodes)
-        .force('link', d3.forceLink(links).distance(120).strength(0.4))
+        .force('link', d3.forceLink(links).id(function(d) { return d.id; }).distance(120).strength(0.4))
         .force('charge', d3.forceManyBody().strength(-250))
         .force('center', d3.forceCenter(w / 2, h / 2))
         .force('collide', d3.forceCollide(35));
@@ -1171,8 +1178,9 @@ function showRelationshipGraph() {
       // Click to delete a link (only player-sourced edges)
       link.on('click', function(ev, d) {
         ev.stopPropagation();
-        if (!confirm('确定删除与「' + d.target.id + '」的关系吗？（不影响该NPC的其他关系）')) return;
-        apiFetch('/sessions/' + sessionId + '/relationship-graph/' + encodeURIComponent(d.target.id), {method: 'DELETE'}).then(function(r) {
+        var targetName = typeof d.target === 'object' ? d.target.id : d.target;
+        if (!confirm('确定删除与「' + targetName + '」的关系吗？（不影响该NPC的其他关系）')) return;
+        apiFetch('/sessions/' + sessionId + '/relationship-graph/' + encodeURIComponent(targetName), {method: 'DELETE'}).then(function(r) {
           if (!r.ok) { alert('删除失败'); return; }
           // Re-fetch and re-render
           var wrap = document.getElementById('rg-svg-wrap');
@@ -1181,10 +1189,13 @@ function showRelationshipGraph() {
         }).catch(function() { alert('删除请求失败'); });
       });
 
-      // Link labels (type text)
+      // Link labels 沿连线方向铺开
       var linkLabel = g.append('g').selectAll('text').data(links).join('text')
         .attr('font-size', 10).attr('fill', 'var(--accent-dim)').attr('text-anchor', 'middle')
-        .attr('dy', -4).text(function(d) { return d.type; }).style('pointer-events', 'none');
+        .attr('dy', -6).text(function(d) {
+          if (d.desc) return d.desc.length > 15 ? d.desc.substring(0, 15) + '…' : d.desc;
+          return d.type && d.type !== '关系' ? d.type : '';
+        }).style('pointer-events', 'none').attr('textLength', '');
 
       // Node groups
       var nodeG = g.append('g').selectAll('g').data(nodes).join('g')
@@ -1218,15 +1229,22 @@ function showRelationshipGraph() {
         .style('max-width', '60%').style('pointer-events', 'none').style('opacity', 0);
 
       nodeG.on('mouseenter', function(ev, d) {
-        var rels = links.filter(function(l) { return l.source.id === d.id || l.target.id === d.id; });
+        var rels = links.filter(function(l) {
+          var sid = typeof l.source === 'object' ? l.source.id : l.source;
+          var tid = typeof l.target === 'object' ? l.target.id : l.target;
+          return sid === d.id || tid === d.id;
+        });
         var html = '<b>' + escHtml(d.id) + '</b>';
         if (rels.length) {
-          html += '<br>';
           rels.forEach(function(r) {
-            var other = r.source.id === d.id ? r.target.id : r.source.id;
-            var dir = r.source.id === d.id ? '→' : '←';
-            html += '<span style="color:' + affinityColor(r.affinity) + '">' + dir + ' ' + escHtml(other) + ' [' + escHtml(r.type) + '] ' + r.affinity + '</span>';
-            if (r.desc) html += '<br><span style="color:var(--accent-dim)">  ' + escHtml(r.desc) + '</span>';
+            var sid = typeof r.source === 'object' ? r.source.id : r.source;
+            var tid = typeof r.target === 'object' ? r.target.id : r.target;
+            var other = sid === d.id ? tid : sid;
+            var dir = sid === d.id ? '→' : '←';
+            html += '<br><span style="color:' + affinityColor(r.affinity) + '">' + dir + ' ' + escHtml(other);
+            if (r.type && r.type !== '关系') html += ' [' + escHtml(r.type) + ']';
+            if (r.desc) html += ' ' + escHtml(r.desc);
+            html += '</span>';
           });
         }
         tooltip.html(html).style('opacity', 1);

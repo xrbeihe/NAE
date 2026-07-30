@@ -881,7 +881,7 @@ async def get_relationship_graph(
             "description": rel.description,
             "affinity": rel.affinity,
         })
-    return {"session_id": session_id, "edges": edges}
+    return {"session_id": session_id, "edges": edges, "player_name": player_name or ""}
 
 
 # ── Relationship Graph: DELETE edge ──
