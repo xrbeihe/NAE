@@ -143,7 +143,7 @@
   /* ── player ball ── */
   #player-ball { position: fixed; right: 16px; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; border-radius: 50%; background: var(--accent); color: var(--panel); display: none; align-items: center; justify-content: center; cursor: pointer; z-index: 500; font-size: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.4); user-select: none; }
   #player-ball:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.6); }
-  #player-ball-panel { display: none; position: fixed; z-index: 501; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; width: 320px; max-height: 60vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.5); font-size: 12px; color: var(--text); line-height: 1.6; white-space: pre-wrap; }
+  #player-ball-panel { display: none; position: fixed; z-index: 501; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; width: 320px; max-height: 60vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.5); font-size: 12px; color: var(--text); line-height: 1.6; white-space: pre-wrap; touch-action: none; }
   #player-ball-panel.visible { display: block; }
 
   /* ── model overlay ── */
@@ -1283,12 +1283,53 @@ function showRelationshipGraph() {
 function updateInfoPanel(text) {
   var ball = document.getElementById('player-ball'); var panel = document.getElementById('player-ball-panel');
   if (!text || text.startsWith('（无玩家数据）') || text === '【主角面板】\n（无）') { ball.style.display = 'none'; panel.classList.remove('visible'); panel.innerHTML = ''; return; }
-  ball.style.display = 'flex'; panel.textContent = text;
+  ball.style.display = 'flex'; panel.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-weight:bold;color:var(--accent);font-size:13px">🧑 角色信息</span><span id="panel-avatar-btn" onclick="showAvatarPreview()" style="cursor:pointer;font-size:13px;padding:2px 6px;border:1px solid var(--border);border-radius:4px;color:var(--accent-dim);flex-shrink:0">🖼️</span></div><div style="font-size:12px;line-height:1.6;white-space:pre-wrap;color:var(--text)">' + escHtml(text) + '</div>';
   ball.textContent = text.includes('｜ 女 ｜') ? '👩' : '🧑';
 }
 function togglePlayerBall() {
   var panel = document.getElementById('player-ball-panel'); panel.classList.toggle('visible');
-  if (panel.classList.contains('visible')) { var r = document.getElementById('player-ball').getBoundingClientRect(); panel.style.left = (r.left - 330) + 'px'; panel.style.top = Math.max(4, r.top - 4) + 'px'; panel.style.transform = 'none'; }
+  if (panel.classList.contains('visible')) {
+    // Position panel to the left of ball
+    var r = document.getElementById('player-ball').getBoundingClientRect();
+    var panelW = Math.min(320, window.innerWidth - 24);
+    var leftPos = r.left - panelW - 8;
+    if (leftPos < 8) leftPos = 8;
+    panel.style.left = leftPos + 'px';
+    panel.style.top = Math.max(4, r.top - 4) + 'px';
+    panel.style.width = panelW + 'px';
+    panel.style.transform = 'none';
+  }
+  setupPanelDrag();
+}
+// ── Avatar / panel drag ──
+function setupPanelDrag() {
+  var panel = document.getElementById('player-ball-panel');
+  var startX, startY, origL, origT, dragging = false;
+  function onStart(ex, ey) {
+    startX = ex; startY = ey;
+    origL = parseInt(panel.style.left) || 0; origT = parseInt(panel.style.top) || 0;
+    dragging = true;
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onEnd);
+    document.addEventListener('touchmove', onMoveTouch, {passive: false});
+    document.addEventListener('touchend', onEnd);
+  }
+  function onMove(e) { if (!dragging) return; var dx = e.clientX - startX, dy = e.clientY - startY;
+    panel.style.left = Math.max(0, Math.min(window.innerWidth - 40, origL + dx)) + 'px';
+    panel.style.top = Math.max(0, Math.min(window.innerHeight - 40, origT + dy)) + 'px'; }
+  function onMoveTouch(e) { if (!dragging) return; e.preventDefault();
+    var dx = e.touches[0].clientX - startX, dy = e.touches[0].clientY - startY;
+    panel.style.left = Math.max(0, Math.min(window.innerWidth - 40, origL + dx)) + 'px';
+    panel.style.top = Math.max(0, Math.min(window.innerHeight - 40, origT + dy)) + 'px'; }
+  function onEnd() { dragging = false;
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onEnd);
+    document.removeEventListener('touchmove', onMoveTouch);
+    document.removeEventListener('touchend', onEnd);
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onEnd); }
+  panel.addEventListener('mousedown', function(e) { if (e.target.id === 'panel-avatar-btn') return; onStart(e.clientX, e.clientY); });
+  panel.addEventListener('touchstart', function(e) { if (e.touches.length === 1) { var t = e.target; if (t && t.id === 'panel-avatar-btn') return; onStart(e.touches[0].clientX, e.touches[0].clientY); } }, {passive: true});
 }
 
 // ── Modeled NPCs ──
@@ -2013,7 +2054,10 @@ async function clearLogs() {
       if (c.dataset.sid === lastSession) { switchSession(lastSession); return; }
     }
   }
-  // 没有上次会话，停留在 home-page（默认可见）
+  // 没有上次会话，刷新球态：显示球但隐藏面板
+  var ball = document.getElementById('player-ball');
+  if (ball) ball.style.display = 'flex';
+  // 停留在 home-page（默认可见）
 })();
 </script>
 </body>
