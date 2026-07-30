@@ -8,6 +8,7 @@ The single entry point for all game logic. Routes API requests through:
 import json
 import logging
 import random
+from datetime import datetime
 from dataclasses import dataclass, field
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -451,6 +452,24 @@ class GameEngine:
                 "叙事中应体现这种张力，但不要让他们突然出现。"
             )
 
+        # ── Inject known player relationships so LLM can output complete player_relationships ──
+        from ane.database.models import NPC_Relationship as _NPCRel
+        if player_name:
+            rel_result = await db.execute(
+                select(_NPCRel).where(
+                    _NPCRel.session_id == session_id,
+                    _NPCRel.source_name == player_name,
+                )
+            )
+            known_rels = rel_result.scalars().all()
+            if known_rels:
+                rel_lines = ["【已有关系记录 - 供player_relationships参考】"]
+                for r in known_rels:
+                    rel_lines.append(
+                        f"  - {r.target_name}: {r.description} (type={r.rel_type}, affinity={r.affinity})"
+                    )
+                ctx.constraints.soft.append("\n".join(rel_lines))
+
         prompt = prompt_builder.build(ctx)
         prompt = prompt_builder.simplify_prompt(prompt)
 
@@ -641,10 +660,21 @@ class GameEngine:
                     else:
                         logger.warning(f"step15: npc_status target '{change_target}' not found in DB")
 
-            # ── Relationship (handled by _run_bg_relationship) ──
+            # ── Relationship (update target NPC's relation to player) ──
             elif change_type == "relationship_change":
                 if change_target and change_value:
-                    pass
+                    existing_r = await db.execute(
+                        select(NPC_Relationship).where(
+                            NPC_Relationship.session_id == session_id,
+                            NPC_Relationship.source_name == change_target,
+                            NPC_Relationship.target_name == player_name,
+                        )
+                    )
+                    db_rel = existing_r.scalar_one_or_none()
+                    if db_rel:
+                        db_rel.rel_type = str(change_value)
+                        db_rel.updated_at = datetime.utcnow()
+                        logger.info(f"step15: relationship {change_target}→{player_name}: {change_value}")
 
             # ── Economy (numeric savings) ──
             elif change_type == "economy_change":
@@ -700,7 +730,7 @@ class GameEngine:
             await db.flush()
             logger.info(f"Offstage NPCs created: {offstage_npcs_added} for session {session_id[:12]}")
 
-        # ── Process player_relationships: write NPC_Relationship table ──
+        # ── Process player_relationships: write/update NPC_Relationship table ──
         player_rels_added = 0
         for rel in (parsed.player_relationships or []):
             rel_name = (rel.get("name") or "").strip()
@@ -721,7 +751,7 @@ class GameEngine:
                     db, session_id, name=rel_name,
                     location=player_location,
                 )
-            # Check if this edge already exists (player → NPC_name)
+            # Find existing edge (player → NPC)
             existing_r = await db.execute(
                 select(NPC_Relationship).where(
                     NPC_Relationship.session_id == session_id,
@@ -729,17 +759,24 @@ class GameEngine:
                     NPC_Relationship.target_name == rel_name,
                 )
             )
-            if existing_r.scalar_one_or_none():
-                continue  # already have this edge
-            db.add(NPC_Relationship(
-                session_id=session_id,
-                source_name=player_name,
-                target_name=rel_name,
-                rel_type="关系",
-                description=rel_desc,
-                affinity=0,
-            ))
-            player_rels_added += 1
+            db_rel = existing_r.scalar_one_or_none()
+            if db_rel:
+                # UPDATE existing edge with current state (覆盖关系类型/描述/亲密度)
+                db_rel.rel_type = rel.get("type", "关系")
+                db_rel.description = rel_desc
+                db_rel.affinity = rel.get("affinity", 0)
+                db_rel.updated_at = datetime.utcnow()
+            else:
+                # INSERT new edge
+                db.add(NPC_Relationship(
+                    session_id=session_id,
+                    source_name=player_name,
+                    target_name=rel_name,
+                    rel_type=rel.get("type", "关系"),
+                    description=rel_desc,
+                    affinity=rel.get("affinity", 0),
+                ))
+                player_rels_added += 1
         if player_rels_added:
             await db.flush()
             logger.info(f"Player relationships added: {player_rels_added}")

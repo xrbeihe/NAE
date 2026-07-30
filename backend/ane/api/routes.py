@@ -884,6 +884,38 @@ async def get_relationship_graph(
     return {"session_id": session_id, "edges": edges}
 
 
+# ── Relationship Graph: DELETE edge ──
+@router.delete("/{session_id}/relationship-graph/{target_name}")
+async def delete_relationship_edge(
+    session_id: str,
+    target_name: str,
+    db: AsyncSession = Depends(get_db),
+    user = Depends(get_current_user),
+):
+    """Delete a relationship edge where player is source and target_name is target."""
+    from ane.database.models import NPC_Relationship as _Rel, Player as _Player
+    session = await _get_users_session(db, session_id, user.id)
+    player_result = await db.execute(
+        select(_Player.name).where(_Player.session_id == session_id)
+    )
+    player_name = player_result.scalar_one_or_none()
+    if not player_name:
+        raise HTTPException(status_code=404, detail="Player not found")
+    result = await db.execute(
+        select(_Rel).where(
+            _Rel.session_id == session_id,
+            _Rel.source_name == player_name,
+            _Rel.target_name == target_name,
+        )
+    )
+    rel = result.scalar_one_or_none()
+    if not rel:
+        raise HTTPException(status_code=404, detail="Relationship not found")
+    await db.delete(rel)
+    await db.flush()
+    return {"deleted": True, "target": target_name}
+
+
 # ── Important NPCs Library (😘) ─────────────────────────────────
 
 @router.get("/{session_id}/important-npcs")

@@ -1107,10 +1107,15 @@ function showRelationshipGraph() {
   if (!sessionId) return alert('请先创建或选择世界');
   var overlay = document.createElement('div'); overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;';
   var box = document.createElement('div'); box.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:0;width:90%;max-width:800px;height:80vh;display:flex;flex-direction:column;overflow:hidden;';
-  box.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0"><span style="font-size:15px;color:var(--accent);font-weight:bold">🚻 关系网图谱</span><span onclick="document.body.removeChild(this.closest(\'[data-rg]\').parentElement.parentElement)" style="cursor:pointer;font-size:18px;color:var(--accent-dim);padding:2px 6px">✕</span></div><div id="rg-svg-wrap" style="flex:1;position:relative"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--accent-dim);font-size:13px">⏳ 加载关系网...</div></div>';
+  box.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0"><span style="font-size:15px;color:var(--accent);font-weight:bold">🚻 关系网图谱</span><span id="rg-close-btn" style="cursor:pointer;font-size:18px;color:var(--accent-dim);padding:2px 6px">✕</span></div><div id="rg-svg-wrap" style="flex:1;position:relative"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--accent-dim);font-size:13px">⏳ 加载关系网...</div></div>';
   overlay.appendChild(box); document.body.appendChild(overlay);
   overlay.dataset.rg = '1';
   overlay.onclick = function(e) { if (e.target === overlay) document.body.removeChild(overlay); };
+  // Close button handler
+  setTimeout(function() {
+    var cb = document.getElementById('rg-close-btn');
+    if (cb) cb.onclick = function() { if (overlay.parentNode) document.body.removeChild(overlay); };
+  }, 0);
   // 加载D3
   function loadD3(retry) {
     if (typeof d3 !== 'undefined') { renderGraph(); return; }
@@ -1160,8 +1165,21 @@ function showRelationshipGraph() {
       // Lines (render under nodes)
       var link = g.append('g').selectAll('line').data(links).join('line')
         .attr('stroke', function(d) { return affinityStroke(d.affinity); })
-        .attr('stroke-width', 1.5).attr('stroke-opacity', 0.5)
+        .attr('stroke-width', 1.5).attr('stroke-opacity', 0.5).attr('cursor', 'pointer')
         .attr('marker-end', '');
+
+      // Click to delete a link (only player-sourced edges)
+      link.on('click', function(ev, d) {
+        ev.stopPropagation();
+        if (!confirm('确定删除与「' + d.target.id + '」的关系吗？（不影响该NPC的其他关系）')) return;
+        apiFetch('/sessions/' + sessionId + '/relationship-graph/' + encodeURIComponent(d.target.id), {method: 'DELETE'}).then(function(r) {
+          if (!r.ok) { alert('删除失败'); return; }
+          // Re-fetch and re-render
+          var wrap = document.getElementById('rg-svg-wrap');
+          if (wrap) { wrap.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--accent-dim);font-size:13px">⏳ 刷新关系网...</div>'; }
+          renderGraph();
+        }).catch(function() { alert('删除请求失败'); });
+      });
 
       // Link labels (type text)
       var linkLabel = g.append('g').selectAll('text').data(links).join('text')
