@@ -1319,7 +1319,7 @@ async function homeNpcEdit(name) {
   box.innerHTML = h;
   overlay.appendChild(box);
   document.body.appendChild(overlay);
-  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+  // 用户要求：不通过点击外部关闭弹窗，仅通过取消按钮关闭
 }
 
 async function saveNpcModelData(name, btn) {
