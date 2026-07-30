@@ -54,33 +54,29 @@ _MODEL_TEMPLATE = {
               "cultivation": "", "identity": "", "faction": "", "position": ""},
     "appearance": {
         "overall_impression": "", "body_proportion": "", "aura": "",
-        "face": {"shape": "", "features": "", "eyes": "", "lashes": "", "eyebrows": "",
-                 "nose": "", "lips": "", "teeth": "", "dimples": "",
-                 "tear_mole": "", "expression_habit": ""},
+        "face": {"shape": "", "features": "", "eyes": "", "eyebrows": "",
+                 "nose": "", "lips": "", "expression_habit": ""},
         "skin": {"color": "", "luster": "", "fineness": ""},
         "hair": {"length": "", "style": "", "color": "", "ornament": ""},
-        "neck": "", "collarbone": "", "shoulders": "",
+        "torso": "",
         "chest": {"size": "", "shape": "", "fullness": ""},
         "waist": {"muscle_line": "", "slimness": "", "softness": ""},
-        "belly": "",
-        "buttocks": {"size": "", "curve": ""}, "hips": "",
+        "buttocks": {"size": "", "curve": ""},
         "legs": {"length": "", "muscle_tone": "", "thighs": ""},
         "feet": {"shape": "", "size": "", "barefoot": False},
         "hands": {"fingers": "", "back": ""}
     },
     "voice": {"timbre": "", "speed": "", "volume": ""},
-    "clothing": {"type": "", "color": "", "material": "", "pattern": "", "collar": "",
-                 "outerwear": "", "belt": "", "hosiery": "", "shoes": ""},
-    "jewelry": {"earrings": "", "necklace": "", "rings": "", "bracelets": ""},
+    "attire": {"clothing": "", "jewelry": ""},
     "equipment": [{"name": "", "description": "", "position": ""}],
     "behavior": {"stance": "", "sitting": "", "gait": "", "smile": "",
-                 "mannerisms": "", "speech_rhythm": "", "catchphrase": ""},
-    "speech_style": {"word_habits": "", "particles": "",
+                 "mannerisms": ""},
+    "speech_style": {"word_habits": "", "particles": "", "speech_rhythm": "", "catchphrase": "", "battle_cry": "",
                      "address_player": "", "address_others": "", "when_angry": ""},
-    "combat_style": {"preference": "", "weapon_usage": "", "battle_cry": "",
+    "combat_style": {"preference": "", "weapon_usage": "",
                      "spirit_power_signature": ""},
-    "personality": {"core": "", "values": "", "principles": "", "bottom_line": "",
-                    "interests": "", "fears": "", "aversions": "", "likes": "", "obsession": ""},
+    "personality": {"core": "", "values": "", "principles": "",
+                    "fears": "", "likes": "", "obsession": ""},
     "background": {"history": "", "major_events": "", "faction_affiliation": "", "family": ""},
     "cultivation": {"spiritual_root": "", "special_constitution": "", "techniques": "",
                     "divine_powers": "", "ring_storage": "", "wealth": ""},
@@ -1062,7 +1058,11 @@ class GameEngine:
             f"7. 身世限制：如果玩家没有主动描述该人物的身世背景（包括过去的经历、"
             f"家族、历史等），则background.history保持为空字符串，不要自行编造。\n"
             f"   只有在玩家输入中明确提到身世相关内容时再填写。\n"
-            f"8. 关系理解：玩家说的「我」指{player_name}本人。"
+            f"8. 关系限制：如果玩家没有主动描述该人物与谁有仇、与谁亲近、"
+            f"是某人的徒弟/配偶/师兄等关系，则relationships中对应的字段保持为空或空数组。\n"
+            f"   即使玩家提到了{player_name}以外的其他NPC名字，也不代表他们之间有具体关系——"
+            f"只有玩家明确说了「XXX是YYY的XX」时才填写。\n"
+            f"9. 关系理解：玩家说的「我」指{player_name}本人。"
             f"如果玩家说「XXX是我妈/我爸/我师尊/我师兄/我道侣/我的XX」，"
             f"则表示该NPC与{player_name}有该称谓所对应的关系，"
             f"而不是与NPC彼此之间有该关系。"

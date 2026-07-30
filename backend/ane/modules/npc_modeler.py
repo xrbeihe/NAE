@@ -14,7 +14,88 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-NPC_MODEL_VERSION = "1.0"
+NPC_MODEL_VERSION = "1.1"  # v1.1: merged fields (face, torso, attire, personality, speech_style)
+
+def migrate_model_v1_0(data: dict) -> dict:
+    """Migrate v1.0 model data to v1.1 (merged field structure).
+
+    Called when loading an old NPC model so it maps to the new 65-field schema.
+    This is a forward-only migration — v1.1 models stay as-is.
+    """
+    if data.get("model_version", "") >= "1.1":
+        return data
+    app = data.setdefault("appearance", {})
+    # face: lashes→eyes, teeth→lips, dimples/tear_mole→features
+    face = app.get("face", {})
+    if face.get("lashes") and not face.get("eyes"):
+        face["eyes"] = "睫毛：" + face.pop("lashes", "")
+    elif face.get("lashes"):
+        face["eyes"] = (face.get("eyes", "") or "") + "；睫毛：" + face.pop("lashes", "")
+    if face.get("teeth") and not face.get("lips"):
+        face["lips"] = "牙齿：" + face.pop("teeth", "")
+    elif face.get("teeth"):
+        face["lips"] = (face.get("lips", "") or "") + "；牙齿：" + face.pop("teeth", "")
+    dimples = face.pop("dimples", "")
+    tear_mole = face.pop("tear_mole", "")
+    if (dimples or tear_mole) and not face.get("features"):
+        face["features"] = ("酒窝：" + dimples if dimples else "") + ("；" if dimples and tear_mole else "") + ("泪痣：" + tear_mole if tear_mole else "")
+    elif dimples:
+        face["features"] = (face.get("features", "") or "") + "；酒窝：" + dimples
+    elif tear_mole:
+        face["features"] = (face.get("features", "") or "") + "；泪痣：" + tear_mole
+
+    # torso: merge neck/collarbone/shoulders/belly/hips
+    torso_parts = []
+    for key, label in [("neck", "脖颈"), ("collarbone", "锁骨"), ("shoulders", "肩膀"), ("belly", "腹部"), ("hips", "胯部")]:
+        val = app.pop(key, "")
+        if val:
+            torso_parts.append(f"{label}：{val}")
+    if torso_parts and not app.get("torso"):
+        app["torso"] = "；".join(torso_parts)
+
+    # clothing + jewelry → attire
+    cloth = data.pop("clothing", {})
+    jew = data.pop("jewelry", {})
+    if (cloth or jew) and not data.get("attire"):
+        at = {}
+        if cloth:
+            parts = [f"{k}：{v}" for k, v in cloth.items() if v and k != "model_version"]
+            at["clothing"] = "；".join(parts)
+        if jew:
+            parts = [f"{k}：{v}" for k, v in jew.items() if v and k != "model_version"]
+            at["jewelry"] = "；".join(parts)
+        data["attire"] = at
+
+    # personality: bottom_line→principles, interests→likes, aversions→fears
+    pers = data.setdefault("personality", {})
+    bl = pers.pop("bottom_line", "")
+    if bl and not pers.get("principles"):
+        pers["principles"] = bl
+    intr = pers.pop("interests", "")
+    if intr:
+        pers["likes"] = (pers.get("likes", "") or "") + ("；" if pers.get("likes") else "") + intr
+    avr = pers.pop("aversions", "")
+    if avr:
+        pers["fears"] = (pers.get("fears", "") or "") + ("；" if pers.get("fears") else "") + avr
+
+    # behavior: speech_rhythm+catchphrase→speech_style
+    beh = data.get("behavior", {})
+    sp = data.setdefault("speech_style", {})
+    sr = beh.pop("speech_rhythm", "")
+    if sr and not sp.get("speech_rhythm"):
+        sp["speech_rhythm"] = sr
+    cp = beh.pop("catchphrase", "")
+    if cp and not sp.get("catchphrase"):
+        sp["catchphrase"] = cp
+
+    # combat_style: battle_cry→speech_style
+    comb = data.get("combat_style", {})
+    bc = comb.pop("battle_cry", "")
+    if bc and not sp.get("battle_cry"):
+        sp["battle_cry"] = bc
+
+    data["model_version"] = "1.1"
+    return data
 
 
 def parse_modeling_response(raw: str) -> dict[str, Any] | None:
@@ -76,7 +157,10 @@ def render_model_for_prompt(model: dict, include_nsfw: bool = False) -> str:
 
     This is the block injected into [重要人物] or [当前交互角色] sections.
     When include_nsfw=False, the nsfw block is omitted entirely.
+
+    Automatically migrates v1.0 data on load.
     """
+    model = migrate_model_v1_0(model)
     lines = []
     basic = model.get("basic", {})
 
@@ -104,10 +188,9 @@ def render_model_for_prompt(model: dict, include_nsfw: bool = False) -> str:
     # Face details
     face = app.get("face", {})
     face_parts = []
-    for k, label in [("shape", "脸型"), ("features", "五官"), ("eyes", "眼睛"),
-                     ("lashes", "睫毛"), ("eyebrows", "眉毛"), ("nose", "鼻子"),
-                     ("lips", "嘴唇"), ("teeth", "牙齿"), ("dimples", "酒窝"),
-                     ("tear_mole", "泪痣"), ("expression_habit", "表情习惯")]:
+    for k, label in [("shape", "脸型"), ("features", "面部特征"), ("eyes", "眼睛"),
+                     ("eyebrows", "眉毛"), ("nose", "鼻子"),
+                     ("lips", "嘴唇"), ("expression_habit", "表情习惯")]:
         v = face.get(k)
         if v:
             face_parts.append(f"{label}：{v}")
@@ -136,14 +219,27 @@ def render_model_for_prompt(model: dict, include_nsfw: bool = False) -> str:
         lines.append("—— 头发 ——")
         lines.extend(hair_parts)
 
-    # Body parts (non-NSFW level)
-    body_keys = [
-        ("neck", "脖颈"), ("collarbone", "锁骨"), ("shoulders", "肩膀"),
-        ("waist", "腰部"), ("belly", "腹部"), ("hips", "胯部"),
-    ]
-    for key, label in body_keys:
-        if app.get(key):
-            lines.append(f"{label}：{app[key]}")
+    # Body parts (non-NSFW level) — consolidated into torso
+    if app.get("torso"):
+        lines.append(f"躯干：{app['torso']}")
+    # chest, waist, buttocks still independent sub-objects
+    chest = app.get("chest", {})
+    if chest.get("size") or chest.get("shape") or chest.get("fullness"):
+        chest_parts = [f"{k}：{v}" for k, v in [("size", "大小"), ("shape", "形状"), ("fullness", "饱满度")] if chest.get(v, k) is not chest.get]
+        # simpler approach
+        chest_str = "、".join(f"{l}：{chest[k]}" for k, l in [("size","大小"),("shape","形状"),("fullness","饱满度")] if chest.get(k))
+        if chest_str:
+            lines.append(f"胸部：{chest_str}")
+    waist = app.get("waist", {})
+    waist_str = "、".join(f"{l}：{waist[k]}" for k, l in [("muscle_line","肌肉线条"),("slimness","纤细度"),("softness","柔软度")] if waist.get(k))
+    if waist_str:
+        lines.append(f"腰部：{waist_str}")
+    if app.get("belly"):
+        lines.append(f"腹部：{app['belly']}")
+    buttocks = app.get("buttocks", {})
+    butt_str = "、".join(f"{l}：{buttocks[k]}" for k, l in [("size","大小"),("curve","曲线")] if buttocks.get(k))
+    if butt_str:
+        lines.append(f"臀部：{butt_str}")
 
     # Legs, feet, hands
     legs = app.get("legs", {})
@@ -181,30 +277,14 @@ def render_model_for_prompt(model: dict, include_nsfw: bool = False) -> str:
         lines.append("—— 声音 ——")
         lines.extend(voice_parts)
 
-    # ── Clothing ──
-    cloth = model.get("clothing", {})
-    cloth_parts = []
-    for k, label in [("type", "款式"), ("color", "颜色"), ("material", "材质"),
-                     ("pattern", "纹路"), ("collar", "领口"),
-                     ("outerwear", "外套/披风"), ("belt", "腰带"),
-                     ("hosiery", "袜子"), ("shoes", "鞋子")]:
-        v = cloth.get(k)
-        if v:
-            cloth_parts.append(f"{label}：{v}")
-    if cloth_parts:
+    # ── Attire ──
+    attire = model.get("attire", {})
+    if attire.get("clothing"):
         lines.append("—— 穿着 ——")
-        lines.extend(cloth_parts)
-
-    # ── Jewelry ──
-    jewelry = model.get("jewelry", {})
-    jewelry_parts = []
-    for k, label in [("earrings", "耳环"), ("necklace", "项链"), ("rings", "戒指"), ("bracelets", "手镯")]:
-        v = jewelry.get(k)
-        if v:
-            jewelry_parts.append(f"{label}：{v}")
-    if jewelry_parts:
+        lines.append(attire["clothing"])
+    if attire.get("jewelry"):
         lines.append("—— 首饰 ——")
-        lines.extend(jewelry_parts)
+        lines.append(attire["jewelry"])
 
     # ── Equipment ──
     equip_list = model.get("equipment", [])
@@ -226,8 +306,7 @@ def render_model_for_prompt(model: dict, include_nsfw: bool = False) -> str:
     beh = model.get("behavior", {})
     beh_parts = []
     for k, label in [("stance", "站姿"), ("sitting", "坐姿"), ("gait", "走路"),
-                     ("smile", "笑容"), ("mannerisms", "小动作"),
-                     ("speech_rhythm", "说话节奏"), ("catchphrase", "口头禅")]:
+                     ("smile", "笑容"), ("mannerisms", "小动作")]:
         v = beh.get(k)
         if v:
             beh_parts.append(f"{label}：{v}")
@@ -239,6 +318,7 @@ def render_model_for_prompt(model: dict, include_nsfw: bool = False) -> str:
     speech = model.get("speech_style", {})
     speech_parts = []
     for k, label in [("word_habits", "用语习惯"), ("particles", "语气词"),
+                     ("speech_rhythm", "说话节奏"), ("catchphrase", "口头禅"), ("battle_cry", "战吼"),
                      ("address_player", "对主角称呼"), ("address_others", "对他人的称呼"),
                      ("when_angry", "生气时的表现")]:
         v = speech.get(k)
@@ -252,7 +332,7 @@ def render_model_for_prompt(model: dict, include_nsfw: bool = False) -> str:
     combat = model.get("combat_style", {})
     combat_parts = []
     for k, label in [("preference", "战斗偏好"), ("weapon_usage", "法器使用习惯"),
-                     ("battle_cry", "战斗口头禅"), ("spirit_power_signature", "灵力特征")]:
+                     ("spirit_power_signature", "灵力特征")]:
         v = combat.get(k)
         if v:
             combat_parts.append(f"{label}：{v}")
@@ -264,8 +344,8 @@ def render_model_for_prompt(model: dict, include_nsfw: bool = False) -> str:
     pers = model.get("personality", {})
     pers_parts = []
     for k, label in [("core", "核心性格"), ("values", "价值观"), ("principles", "原则"),
-                     ("bottom_line", "底线"), ("interests", "兴趣"), ("fears", "害怕"),
-                     ("aversions", "讨厌"), ("likes", "喜欢"), ("obsession", "执念")]:
+                     ("fears", "害怕"),
+                     ("likes", "喜欢"), ("obsession", "执念")]:
         v = pers.get(k)
         if v:
             pers_parts.append(f"{label}：{v}")
