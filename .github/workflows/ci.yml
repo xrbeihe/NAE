@@ -77,25 +77,35 @@ jobs:
         shell: bash
       - name: Restart ANE service
         run: |
-          sudo systemctl restart ane.service
-          # Poll for up to 60s — startup includes DB migration + worldview pack loading
-          for i in $(seq 1 30); do
-            state=$(systemctl is-active ane.service || true)
-            if [ "$state" = "active" ]; then
-              echo "ANE service active after ~$((i*2))s"
+          sudo systemctl restart ane.service || true
+          # Poll the health endpoint — systemctl active doesn't mean the port is up.
+          # Startup includes DB migration + worldview pack loading (can take ~30s).
+          ok=0
+          for i in $(seq 1 45); do
+            if curl -sf http://localhost:8002/api/health >/dev/null 2>&1; then
+              echo "ANE health OK after ~${i}s"
+              ok=1
               break
             fi
             sleep 2
           done
-          state=$(systemctl is-active ane.service || true)
-          if [ "$state" != "active" ]; then
-            echo "::error::ANE service state = $state"
-            sudo journalctl -u ane.service -n 50 --no-pager || true
+          if [ "$ok" != "1" ]; then
+            echo "::error::ANE health check failed (8002 not serving)"
+            systemctl is-active ane.service || true
+            sudo journalctl -u ane.service -n 60 --no-pager || true
             exit 1
           fi
-          systemctl is-active ane.service
         shell: bash
 
       - name: Verify
         run: |
+          # Final confirmation with retries
+          for i in $(seq 1 10); do
+            if curl -sf http://localhost:8002/api/health; then
+              echo
+              exit 0
+            fi
+            sleep 2
+          done
           curl -sf http://localhost:8002/api/health
+
