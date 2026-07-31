@@ -61,6 +61,20 @@ jobs:
             sudo systemctl daemon-reload
           fi
         shell: bash
+      - name: Point systemd at the workflow venv
+        run: |
+          # The workflow installs deps into <checkout>/.venv; make sure the
+          # systemd service uses that same venv (self-heals an old path).
+          TARGET="/home/runner/actions-runner/_work/NAE/NAE/.venv/bin/python"
+          if ! grep -q "ExecStart=${TARGET}" /etc/systemd/system/ane.service; then
+            echo "Fixing ExecStart to $TARGET"
+            sudo sed -i "s|ExecStart=.*|ExecStart=${TARGET} -m ane.main|" /etc/systemd/system/ane.service
+            sudo systemctl daemon-reload
+          else
+            echo "ExecStart already points to workflow venv"
+          fi
+          grep -E '^(ExecStart|WorkingDirectory|EnvironmentFile)' /etc/systemd/system/ane.service
+        shell: bash
       - name: Restart ANE service
         run: |
           sudo systemctl restart ane.service
