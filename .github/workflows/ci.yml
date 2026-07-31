@@ -54,7 +54,21 @@ jobs:
       - name: Restart ANE service
         run: |
           sudo systemctl restart ane.service
-          sleep 3
+          # Poll for up to 60s — startup includes DB migration + worldview pack loading
+          for i in $(seq 1 30); do
+            state=$(systemctl is-active ane.service || true)
+            if [ "$state" = "active" ]; then
+              echo "ANE service active after ~$((i*2))s"
+              break
+            fi
+            sleep 2
+          done
+          state=$(systemctl is-active ane.service || true)
+          if [ "$state" != "active" ]; then
+            echo "::error::ANE service state = $state"
+            sudo journalctl -u ane.service -n 50 --no-pager || true
+            exit 1
+          fi
           systemctl is-active ane.service
         shell: bash
 
