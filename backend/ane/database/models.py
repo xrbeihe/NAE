@@ -42,6 +42,8 @@ class WorldSession(Base):
     id          = Column(String, primary_key=True, default=_new_id)
     user_id     = Column(String, ForeignKey("users.id"), nullable=False)
     name        = Column(String, default="未命名世界")
+    worldview   = Column(String, default="xianxia_v1")      # worldview pack id
+    worldview_version = Column(String, default="")          # pack version pinned at creation
     world_time  = Column(String, default="第1年·1月·1日·春·清晨")  # human-readable time label
     time_epoch  = Column(Integer, default=0)               # internal tick counter
     created_at  = Column(DateTime, default=datetime.utcnow)
@@ -85,7 +87,7 @@ class NPC(Base):
     id            = Column(String, primary_key=True, default=_new_id)
     session_id    = Column(String, ForeignKey("sessions.id"), nullable=False)
     name          = Column(String, nullable=False)
-    identity      = Column(String, default="散修")           # role / title
+    identity      = Column(String, default="")           # role / title
     appearance    = Column(Text, default="")                 # physical description
     personality   = Column(Text, default="")                 # personality traits
     cultivation   = Column(String, default="凡人")

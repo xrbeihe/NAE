@@ -64,8 +64,8 @@ Token 有效期 7 天。前端存储在 `localStorage`，每次请求自动附�
 ```json
 {
   "input": "玩家输入（最长 4000 字）",
-  "model": null,                     // 可选，模型 ID 如 "openai:gpt-4o"
-  "mark_important_npc": false        // 勾选 "重要人物" 时传 true
+  "model": null,                     // 可选，模型 ID 如 "deepseek:deepseek-v4-flash"
+  "mark_important_npc": false        // ⭐ 重要人物标记（前端 ⭐ 局内建模入口已关闭，默认不再传 true）
 }
 ```
 
@@ -104,8 +104,8 @@ Token 有效期 7 天。前端存储在 `localStorage`，每次请求自动附�
 
 | 方法 | 路径 | 请求体 | 响应 | 说明 |
 |------|------|--------|------|------|
-| POST | `/sessions/{session_id}/npc-modeling` | `NpcModelingRequest` | `NpcModelingResponse` | 提取输入中的所有人名，比对库，对有模型的NPC增量更新，返回新名字列表 |
-| POST | `/sessions/{session_id}/npc-modeling/confirm` | `NpcModelingConfirmRequest` | `NpcModelingConfirmResponse` | 确认后对单个新NPC创建全量建模 |
+| POST | `/sessions/{session_id}/npc-modeling` | `NpcModelingRequest` | `NpcModelingResponse` | 提取输入中的所有人名，比对库，对有模型的NPC增量更新，返回新名字列表。**前端 ⭐ 局内建模入口已关闭**，本接口当前无 UI 触发（仍保留） |
+| POST | `/sessions/{session_id}/npc-modeling/confirm` | `NpcModelingConfirmRequest` | `NpcModelingConfirmResponse` | 确认后对单个新NPC创建全量建模。同上，前端无入口 |
 
 ### `NpcModelingRequest`
 ```json
@@ -219,7 +219,7 @@ Token 有效期 7 天。前端存储在 `localStorage`，每次请求自动附�
 | GET | `/api/logs` | `lines=80, user_id=可选` | 返回后端/前端日志尾部；指定 user_id 则返回该用户的 frontend.log + backend.log |
 | POST | `/api/log` | JSON体 | 前端浏览器日志 POST 到此端点（含 user_id 时同时写入 user_logs/<id>/） |
 | POST | `/api/log/backend` | JSON体 | 后端子模块日志 POST 到此端点（按 user_id 分流） |
-| POST | `/api/clear-logs` | — | 清空全局 frontend.log + backend.log |
+| POST | `/api/clear-logs` | — | 清空**当前用户**的 frontend.log + backend.log（按 user_id 分目录，不触碰其他用户日志） |
 
 ### 日志目录结构
 ```
@@ -270,22 +270,23 @@ user_logs/
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | GET | `/api/health` | 健康检查（start.bat 轮询用）|
-| GET | `/api/models` | 可用模型列表（云端 + Ollama 本地）|
+| GET | `/api/models` | 可用模型列表（deepseek + gemini）|
 
 ### `GET /api/models` 返回结构
 ```json
 {
   "models": [
-    {"id": "openai:gpt-4o", "provider": "openai", "name": "gpt-4o",
+    {"id": "deepseek:deepseek-v4-flash", "provider": "deepseek", "name": "deepseek-v4-flash",
      "available": true, "source": "cloud"}
   ],
   "default_model": "…"
 }
 ```
 
-支持 6 个 Provider（配置了 API Key 则可用）：
-- openai、deepseek、sensenova（商汤）、claude（Anthropic）、gemini（Google）、ollama（本地）
-- 排序：先 available，再 local（ollama），再 cloud，再 name
+当前列表仅包含 2 个模型（配置了 API Key 则可用）：
+- deepseek、gemini
+- 其余 provider（openai / sensenova / claude / ollama）的**适配器仍注册**（`model_adapter.py` 可用），但已从选择列表移除
+- 排序：先 available，再 name
 
 ---
 

@@ -23,6 +23,8 @@ ANE 的 NPC 分为三个互斥的类型，生命周期和数据流向各不相�
   → NPC.is_important = True, NPC.long_term_state["model"] = 完整模型
 ```
 
+> **状态更新（2026-07-31）**：⭐ 局内建模前端入口已关闭（`/npc-modeling` 无 UI 触发）。当前创建重要 NPC 的入口为 **NPC 总库「新建建模NPC」**（`POST /npcs/library`），同样生成完整档案并置 `is_important=True`。
+
 **Prompt 渲染**：
 - 所有 `is_important=True` 的 NPC 进入 `[重要人物]` 块（全量 `model_data` 渲染）
 - 第一轮 appearance 触发 `pending_debut` → 强制完整外貌描写

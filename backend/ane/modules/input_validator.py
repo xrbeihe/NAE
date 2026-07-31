@@ -39,9 +39,10 @@ _SYSTEM_COMMANDS = {
 
 # ── Intent classification ────────────────────────────────────
 
-# Keyword patterns → intent type (Phase 1: simple keyword matching)
-# Order matters: more specific patterns must come before general ones.
-INTENT_PATTERNS: list[tuple[list[str], str]] = [
+# Worldview-independent intents. These keywords are meaningful in any
+# worldview (nsfw / ntr / travel / dialogue / combat / …). The xianxia-only
+# "cultivate" intent lives in the worldview pack's intent_keywords.json.
+CORE_INTENT_PATTERNS: list[tuple[list[str], str]] = [
     (["做爱", "上床", "亲热", "交合", "云雨", "欢好", "合欢", "行房",
       "我要你", "要我", "占有我", "进来吧", "要我吧",
       "继续", "别停", "用力", "快点", "慢点",
@@ -73,14 +74,49 @@ INTENT_PATTERNS: list[tuple[list[str], str]] = [
     (["检查", "查看", "观察", "调查", "探查", "看看"], "inspect"),
     (["对话", "交谈", "聊聊", "问", "说", "告诉", "打听", "询问"], "dialogue"),
     (["走", "去", "前往", "出发", "移动", "到", "离开", "回", "进入"], "travel"),
-    # cultivate must come last because its keywords easily match descriptive/
-    # passive contexts. If any prior intent matched, cultivate won't override.
+]
+
+# ── Worldview intents (from the pack's intent_keywords.json) ──
+# e.g. xianxia's "cultivate". Appended AFTER core patterns so the
+# ordering semantics are preserved (specific-before-general, cultivate last).
+def _worldview_intent_patterns(worldview: str) -> list[tuple[list[str], str]]:
+    from ane.worldview import get as get_worldview, DEFAULT_WORLDVIEW_ID
+    wv = get_worldview(worldview or DEFAULT_WORLDVIEW_ID)
+    kw = wv.intent_keywords or {}
+    patterns: list[tuple[list[str], str]] = []
+    for intent_type, keywords in kw.items():
+        if intent_type == "exclusions":
+            continue
+        if isinstance(keywords, list) and keywords:
+            patterns.append((keywords, intent_type))
+    return patterns
+
+
+def _worldview_exclusion(worldview: str, intent: str) -> re.Pattern | None:
+    """Return the exclusion regex for an intent from the worldview pack (or None)."""
+    from ane.worldview import get as get_worldview, DEFAULT_WORLDVIEW_ID
+    wv = get_worldview(worldview or DEFAULT_WORLDVIEW_ID)
+    exclusions = (wv.intent_keywords or {}).get("exclusions", {})
+    pattern = exclusions.get(intent)
+    if pattern:
+        try:
+            return re.compile(pattern)
+        except re.error:
+            logger.warning("Bad exclusion regex in worldview %s for %s", worldview, intent)
+    return None
+
+
+# ── Legacy default pattern list (xianxia behavior) ──
+# Kept for backward compatibility — equals core + xianxia cultivate.
+INTENT_PATTERNS: list[tuple[list[str], str]] = list(CORE_INTENT_PATTERNS) + [
     (["我要闭关", "开始闭关", "闭关修炼", "打坐", "突破", "晋级",
       "修炼突破", "闭关突破", "我要修炼", "我要修行"], "cultivate"),
 ]
 
 # Exclusion contexts: if a cultivate keyword appears in one of these
 # passive/descriptive patterns, demote to dialogue.
+# (Kept as the xianxia default; the worldview pack may override via
+#  intent_keywords.json "exclusions".)
 _CULTIVATE_EXCLUSION = re.compile(
     r'(?:教|教导?|指导?|指点?|让|叫|帮|替|为|给).{0,6}'
     r'(?:修炼|修行|闭关)'
@@ -106,6 +142,14 @@ _NSFW_BODY_WORDS = [
     # 修仙
     "双修", "炉鼎",
 ]
+
+
+def nsfw_body_words(worldview: str | None = None) -> list[str]:
+    """NSFW body-vocabulary filter words, with worldview extras merged in."""
+    from ane.worldview import get as get_worldview, DEFAULT_WORLDVIEW_ID
+    wv = get_worldview(worldview or DEFAULT_WORLDVIEW_ID)
+    extra = (wv.intent_keywords or {}).get("nsfw_body_words_extra", [])
+    return list(_NSFW_BODY_WORDS) + [w for w in extra if isinstance(w, str) and w]
 
 # ── Chinese numeral parser ───────────────────────────────────
 
@@ -184,7 +228,8 @@ class ValidationResult:
     nsfw_confirmed: bool = False      # user appended "HO" to confirm NSFW intent
 
 
-def validate(user_input: str, mark_important_npc: bool = False, is_adult: bool = True) -> ValidationResult:
+def validate(user_input: str, mark_important_npc: bool = False, is_adult: bool = True,
+             worldview: str | None = None) -> ValidationResult:
     """Validate and classify user input. Phase 1: keyword-based + injection detection."""
     text = user_input.strip()
 
@@ -223,8 +268,10 @@ def validate(user_input: str, mark_important_npc: bool = False, is_adult: bool =
             break
 
     # 4. Intent classification (supports both plain keywords and regex patterns)
+    #    Order matters: more specific patterns first, general/cultivate last.
     intent = "dialogue"  # default
-    for keywords, intent_type in INTENT_PATTERNS:
+    patterns = CORE_INTENT_PATTERNS + _worldview_intent_patterns(worldview)
+    for keywords, intent_type in patterns:
         matched = False
         for kw in keywords:
             # Regex patterns start with r" in the source — detected by containing regex metacharacters
@@ -242,12 +289,15 @@ def validate(user_input: str, mark_important_npc: bool = False, is_adult: bool =
 
     # Cultivate exclusion: if the text is describing cultivation (teaching,
     # storytelling, past events) rather than commanding it, demote to dialogue.
-    if intent == "cultivate" and _CULTIVATE_EXCLUSION.search(text):
-        logger.info(
-            "Cultivate intent demoted to dialogue — passive/descriptive context "
-            "detected: %s", text[:60]
-        )
-        intent = "dialogue"
+    # The exclusion rule comes from the worldview pack (xianxia by default).
+    if intent == "cultivate":
+        exclusion = _worldview_exclusion(worldview, "cultivate") or _CULTIVATE_EXCLUSION
+        if exclusion.search(text):
+            logger.info(
+                "Cultivate intent demoted to dialogue — passive/descriptive context "
+                "detected: %s", text[:60]
+            )
+            intent = "dialogue"
 
     # 5. Time hint
     time_hint = _time_hint(intent)

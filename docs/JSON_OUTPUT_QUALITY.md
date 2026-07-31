@@ -81,10 +81,10 @@ for attempt in range(2):
 
 | 方案 | 不适合原因 |
 |------|-----------|
-| Tool Use 强制 Schema | 需要 Anthropic/OpenAI 专有 API 支持，当前项目支持 6 个 Provider |
+| Tool Use 强制 Schema | 需要 Anthropic/OpenAI 专有 API 支持，当前项目支持多 Provider |
 | 流式状态解析 | 本项目非流式输出（一次性返回完整 JSON），不需要增量解析 |
 | 多轮续写 | 叙事被截断时保留部分输出+续写对用户更不友好，不如直接让 LLM 重来 |
-| 模型分层（弱→强） | 项目已有 6 个 Provider，用户自选模型，不适合强行切换 |
+| 模型分层（弱→强） | 项目已有多个 Provider，用户自选模型，不适合强行切换 |
 
 当前三层方案已在 90+ 其他项目中验证有效，代码改动量 <= 10 行。
 

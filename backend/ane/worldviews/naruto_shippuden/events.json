@@ -1,0 +1,13 @@
+{
+  "seclusion_threshold": 2160,
+  "seclusion_event": {
+    "type": "ninja_mission",
+    "description": "{npc_name}在任务归来后，查克拉与体术都有了新的精进。"
+  },
+  "idle_threshold": 2160,
+  "idle_probability": 0.2,
+  "idle_events": [
+    {"type": "ninja_mission", "description": "听闻{npc_name}接了一个新的任务委托。"},
+    {"type": "random_encounter", "description": "{npc_name}似乎经历了一些事，但详情不明。"}
+  ]
+}

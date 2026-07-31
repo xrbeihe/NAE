@@ -346,7 +346,6 @@
         <button id="model-btn" onclick="showModelPopup()">✨<span id="model-btn-label">loading</span></button>
         <select id="model-select" style="display:none"></select>
         <button id="color-btn" onclick="showColorPopup()" style="background:transparent;border:1px solid var(--border);color:var(--accent-dim);padding:2px 6px;border-radius:3px;cursor:pointer;font-size:12px;font-family:inherit">🎨</button>
-        <button class="cmd-btn" onclick="clearLogs()">🗑 清空日志</button>
       </div>
     </div>
     <div id="chat"><div class="msg system">欢迎来到 AI Narrative Engine。<br>选择一个世界继续冒险。</div></div>
@@ -377,12 +376,8 @@
         <textarea id="user-input" rows="1" placeholder="输入你的行动或对话..."
           onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendTurn();}"></textarea>
         <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
-          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:var(--accent-dim);user-select:none;white-space:nowrap" title="勾选后在输入中提及NPC姓名，系统将自动建立或更新该人物的完整模型">
-            <input type="checkbox" id="important-npc-check" style="accent-color:var(--accent);width:13px;height:13px;cursor:pointer;" onchange="document.getElementById('load-model-check').checked = false;">
-            ⭐局内建模
-          </label>
           <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:var(--accent-dim);user-select:none;white-space:nowrap" title="勾选后，系统将识别输入中提到的已建模人物，加载其建模用于本轮叙事">
-            <input type="checkbox" id="load-model-check" style="accent-color:var(--accent);width:13px;height:13px;cursor:pointer;" checked onchange="document.getElementById('important-npc-check').checked = false;">
+            <input type="checkbox" id="load-model-check" style="accent-color:var(--accent);width:13px;height:13px;cursor:pointer;" checked>
             📦加载建模
           </label>
           <div id="ho-hint" style="display:none;font-size:11px;color:var(--danger);text-align:right;white-space:nowrap">💡 需要直白描写请在末尾加 HO</div>
@@ -397,44 +392,17 @@
 <div id="char-modal-overlay">
   <div id="char-modal">
     <div style="display:flex;justify-content:space-between;align-items:flex-start">
-      <h2 style="margin:0;color:var(--accent);font-size:20px">🗻 创建你的角色</h2>
+      <h2 id="char-modal-title" style="margin:0;color:var(--accent);font-size:20px">🗻 创建你的角色</h2>
       <span onclick="skipCharacter()" style="cursor:pointer;font-size:22px;color:var(--text);padding:0 6px;line-height:1">✕</span>
     </div>
-    <label>姓名</label>
-    <div style="display:flex;gap:6px">
-      <input type="text" id="char-name" placeholder="输入你的道号或姓名" value="张二狗" maxlength="20" style="flex:1;padding:8px 12px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:inherit;font-size:14px;appearance:none">
-      <button onclick="randomName()" title="随机生成姓名" style="padding:8px 14px;background:var(--accent);color:#1a1410;border:none;border-radius:4px;cursor:pointer;font-size:16px;white-space:nowrap">🎲</button>
-    </div>
-    <label>年龄</label><input type="number" id="char-age" value="19" min="12" max="999">
-    <label>性别</label><select id="char-gender"></select>
-    <label>出身背景</label><select id="char-background"></select>
-    <div class="hint" id="char-background-hint"></div>
-    <label>修为</label><select id="char-cultivation"></select>
-    <div class="hint" id="char-cultivation-hint"></div>
-    <label>性格</label><select id="char-personality"></select>
-    <div class="hint" id="char-personality-hint"></div>
-    <div id="personality-custom-wrap" style="display:none;margin-top:8px">
-      <label>自定义性格描述</label>
-      <textarea id="personality-custom" placeholder="详细描写你的角色性格…" maxlength="500" style="width:100%;padding:8px 12px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px;font-family:inherit;resize:vertical;min-height:60px;box-sizing:border-box"></textarea>
-    </div>
-    <label>身份</label><select id="char-identity"></select>
-    <div class="hint" id="char-identity-hint"></div>
-    <div id="identity-custom-wrap" style="display:none;margin-top:8px">
-      <label>自定义身份描述</label>
-      <textarea id="identity-custom" placeholder="描述你的身份背景…" maxlength="300" style="width:100%;padding:8px 12px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px;font-family:inherit;resize:vertical;min-height:60px;box-sizing:border-box"></textarea>
-    </div>
-    <label>宗门</label><select id="char-sect"><option value="">无宗门（散修）</option></select>
-    <div class="hint" style="margin-bottom:6px">选择你的初始宗门，系统会自动分配一个对应城市</div>
-    <hr style="border:none;border-top:1px solid var(--border);margin:20px 0">
-    <label style="color:var(--accent);font-size:14px;margin-top:0">✨ 金手指 — 你的天命所在</label>
-    <div id="gf-grid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px"></div>
-    <div id="gf-custom-wrap" style="display:none;margin-top:10px">
-      <label>自定义描写</label>
-      <textarea id="gf-custom" placeholder="详细描写你的金手指…" maxlength="500" style="width:100%;padding:10px 14px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px;font-family:inherit;resize:vertical;min-height:80px;box-sizing:border-box"></textarea>
-    </div>
+    <label>世界观</label>
+    <select id="worldview-select" onchange="onWorldviewChange()" style="width:100%;padding:8px 12px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:inherit;font-size:14px;appearance:none">
+      <option value="xianxia_v1">修仙世界</option>
+    </select>
+    <div id="char-fields"><!-- dynamic form fields rendered by character.js --></div>
     <div class="btn-row">
       <button class="btn-skip" onclick="skipCharacter()">先用默认，以后再说</button>
-      <button class="btn-primary" onclick="applyCharacter()">踏入修仙世界</button>
+      <button class="btn-primary" id="char-submit-btn" onclick="applyCharacter()">踏入修仙世界</button>
     </div>
   </div>
 </div>
@@ -453,8 +421,7 @@
   </div>
 </div>
 <div id="help-popup">
-  <b>⭐ 局内建模</b><br>勾选后发送，系统从输入中提取人名，已有档案的做增量更新，新人物弹窗确认后全量建模。不占用本轮叙事。<br><br>
-  <b>📦 加载建模</b><br>勾选后，输入中提到的已建模人物自动注入完整档案到 Prompt，叙事更精准。名字需严格匹配。<br><br>两者互斥，不可同时使用。
+  <b>📦 加载建模</b><br>勾选后，输入中提到的已建模人物自动注入完整档案到 Prompt，叙事更精准。名字需严格匹配。
 </div>
 <div id="word-count-popup" style="display:none;position:fixed;z-index:9999;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px;width:180px;box-shadow:0 4px 16px rgba(0,0,0,0.6)">
   <div style="font-size:13px;color:var(--accent);margin-bottom:8px;text-align:center">🔤 正文字数</div>
@@ -550,6 +517,7 @@
 </div>
 
 <script src="/public/common.js"></script>
+<script src="/public/character.js"></script>
 <script>
 // ── Auth guard ──
 if (!isLoggedIn()) { location.href = '/login'; }
@@ -630,8 +598,8 @@ async function loadModels() {
     for (const m of data.models) {
       const opt = document.createElement('option');
       opt.value = m.id;
-      let label = m.provider + ':' + m.name;
-      if (!m.available) label += ' (不可用)';
+      let label = m.name;
+      if (!m.available) label = '⛔ ' + label;
       opt.textContent = label;
       if (!m.available) opt.disabled = true;
       sel.appendChild(opt);
@@ -752,7 +720,7 @@ async function switchSession(sid) {
     document.getElementById('session-id-display').textContent = '会话: ' + data.session_id.substring(0,8) + '... | ' + data.name;
     clearChat();
     if (data.conversation && data.conversation.length > 0) {
-      addMsg('system', '已进入「' + data.name + '」\n时间: ' + data.world_time + ' · 修士: ' + (data.player_name||'无名修士') + ' · ' + (data.player_cultivation||'?') + '\n核心人物: ' + ((data.npc_names||[]).join('、') || '无'));
+      addMsg('system', '已进入「' + data.name + '」\n时间: ' + data.world_time + ' · 角色: ' + (data.player_name||'无名修士') + ' · ' + (data.player_cultivation||'?') + '\n核心人物: ' + ((data.npc_names||[]).join('、') || '无'));
       for (var entry of data.conversation) {
         var lines = entry.content.split('\n');
         for (var i = 0; i < lines.length; i++) {
@@ -780,24 +748,22 @@ async function loadCharTemplates() {
 
 async function showCharacterModal(sid) {
   enterChat();
-  if (!charTemplates) await loadCharTemplates();
+  // Always re-fetch the worldviews list so newly uploaded/reloaded packs show up.
+  await loadWorldviews();
+  var wvSelect = document.getElementById('worldview-select');
+  if (wvSelect) fillWorldviewSelect(wvSelect);
+  var wvId = getCurrentWorldviewId();
+  var tres = await apiFetch('/sessions/__any__/templates?worldview=' + encodeURIComponent(wvId));
+  if (tres.ok) { charTemplates = await tres.json(); worldviewState.ui = charTemplates.ui || null; }
   if (!charTemplates) { skipCharacter(); return; }
-  var gSel = document.getElementById('char-gender');
-  if (charTemplates.genders) gSel.innerHTML = charTemplates.genders.map(function(g) { return '<option value="' + escAttr(g.value) + '">' + escHtml(g.label) + '</option>'; }).join('');
-  var bgSel = document.getElementById('char-background');
-  if (charTemplates.backgrounds) bgSel.innerHTML = charTemplates.backgrounds.map(function(b) { return '<option value="' + escAttr(b.value) + '">' + escHtml(b.label) + '</option>'; }).join('');
-  updateCharHints();
-  document.getElementById('char-cultivation').innerHTML = charTemplates.cultivations.map(function(c) { return '<option value="' + escAttr(c.value) + '">' + escHtml(c.label) + ' — ' + escHtml(c.desc) + '</option>'; }).join('');
-  document.getElementById('char-personality').innerHTML = charTemplates.personalities.map(function(p) { return '<option value="' + escAttr(p.value) + '">' + escHtml(p.label) + '</option>'; }).join('');
-  var ids = charTemplates.identities;
-  document.getElementById('char-identity').innerHTML = Object.keys(ids).map(function(k) { return '<option value="' + escAttr(k) + '">' + escHtml(ids[k].label) + ' — ' + escHtml(ids[k].desc) + '</option>'; }).join('');
-  updateCharHints();
-  var gfs = charTemplates.golden_fingers || [];
-  document.getElementById('gf-grid').innerHTML = gfs.map(function(gf) { return '<div class="gf-card" data-gf-id="' + escAttr(gf.id) + '" onclick="selectGoldenFinger(\'' + escAttr(gf.id) + '\')" style="padding:8px;border:1px solid var(--border);border-radius:6px;cursor:pointer;text-align:center;background:var(--input-bg)"><div style="font-size:20px;margin-bottom:4px">' + gf.icon + '</div><div style="font-size:12px;color:var(--text)">' + escHtml(gf.name) + '</div></div>'; }).join('');
-  document.querySelectorAll('#gf-grid .gf-card').forEach(function(c) { c.style.borderColor = 'var(--border)'; });
-  document.getElementById('gf-custom-wrap').style.display = 'none';
-  document.getElementById('gf-custom').value = '';
-  try { var r = await apiFetch('/sessions/models/sects'); if (r.ok) { var d = await r.json(); var sc = '<option value="">无宗门（散修）</option>' + (d.sects||[]).map(function(s) { return '<option value="' + escAttr(s) + '">' + escHtml(s) + '</option>'; }).join(''); document.getElementById('char-sect').innerHTML = sc; } } catch(e) { frontendLog('WARN', 'Sects: ' + e.message); }
+  // Sync modal title from ui.json
+  var titleEl = document.getElementById('char-modal-title');
+  if (titleEl) { var ui = worldviewState.ui || {}; titleEl.textContent = ui.modal_title || '创建你的角色'; }
+  // Render the form fields (form.json spec if present, legacy fallback otherwise)
+  renderFormFields();
+  // Button text from ui.json
+  var submitBtn = document.getElementById('char-submit-btn');
+  if (submitBtn && worldviewState.ui && worldviewState.ui.create_button) submitBtn.textContent = worldviewState.ui.create_button;
   document.getElementById('char-modal-overlay').classList.add('visible');
   document.getElementById('char-modal-overlay').dataset.sid = sid;
 }
@@ -829,32 +795,48 @@ function updateCharHints() {
   else { document.getElementById('identity-custom-wrap').style.display = 'none'; var idData = charTemplates.identities[iv]; if (idData) document.getElementById('char-identity-hint').textContent = '衣物：' + idData.clothing + ' ｜ 月入：' + idData.monthly_income + ' ｜ ' + idData.background; }
 }
 
-document.getElementById('char-cultivation').addEventListener('change', updateCharHints);
-document.getElementById('char-personality').addEventListener('change', updateCharHints);
-document.getElementById('char-identity').addEventListener('change', updateCharHints);
-document.getElementById('char-background').addEventListener('change', updateCharHints);
-
 async function applyCharacter() {
   var sid = document.getElementById('char-modal-overlay').dataset.sid;
-  var name = document.getElementById('char-name').value.trim() || '无名修士';
-  var age = parseInt(document.getElementById('char-age').value) || 19;
-  var gender = document.getElementById('char-gender').value;
-  var background = document.getElementById('char-background').value;
-  var cultivation = document.getElementById('char-cultivation').value;
-  var personality = document.getElementById('char-personality').value;
-  var identity = document.getElementById('char-identity').value;
-  var chosenSect = document.getElementById('char-sect').value;
-  var selectedGf = document.querySelector('#gf-grid .gf-card[style*="var(--accent)"]');
-  var golden_finger_id = selectedGf ? selectedGf.dataset.gfId : '';
-  var golden_finger_custom = document.getElementById('gf-custom').value.trim();
-  var identity_custom = document.getElementById('identity-custom').value.trim();
-  var personality_custom = document.getElementById('personality-custom').value.trim();
+  var wvDefaults = (charTemplates && charTemplates.player_defaults) || {};
+  var wvName = getCurrentWorldviewName();
+  // Detect whether we're on the form.json path (collect values) or legacy.
+  var formSpec = charTemplates && charTemplates.form;
+  var fieldsMap = formSpec ? collectFormValues() : null;
+  var name, age, gender, background, cultivation, personality, identity, chosenSect, golden_finger_id, golden_finger_custom, identity_custom, personality_custom;
+  if (fieldsMap) {
+    name = fieldsMap.name || wvDefaults.name || '无名修士';
+    age = parseInt(fieldsMap.age) || 19;
+    gender = fieldsMap.gender || '男';
+    background = fieldsMap.background || '';
+    cultivation = fieldsMap.cultivation || wvDefaults.cultivation || '凡人';
+    personality = fieldsMap.personality || '';
+    identity = fieldsMap.identity || '';
+    chosenSect = fieldsMap.sect || '';
+    golden_finger_id = fieldsMap.golden_finger || '';
+    golden_finger_custom = fieldsMap.golden_finger_custom || '';
+    identity_custom = fieldsMap.identity_custom || '';
+    personality_custom = fieldsMap.personality_custom || '';
+  } else {
+    name = document.getElementById('char-name').value.trim() || wvDefaults.name || '无名修士';
+    age = parseInt(document.getElementById('char-age').value) || 19;
+    gender = document.getElementById('char-gender').value;
+    background = document.getElementById('char-background').value;
+    cultivation = document.getElementById('char-cultivation').value;
+    personality = document.getElementById('char-personality').value;
+    identity = document.getElementById('char-identity').value;
+    chosenSect = document.getElementById('char-sect').value;
+    var selectedGf = document.querySelector('#gf-grid .gf-card[style*="var(--accent)"]');
+    golden_finger_id = selectedGf ? selectedGf.dataset.gfId : '';
+    golden_finger_custom = document.getElementById('gf-custom').value.trim();
+    identity_custom = document.getElementById('identity-custom').value.trim();
+    personality_custom = document.getElementById('personality-custom').value.trim();
+  }
   try {
     if (sid === '__pending__') {
       var btn = document.getElementById('new-session-btn'); btn.disabled = true; btn.textContent = '···';
       resetWorldState();
       addMsg('system', '⏳ 世界正在生成中，请稍候...');
-      var cr = await apiFetch('/sessions', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name: '修仙世界'}) });
+      var cr = await apiFetch('/sessions', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name: wvName, worldview: getCurrentWorldviewId()}) });
       var cd = await cr.json(); sid = cd.session_id; btn.disabled = false; btn.textContent = '+';
       // 拿到 session_id 就写 localStorage，不等角色创建完成
       sessionId = sid;
@@ -863,23 +845,28 @@ async function applyCharacter() {
     enterChat();
     document.getElementById('char-modal-overlay').classList.remove('visible');
     sessionId = sid;
-    document.getElementById('session-id-display').textContent = '会话: ' + sid.substring(0,8) + '... | 修仙世界';
+    document.getElementById('session-id-display').textContent = '会话: ' + sid.substring(0,8) + '... | ' + wvName;
     clearChat();
     addMsg('system', '⏳ 正在生成你的故事...');
-    var res = await apiFetch('/sessions/' + sid + '/character', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name:name, age:age, gender:gender, background:background, cultivation:cultivation, personality:personality, identity:identity, golden_finger_id:golden_finger_id, golden_finger_custom:golden_finger_custom, identity_custom:identity_custom, personality_custom:personality_custom, chosen_sect:chosenSect }) });
+    var res = await apiFetch('/sessions/' + sid + '/character', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name:name, age:age, gender:gender, background:background, cultivation:cultivation, personality:personality, identity:identity, golden_finger_id:golden_finger_id, golden_finger_custom:golden_finger_custom, identity_custom:identity_custom, personality_custom:personality_custom, chosen_sect:chosenSect, fields: fieldsMap || {} }) });
     if (res.ok) {
       var data = await res.json();
       clearChat();
       // 显示世界进入信息
+      var statusLabel = (worldviewState.ui && worldviewState.ui.labels && worldviewState.ui.labels.role) || '角色';
       var sr = await apiFetch('/sessions/' + sid);
-      if (sr.ok) { var sd = await sr.json(); if (sd.world_time) addMsg('system', '已进入「修仙世界」\n时间: ' + sd.world_time + ' · 修士: ' + data.player_name + ' · ' + data.cultivation + '\n'); }
-      var parts = ['📋 **角色创建成功**\n', '姓名：' + data.player_name, '性别：' + data.gender + ' ｜ 年龄：' + data.age + '岁', '修为：' + data.cultivation, '身份：' + data.identity + ' — ' + (data.identity_desc||''), '性格：' + data.personality, '出身：' + (data.background_summary||data.background), '灵根：' + (data.spiritual_root||'未知'), '衣物：' + (data.clothing||'未设定')];
-      if (data.sect) parts.push('宗门：' + data.sect);
+      if (sr.ok) { var sd = await sr.json(); if (sd.world_time) addMsg('system', '已进入「' + wvName + '」\n时间: ' + sd.world_time + ' · ' + statusLabel + ': ' + data.player_name + ' · ' + data.cultivation + '\n'); }
+      var parts = ['📋 **角色创建成功**\n', '姓名：' + data.player_name, '性别：' + data.gender + ' ｜ 年龄：' + data.age + '岁', _wvLabel('cultivation','修为') + '：' + data.cultivation, '身份：' + data.identity + ' — ' + (data.identity_desc||''), '性格：' + data.personality, '出身：' + (data.background_summary||data.background), '衣物：' + (data.clothing||'未设定')];
+      var srLabel = _wvLabel('spiritual_root', '');
+      if (srLabel && (data.spiritual_root||'')) parts.push(srLabel + '：' + data.spiritual_root);
+      if (data.sect) parts.push(_wvLabel('sect','宗门') + '：' + data.sect);
       if (data.location) parts.push('初始位置：' + data.location);
-      if (data.golden_finger_name) parts.push('金手指：' + data.golden_finger_name + ' — ' + (data.golden_finger_tagline||''));
+      if (data.golden_finger_name) parts.push(_wvLabel('golden_finger','金手指') + '：' + data.golden_finger_name + ' — ' + (data.golden_finger_tagline||''));
       if (data.monthly_income) parts.push('月入：' + data.monthly_income);
       addMsg('system', parts.join('\n'));
       if (data.player_panel) updateInfoPanel(data.player_panel);
+      // ── Show llm_introduction if present (world opening narration) ──
+      if (data.llm_introduction) addMsg('system', data.llm_introduction);
       try { localStorage.setItem('ane_last_session', sessionId); } catch(e) {};
     }
   } catch(e) { frontendLog('ERROR', 'Character: ' + e.message); }
@@ -935,25 +922,6 @@ async function sendTurn() {
     document.getElementById('ho-hint').style.display = 'block';
     if (!confirm('⚠️ 检测到敏感内容，直接发送可能被AI内容过滤拦截，是否仍然发送？')) return;
   } else { document.getElementById('ho-hint').style.display = 'none'; }
-  if (document.getElementById('important-npc-check').checked) {
-    document.getElementById('important-npc-check').checked = false;
-    addMsg('system', '⏳ 正在分析人物，请稍候…');
-    try {
-      var mr = await apiFetch('/sessions/' + sessionId + '/npc-modeling', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({input: text}) });
-      if (!mr.ok) { addMsg('system', '❌ 人物构建失败'); return; }
-      var md = await mr.json();
-      if (md.updated) md.updated.forEach(function(u) { addMsg('system', '【人物档案更新】\n' + formatNpcModel(u.model_data, u.npc_name, '（已更新档案）')); });
-      if (md.new_names && md.new_names.length) {
-        var cf = await showNpcConfirmDialog(md.new_names, text);
-        if (cf.canceled) { addMsg('system', '人物建模已取消。'); return; }
-        for (var nm of cf.confirmed) {
-          addMsg('system', '⏳ 正在为「' + nm + '」构建人物档案（约30秒）…');
-          try { var cr2 = await apiFetch('/sessions/' + sessionId + '/npc-modeling/confirm', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({input: text, name: nm}) }); if (cr2.ok) { var cd2 = await cr2.json(); addMsg('system', '【人物建模完成】\n' + formatNpcModel(cd2.model_data, cd2.npc_name, '（新人物已生成）') + '\n\n现在你可以发送正文了。'); } else addMsg('system', '❌ 「' + nm + '」建模失败'); } catch(e) { addMsg('system', '❌ 「' + nm + '」建模失败'); }
-        }
-      } else if (!md.updated || !md.updated.length) addMsg('system', '系统未能识别人物姓名。');
-    } catch(e) { addMsg('system', '❌ 人物构建请求失败'); }
-    return;
-  }
   input.value = ''; input.style.height = 'auto';
   addMsg('user', text);
   var sb = document.getElementById('send-btn'); var ld = document.getElementById('loading-indicator'); sb.disabled = true; ld.classList.add('active');
@@ -976,13 +944,14 @@ async function sendTurn() {
     updateRecs(td.recommendations); npcLibLoad();
     if (td.npc_updates && td.npc_updates.length) addMsg('system', '【世界动态】\n' + td.npc_updates.map(function(u) { return '• ' + u.description; }).join('\n'));
   } catch(e) { addMsg('system', '请求失败: ' + e.message); }
-  sb.disabled = false; ld.classList.remove('active'); document.getElementById('important-npc-check').checked = false;
+  sb.disabled = false; ld.classList.remove('active');
 }
 
 // ── 字数选择 ──
 var _wordCountOptions = ['200-500','500-800','500-1200','800-1500','1000-2000','1500-2000'];
 var _currentWordCount = '500-1200';
 function getWordCountRange() {
+  if (!_wordCountOptions || !_wordCountOptions.indexOf) _wordCountOptions = ['200-500','500-800','500-1200','800-1500','1000-2000','1500-2000'];
   var saved = null;
   try { saved = localStorage.getItem('ane_word_count'); } catch(e) {}
   if (saved && _wordCountOptions.indexOf(saved) !== -1) { _currentWordCount = saved; }
@@ -1120,17 +1089,6 @@ function addNearbyCards(characters) {
   }
   container.appendChild(header); container.appendChild(grid); document.getElementById('chat').appendChild(container);
   document.getElementById('chat').scrollTop = document.getElementById('chat').scrollHeight;
-}
-
-function showNpcConfirmDialog(names) {
-  return new Promise(function(resolve) {
-    var overlay = document.createElement('div'); overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;';
-    var box = document.createElement('div'); box.style.cssText = 'background:#1a1a2e;border:1px solid #e94560;border-radius:12px;padding:24px;max-width:420px;width:90%;color:#eee;font-size:14px;';
-    box.innerHTML = '<div style="font-size:18px;font-weight:bold;margin-bottom:12px;color:#e94560;">👤 检测到新人物</div><div style="margin-bottom:16px;color:#aaa;">以下人物不在数据库中，是否建模？</div><div id="npc-confirm-list" style="margin-bottom:16px;">' + names.map(function(n, i) { return '<label style="display:block;padding:8px 10px;margin:4px 0;background:#16213e;border-radius:6px;cursor:pointer;"><input type="checkbox" data-idx="' + i + '" checked style="accent-color:#e94560;margin-right:8px;">' + n + '</label>'; }).join('') + '</div><div style="display:flex;gap:8px;justify-content:flex-end;"><button id="npc-confirm-cancel" style="padding:8px 18px;border:1px solid #555;border-radius:6px;background:transparent;color:#aaa;cursor:pointer;">全部跳过</button><button id="npc-confirm-ok" style="padding:8px 18px;border:none;border-radius:6px;background:#e94560;color:white;cursor:pointer;font-weight:bold;">确认建模</button></div>';
-    overlay.appendChild(box); document.body.appendChild(overlay);
-    document.getElementById('npc-confirm-cancel').onclick = function() { document.body.removeChild(overlay); resolve({canceled: true, confirmed: []}); };
-    document.getElementById('npc-confirm-ok').onclick = function() { var ck = document.querySelectorAll('#npc-confirm-list input[type=checkbox]'); var cn = []; ck.forEach(function(chk, i) { if (chk.checked) cn.push(names[i]); }); document.body.removeChild(overlay); resolve({canceled: false, confirmed: cn}); };
-  });
 }
 
 // ── Relationship Graph ──
@@ -2118,11 +2076,6 @@ function clearAvatar() {
   }, { passive: true });
   document.addEventListener('touchend', function() { _avatarIsDragging = false; });
 })();
-
-async function clearLogs() {
-  if (!confirm('确定要清空前后端日志文件吗？')) return;
-  try { var r = await apiFetch('/api/clear-logs', { method: 'POST' }); var d = await r.json(); var parts = []; for (var k in d) parts.push(d[k].ok ? k + ': 已清空' : k + ': 失败'); addMsg('system', '🗑 ' + parts.join(' ｜ ')); } catch(e) { addMsg('system', '清空日志失败'); }
-}
 
 // ── Init ──
 (async function init() {

@@ -1,0 +1,65 @@
+{
+  "genders": [
+    { "value": "男", "label": "男" },
+    { "value": "女", "label": "女" }
+  ],
+  "cultivations": [
+    { "value": "平民", "label": "平民", "desc": "普通的农夫、手艺人或商贩之子。" },
+    { "value": "游侠", "label": "游侠", "desc": "穿行荒野的弓箭手与斥候，熟悉森林。" },
+    { "value": "骑士", "label": "骑士", "desc": "受封的骑士兵，效忠于某位领主。" },
+    { "value": "法师", "label": "法师学徒", "desc": "白塔的求学者，掌握初阶奥术。" },
+    { "value": "盗贼", "label": "盗贼", "desc": "游走于暗巷的行者，手脚利落。" },
+    { "value": "牧师", "label": "牧师", "desc": "圣堂的侍奉者，通晓治愈祷言。" }
+  ],
+  "personalities": [
+    { "value": "豪爽", "label": "豪爽", "desc": "酒馆里的热心肠，讲义气。" },
+    { "value": "谨慎", "label": "谨慎多疑", "desc": "凡事留三分，信不过陌生人。" },
+    { "value": "理想主义", "label": "理想主义", "desc": "相信正义终将降临。" },
+    { "value": "圆滑", "label": "圆滑世故", "desc": "见人说人话，见鬼说鬼话。" },
+    { "value": "孤僻", "label": "孤僻寡言", "desc": "习惯独来独往。" },
+    { "value": "虔诚", "label": "虔诚", "desc": "对神祇心怀敬畏。" }
+  ],
+  "backgrounds": [
+    {
+      "value": "农户之子",
+      "label": "农户之子（橡木村长大）",
+      "desc": "从小在村庄长大，帮家里种地放羊，没去过几回王城。",
+      "initial_resource": "一袋铜币、一柄旧铁剑。",
+      "personality_tendency": "质朴、坚韧，对贵族既敬畏又暗藏不满。",
+      "typical_sect_path": "因一场意外卷入冒险，从此走上这条路。"
+    },
+    {
+      "value": "破落贵族",
+      "label": "破落贵族（家道中落）",
+      "desc": "祖上曾是王国重臣，如今只剩一个骑士封号和一匹老马。",
+      "initial_resource": "一枚家族纹章戒指、一匹瘦马。",
+      "personality_tendency": "骄傲、放不下身段，但骨子里仗义。",
+      "typical_sect_path": "靠祖传的骑术与武艺重新挣回荣耀。"
+    },
+    {
+      "value": "圣堂孤儿",
+      "label": "圣堂孤儿（教会长大）",
+      "desc": "被圣堂收养，在教堂帮工长大，识字但不通人情世故。",
+      "initial_resource": "一本旧祷文书、一枚圣徽。",
+      "personality_tendency": "善良、单纯，有时天真得过头。",
+      "typical_sect_path": "从教堂跑出来寻找自己的命运。"
+    },
+    {
+      "value": "法师学徒",
+      "label": "逃出白塔的学徒",
+      "desc": "曾在白塔学习奥术，因偷看禁书被逐出，身怀半吊子法术。",
+      "initial_resource": "一本残破法术书、几块施法材料。",
+      "personality_tendency": "好奇、狡黠，对知识近乎贪婪。",
+      "typical_sect_path": "边流浪边偷偷练习法术。"
+    }
+  ],
+  "identities": {
+    "自由民": {"label": "自由民", "desc": "无领地依附的平民", "clothing": "亚麻短衫+粗布裤", "monthly_income": "20枚铜币", "background": ""},
+    "侍从": {"label": "骑士侍从", "desc": "为骑士牵马执盾的见习者", "clothing": "旧皮甲+佩剑", "monthly_income": "无", "background": ""},
+    "猎人": {"label": "猎人", "desc": "森林的常客，熟悉兽径", "clothing": "皮革猎装+短弓", "monthly_income": "8枚银币", "background": ""},
+    "商贩": {"label": "行商", "desc": "沿国王大道往来贩货", "clothing": "羊毛斗篷+货担", "monthly_income": "15枚银币", "background": ""},
+    "吟游诗人": {"label": "吟游诗人", "desc": "唱传奇、传消息的人", "clothing": "彩色衣袍+鲁特琴", "monthly_income": "5枚银币", "background": ""},
+    "雇佣兵": {"label": "雇佣兵", "desc": "谁出钱就为谁卖命", "clothing": "旧链甲+长剑", "monthly_income": "10枚银币", "background": ""}
+  },
+  "golden_fingers": []
+}

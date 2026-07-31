@@ -1,0 +1,13 @@
+{
+  "seclusion_threshold": 2160,
+  "seclusion_event": {
+    "type": "cultivation_progress",
+    "description": "{npc_name}在闭关中修为有所精进。"
+  },
+  "idle_threshold": 2160,
+  "idle_probability": 0.2,
+  "idle_events": [
+    {"type": "cultivation_progress", "description": "听闻{npc_name}近日修为略有精进。"},
+    {"type": "random_encounter", "description": "{npc_name}似乎经历了一些事，但详情不明。"}
+  ]
+}

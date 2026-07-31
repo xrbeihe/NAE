@@ -1,0 +1,63 @@
+{
+  "labels": {
+    "role": "修士",
+    "savings": "灵石",
+    "spiritual_root": "灵根",
+    "sect": "宗门",
+    "golden_finger": "金手指",
+    "monthly_income": "月入"
+  },
+  "create_button": "踏入修仙世界",
+  "default_session_name": "修仙世界",
+  "welcome_prefix": "已进入「",
+  "welcome_suffix": "」",
+  "character_card": {
+    "title": "📋 **角色创建成功**",
+    "lines": [
+      {"label": "姓名", "key": "name"},
+      {"label": "性别", "composite": "性别：{gender} ｜ 年龄：{age}岁"},
+      {"label": "修为", "key": "cultivation"},
+      {"label": "身份", "composite": "身份：{identity} — {identity_desc}"},
+      {"label": "性格", "key": "personality"},
+      {"label": "出身", "key": "background_summary"},
+      {"label": "灵根", "key": "spiritual_root", "default": "未知"},
+      {"label": "衣物", "key": "clothing", "default": "未设定"}
+    ],
+    "conditional": [
+      {"label": "宗门", "key": "sect", "show_if": "truthy"},
+      {"label": "初始位置", "key": "location"},
+      {"label": "金手指", "composite": "金手指：{golden_finger_name}{tag}", "tag_field": "golden_finger_tagline"},
+      {"label": "月入", "key": "monthly_income", "show_if": "truthy"}
+    ]
+  },
+  "initial_recommendations": {
+    "base": [
+      "四处走走，熟悉周围的环境",
+      "找当地人打听本地的消息",
+      "去坊市看看有没有合适的装备或丹药"
+    ],
+    "with_sect": [
+      "前往宗门大殿报到，领取身份令牌",
+      "拜访同门师兄弟，结交新朋友"
+    ],
+    "with_golden_finger": ["找个安静的地方探查自己的机缘"],
+    "without_golden_finger": ["尝试感应天地灵气，熟悉自己的根骨"],
+    "tail": [
+      "检查随身物品，清点灵石",
+      "向遇到的修士打听附近的风土人情",
+      "去藏书阁或经楼翻阅本地志"
+    ]
+  },
+  "suggestion_groups": {
+    "修为": ["炼气期", "筑基期", "金丹期", "元婴期", "化神期", "炼虚期", "合体期", "大乘期", "渡劫期"],
+    "灵根": ["金灵根", "木灵根", "水灵根", "火灵根", "土灵根", "天灵根", "变异灵根"],
+    "体质": ["玄阴体", "纯阳体", "天脉者", "混沌体", "先天道体", "荒古圣体", "九阳神体"],
+    "身份": ["宗门弟子", "散修", "丹师", "器师", "符师", "阵师", "剑修", "体修"]
+  },
+  "npc_archetypes": [
+    {"name": "敌对修士", "desc": "与主角敌对的修士"},
+    {"name": "宗门长老", "desc": "宗门中德高望重的长老"},
+    {"name": "同门师兄弟", "desc": "与主角同门的师兄弟"},
+    {"name": "神秘散修", "desc": "来历神秘、修为莫测的散修"}
+  ]
+}

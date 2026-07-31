@@ -1,22 +1,20 @@
 # 局内建模标记系统（完整 LLM 链路）
 
+> **状态更新**：⭐ 局内建模的前端入口已关闭（2026-07-31）。本文保留完整链路说明，便于理解后端保留的 `/npc-modeling` 接口与建模机制。当前活跃入口：📦 加载建模（默认勾选，turn 管线自动生效）+ NPC 总库建模（`/npcs/library`）。
+
 ## 总览
 
-局内建模系统由**互斥操作**按钮 + 快捷建模按钮（🧑/👩）+ 三层记忆架构组成：
+局内建模系统由**操作按钮**（⭐ 已关闭 + 📦 保留）+ 三层记忆架构组成：
 
 ```
 前端 UI（互斥，勾一个自动取消另一个）:
   [ ] ⭐ 局内建模     → 创建/更新人物档案（走独立 /npc-modeling 端点）
+                        ⚠️ 已关闭：前端入口已移除，接口保留但无 UI 触发
   [✓] 📦 加载建模     → 检测输入中的已建模人名，自动注入完整数据到 Prompt
                        默认勾选，勾⭐时自动取消，勾📦时自动取消⭐
 
-快捷建模按钮（推荐行动栏右侧）:
-  🧑 → 用当前输入框内容构建男性角色（自动注入「（男性）」前缀）
-  👩 → 用当前输入框内容构建女性角色（自动注入「（女性）」前缀）
-  流程同 ⭐，但自动确定性别方向，省去用户写「她/他」的麻烦
-
 信息查看按钮:
-  ！→ 局内建模构建说明
+  ！→ 局内建模构建说明（已随 ⭐ 入口一并移除）
 
 NPC 编辑弹窗（前端 NPC 总库表）:
   每行 NPC 右侧有「查看」和「编辑」按钮
@@ -36,10 +34,8 @@ NPC 编辑弹窗（前端 NPC 总库表）:
 
 ### 注意事项
 
-- ⭐ 和 📦 互斥，前端勾选一个自动取消另一个
-- 🧑/👩 快捷建模按钮自动注入性别前缀（（男性）/（女性）），不受互斥影响
-- 勾选 ⭐ 时：不走 turn 管线，走 /npc-modeling → 建模完成后 return
-- 勾选 📦 时（默认）：正常发 turn，检测输入中的已建模名字注入 Prompt
+- ⭐ 局内建模前端入口**已关闭**（2026-07-31），`/npc-modeling` 接口保留；📦 加载建模仍活跃
+- 📦 加载建模（默认勾选）不与其他按钮互斥，正常发 turn，检测输入中的已建模名字注入 Prompt
 - 两个都不勾：正常发 turn，不注入额外模型数据
 
 ### Step A: 用户输入 + ⭐ 勾选
@@ -122,7 +118,7 @@ POST /sessions/{id}/npc-modeling/confirm
 
 ## turn 管线中的 📦 加载建模
 
-每次发 turn 时自动执行（仅在未勾选 ⭐ 时生效，因为 ⭐ 会在前端阻止 turn 发送），**0 次 LLM 调用**，且会在 load_model_data 块内同时处理 `pending_debut` 标记（覆盖不在 active_set 中、但被用户输入匹配到的已建模 NPC）：
+每次发 turn 时自动执行（由前端 `load_model_data` 参数控制，默认勾选），**0 次 LLM 调用**，且会在 load_model_data 块内同时处理 `pending_debut` 标记（覆盖不在 active_set 中、但被用户输入匹配到的已建模 NPC）：
 
 ```python
 # 纯字符串匹配
@@ -235,7 +231,5 @@ for db_npc in all_important_npcs:
 | Prompt 展示 | `prompt_builder.py` | `_build_important_npcs_block() / _build_conversation_block() / _build_facts_block()` |
 | 路由 + 确认 | `api/routes.py` | `npc_modeling() / npc_modeling_confirm()` |
 | 请求 Schema | `api/schemas.py` | `NpcModelingRequest / NpcModelingResponse / NpcModelingConfirmRequest` |
-| 前端弹窗 | `frontend/app.html` | `showNpcConfirmDialog() / formatNpcModel()` |
-| 快捷建模 | `frontend/app.html` | `startModeling(gender)` → 🧑/👩 |
 | 记忆面板 | （💭 按钮已关闭，暂时不可用） |
 | 面板 Schema | `api/schemas.py` | `MemoryPanelEntry / MemoryPanelResponse` |

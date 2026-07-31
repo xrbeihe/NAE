@@ -71,7 +71,7 @@ def _extract_balanced_json(text: str) -> list[str]:
     return candidates
 
 
-def parse(raw_response: str) -> ParsedOutput:
+def parse(raw_response: str, worldview: str | None = None) -> ParsedOutput:
     """Parse LLM output into narrative and structured state changes.
 
     Tries multiple strategies in order:
@@ -79,6 +79,9 @@ def parse(raw_response: str) -> ParsedOutput:
       2. Balanced brace extraction for top-level JSON objects
       3. Fall back to plain text
     """
+    # Resolve the valid event-type set once for this parse call
+    event_types = _event_types_for(worldview)
+
     # Strategy 1: fenced JSON block
     match = re.search(r"```json\s*(.*?)\s*```", raw_response, re.DOTALL)
     if match:
@@ -86,19 +89,19 @@ def parse(raw_response: str) -> ParsedOutput:
         # Use balanced extraction inside the code fence too (safety net)
         objects = _extract_balanced_json(inner)
         if objects:
-            return _parse_json(objects[0], raw_response)
-        return _parse_json(inner, raw_response)
+            return _parse_json(objects[0], raw_response, event_types)
+        return _parse_json(inner, raw_response, event_types)
 
     # Strategy 2: balanced brace extraction — handles nested JSON
     objects = _extract_balanced_json(raw_response)
     # Pick the best candidate: the one containing "narrative"
     for obj in objects:
         if '"narrative"' in obj:
-            return _parse_json(obj, raw_response)
+            return _parse_json(obj, raw_response, event_types)
     # Fallback: try the longest JSON object
     if objects:
         longest = max(objects, key=len)
-        return _parse_json(longest, raw_response)
+        return _parse_json(longest, raw_response, event_types)
 
     # Fallback: treat whole response as narrative
     logger.warning("No JSON found in LLM output — falling back to plain text")
@@ -110,8 +113,9 @@ def parse(raw_response: str) -> ParsedOutput:
     )
 
 
-def _parse_json(json_str: str, fallback_raw: str) -> ParsedOutput:
+def _parse_json(json_str: str, fallback_raw: str, event_types: set[str] | None = None) -> ParsedOutput:
     """Attempt to parse a JSON string. Return ParsedOutput on success or failure."""
+    event_types = event_types or VALID_EVENT_TYPES
     try:
         data = json.loads(json_str)
     except json.JSONDecodeError:
@@ -164,7 +168,7 @@ def _parse_json(json_str: str, fallback_raw: str) -> ParsedOutput:
     # Validate each state_change
     valid_changes = []
     for change in raw_changes:
-        if _validate_change(change):
+        if _validate_change(change, event_types):
             valid_changes.append(change)
         else:
             logger.warning(f"Dropped invalid state_change: {change}")
@@ -187,32 +191,50 @@ def _parse_json(json_str: str, fallback_raw: str) -> ParsedOutput:
 
 # ── Validation ────────────────────────────────────────────────
 
-VALID_EVENT_TYPES = {
-    # Core state changes
-    "location_change", "cultivation_change", "status_change",
+# Engine-core event types valid in EVERY worldview.
+CORE_EVENT_TYPES = {
+    "location_change", "status_change",
     "character_status", "npc_status",
     "item_added", "item_removed",
     "relationship_change", "quest_accepted", "quest_completed",
-    "breakthrough", "death", "marriage",
-    # Narrative events (accepted but not all trigger DB changes)
+    "death", "marriage",
     "dialogue", "travel", "combat", "trade",
     "npc_enters", "npc_leaves", "npc_action",
     "environment", "event", "time_skip",
     "player_name_change",
-    # Important NPC marking
+    "economy_change",        # numeric savings — was documented in system prompt but missing from the whitelist
     "npc_important",
-    # Nearby NPC seeding
     "npc_nearby",
 }
 
+# Worldview-specific event types (xianxia: cultivation_change / breakthrough).
+# Kept as the legacy default so `parse()` without a worldview behaves as before.
+_XIANXIA_EVENT_TYPES = {"cultivation_change", "breakthrough"}
 
-def _validate_change(change: dict) -> bool:
+# Legacy full set (core + xianxia) — used when parse() is called without a worldview.
+VALID_EVENT_TYPES = CORE_EVENT_TYPES | _XIANXIA_EVENT_TYPES
+
+
+def _event_types_for(worldview: str | None) -> set[str]:
+    """Resolve the valid event-type set for a worldview.
+
+    None → legacy full set (core + xianxia), preserving existing behavior.
+    Otherwise → core ∪ pack.extra_event_types (unknown types still dropped).
+    """
+    if not worldview:
+        return VALID_EVENT_TYPES
+    from ane.worldview import get as get_worldview, DEFAULT_WORLDVIEW_ID
+    wv = get_worldview(worldview or DEFAULT_WORLDVIEW_ID)
+    return CORE_EVENT_TYPES | set(wv.extra_event_types)
+
+
+def _validate_change(change: dict, event_types: set[str]) -> bool:
     """Check that a state_change dict has required fields and valid values."""
     if not isinstance(change, dict):
         return False
 
     event_type = change.get("type", "")
-    if event_type not in VALID_EVENT_TYPES:
+    if event_type not in event_types:
         logger.debug(f"Unknown event type: {event_type}")
         return False
 

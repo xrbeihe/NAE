@@ -1,0 +1,71 @@
+{
+  "genders": [
+    { "value": "男", "label": "男" },
+    { "value": "女", "label": "女" }
+  ],
+  "cultivations": [
+    { "value": "下忍", "label": "下忍", "desc": "毕业的正式忍者，执行 D 级和 C 级任务。第七班成员的起点。" },
+    { "value": "中忍", "label": "中忍", "desc": "通过中忍考试，带队执行 C 级和 B 级任务，忍村的骨干。" },
+    { "value": "上忍", "label": "上忍", "desc": "精英忍者，执行 A 级和 S 级任务，通常是班长的水准。" },
+    { "value": "暗部", "label": "暗部成员", "desc": "直属火影的精英部队，执行机密任务，戴动物面具隐藏身份。" },
+    { "value": "医疗忍者", "label": "医疗忍者", "desc": "以医疗忍术支援队伍的忍者，纲手一脉。" },
+    { "value": "普通村民", "label": "普通村民", "desc": "木叶村的普通居民，不会忍术，经营各种营生。" }
+  ],
+  "personalities": [
+    { "value": "热血", "label": "热血冲动", "desc": "像鸣人一样，认准目标就不回头。" },
+    { "value": "冷静", "label": "冷静沉着", "desc": "像卡卡西一样，深藏不露，胸有成竹。" },
+    { "value": "执着", "label": "执着坚韧", "desc": "像佐助一样，为了目标可以忍受一切。" },
+    { "value": "温暖", "label": "温暖可靠", "desc": "像樱一样，治愈系但关键时候靠得住。" },
+    { "value": "狡黠", "label": "狡黠机智", "desc": "像鹿丸一样，能用脑子绝不动手。" },
+    { "value": "隐忍", "label": "隐忍孤僻", "desc": "背负秘密，习惯独来独往。" }
+  ],
+  "backgrounds": [
+    {
+      "value": "孤儿",
+      "label": "孤儿（人柱力之子）",
+      "desc": "从小失去双亲，被村子当作异类疏远，靠自己的意志走到今天。",
+      "initial_resource": "一个存钱罐和满身伤痕。",
+      "personality_tendency": "渴望被认可，用吵闹和倔强掩饰孤独。",
+      "typical_sect_path": "从忍者学校毕业，加入某班成为下忍。"
+    },
+    {
+      "value": "忍者世家",
+      "label": "忍者世家（名门之后）",
+      "desc": "出身显赫的忍者家族，背负着家族的血脉与期望。",
+      "initial_resource": "家族传授的秘术和一把家传武器。",
+      "personality_tendency": "骄傲而克制，时刻谨记家族荣耀。",
+      "typical_sect_path": "家族安排或自己选择的忍者之路。"
+    },
+    {
+      "value": "平民子弟",
+      "label": "平民子弟（普通人家的孩子）",
+      "desc": "父母是普通村民，凭自己的努力考入忍者学校。",
+      "initial_resource": "父母的支持和一颗不服输的心。",
+      "personality_tendency": "踏实勤奋，珍惜来之不易的机会。",
+      "typical_sect_path": "从忍者学校一步步往上爬。"
+    },
+    {
+      "value": "砂忍流亡",
+      "label": "砂忍后裔（流亡者）",
+      "desc": "来自其他隐村的忍者，因种种原因来到木叶。",
+      "initial_resource": "一身异乡的忍术和一个不能说的秘密。",
+      "personality_tendency": "警觉而疏离，对村子归属感淡薄。",
+      "typical_sect_path": "以中忍身份受雇，逐步融入木叶。"
+    }
+  ],
+  "identities": {
+    "火影护卫": {"label": "火影护卫", "desc": "保护火影的贴身忍者", "clothing": "火影直属制服+护额", "monthly_income": "S级任务报酬", "background": ""},
+    "木叶商人": {"label": "木叶商人", "desc": "经营木叶的店铺", "clothing": "普通和服+围裙", "monthly_income": "稳定收入", "background": ""},
+    "情报忍者": {"label": "情报忍者", "desc": "穿梭于情报网络", "clothing": "便装+伪装", "monthly_income": "C级任务报酬", "background": ""},
+    "封印班成员": {"label": "封印班成员", "desc": "管理村中封印之术", "clothing": "封印班制服", "monthly_income": "B级任务报酬", "background": ""},
+    "中忍考试考官": {"label": "中忍考试考官", "desc": "负责中忍考试选拔", "clothing": "考官制服+护额", "monthly_income": "稳定酬劳", "background": ""}
+  },
+  "golden_fingers": [
+    {"id": "nine_tails", "icon": "🦊", "name": "九尾人柱力", "tagline": "体内的九尾查克拉", "desc": "体内封印着九尾妖狐的查克拉，暴走时力量恐怖，但也背负着村人的恐惧。"},
+    {"id": "sharingan", "icon": "👁️", "name": "写轮眼", "tagline": "宇智波一族的血继限界", "desc": "能够复制忍术、看穿对手动作的眼睛，进阶后可觉醒万花筒写轮眼。"},
+    {"id": "byakugan", "icon": "👁", "name": "白眼", "tagline": "日向一族的血继限界", "desc": "三百六十度的透视之眼，配合柔拳攻击查克拉经络。"},
+    {"id": "sannin_legacy", "icon": "🐸", "name": "通灵契约", "tagline": "与通灵兽的契约", "desc": "与蛤蟆/蛇/蛞蝓等通灵兽签订契约，战斗时可召唤它们。"},
+    {"id": "shadow_control", "icon": "🌒", "name": "影子束缚术", "tagline": "奈良一族秘术", "desc": "将影子延伸束缚对手，配合鹿丸的头脑极其危险。"},
+    {"id": "chidori", "icon": "⚡", "name": "千鸟", "tagline": "卡卡西传授的雷遁", "desc": "将雷遁查克拉集中于手上形成电光，高速突刺的杀伤忍术。"}
+  ]
+}

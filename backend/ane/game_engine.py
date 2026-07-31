@@ -168,20 +168,25 @@ class GameEngine:
 
     # ── Session lifecycle ──────────────────────────────────────
 
-    async def create_session(self, db: AsyncSession, user_id: str, name: str = "未命名世界") -> dict:
+    async def create_session(self, db: AsyncSession, user_id: str, name: str = "未命名世界",
+                             worldview: str | None = None) -> dict:
         """Create a new world session: DB record → world → player stub → NPCs."""
         from ane.modules.time_manager import TimeManager as _tm
-        session = WorldSession(user_id=user_id, name=name)
+        from ane.worldview import get as get_worldview, DEFAULT_WORLDVIEW_ID
+        wv_id = worldview or DEFAULT_WORLDVIEW_ID
+        wv = get_worldview(wv_id)  # validate id — falls back to default if invalid/missing
+        wv_version = (wv.manifest or {}).get("version", "")
+        session = WorldSession(user_id=user_id, name=name, worldview=wv_id, worldview_version=wv_version)
         session.time_epoch = 0
-        session.world_time = _tm().format_world_time(0)
+        session.world_time = _tm().format_world_time(0, worldview=wv_id)
         db.add(session)
         await db.flush()
 
         # Generate world regions
-        regions = await world_manager.generate_initial_world(db, session.id)
+        regions = await world_manager.generate_initial_world(db, session.id, worldview=wv_id)
 
         # Create player stub
-        player = await pm.create(db, session.id)
+        player = await pm.create(db, session.id, worldview=wv_id)
 
         logger.info(f"Session created: {session.id} — {name}")
         await db.commit()
@@ -204,6 +209,7 @@ class GameEngine:
         golden_finger_custom: str = "",
         identity_custom: str = "",
         personality_custom: str = "",
+        worldview: str | None = None,
     ) -> Player | None:
         """Apply player-chosen character details.
         Delegates to PlayerManager.
@@ -214,6 +220,7 @@ class GameEngine:
             golden_finger_custom=golden_finger_custom,
             identity_custom=identity_custom,
             personality_custom=personality_custom,
+            worldview=worldview,
         )
 
     # ── Turn pipeline ──────────────────────────────────────────
@@ -253,14 +260,28 @@ class GameEngine:
         """
         # Step 1: Validate
         from ane.database.models import User as user_model
+        from ane.worldview import get as get_worldview, DEFAULT_WORLDVIEW_ID
         user_obj = await db.get(user_model, user_id) if user_id else None
         is_adult = bool(user_obj and user_obj.is_adult) if user_obj else False
-        validation = validate(user_input, mark_important_npc, is_adult=is_adult)
+        # Resolve the session's worldview (before Step 4 needs it too)
+        session_row = await db.get(WorldSession, session_id)
+        worldview = getattr(session_row, "worldview", None) or DEFAULT_WORLDVIEW_ID
+
+        # Detect worldview pack upgrades since the session was created.
+        pinned_ver = getattr(session_row, "worldview_version", "") or ""
+        current_ver = (get_worldview(worldview).manifest or {}).get("version", "")
+        if pinned_ver and current_ver and pinned_ver != current_ver:
+            logger.info(
+                f"Worldview upgrade detected: session {session_id} pinned {worldview}@{pinned_ver}, "
+                f"pack now {current_ver} — session keeps pin (no auto-migration)"
+            )
+
+        validation = validate(user_input, mark_important_npc, is_adult=is_adult, worldview=worldview)
 
         # Step 2: System commands
         if validation.is_system_command:
             return await self._handle_system_command(
-                db, session_id, validation.system_command, user_input,
+                db, session_id, validation.system_command, user_input, worldview=worldview,
             )
 
         if not validation.is_safe:
@@ -308,7 +329,7 @@ class GameEngine:
         time_delta, world_time_label = await tm.advance(db, session_id, intent)
         npc_updates = await tm.update_active_npcs(db, session_id, time_delta)
 
-        # Re-fetch updated session for world_time
+        # Re-fetch updated session for world_time (session_row was fetched before time advance)
         session = await db.get(WorldSession, session_id)
         world_time_str = session.world_time if session else world_time_label
 
@@ -331,6 +352,7 @@ class GameEngine:
             player_location=player_location,
             active_npc_names=npc_names[:12],
             intent=intent,
+            worldview=worldview,
         )
 
         # Step 7: Load memory
@@ -341,6 +363,10 @@ class GameEngine:
         ctx.user_input = validation.cleaned_input
         ctx.word_count_min = word_count_min
         ctx.word_count_max = word_count_max
+
+        # Authoritative canon (IP worldviews) — injected from world_facts.json
+        _wv_obj = get_worldview(worldview or DEFAULT_WORLDVIEW_ID)
+        ctx.world_facts = _wv_obj.world_facts
 
         # World context
         ctx.world = WorldContext(name="青云界")
@@ -470,6 +496,10 @@ class GameEngine:
                     )
                 ctx.constraints.soft.append("\n".join(rel_lines))
 
+        # Assemble system prompt per worldview (defaults to the pack text)
+        from ane.modules.prompt_builder import assemble_system as _assemble_system
+        ctx.system = _assemble_system(worldview)
+
         prompt = prompt_builder.build(ctx)
         prompt = prompt_builder.simplify_prompt(prompt)
 
@@ -492,7 +522,7 @@ class GameEngine:
 
         # Ensure parsed is always initialized, even if llm_main fails
         try:
-            parsed: ParsedOutput = parse(raw_response) if raw_response else ParsedOutput(
+            parsed: ParsedOutput = parse(raw_response, worldview=worldview) if raw_response else ParsedOutput(
                 narrative="（AI叙事生成失败，请重试）",
                 state_changes=[],
                 is_valid_json=False,
@@ -514,7 +544,7 @@ class GameEngine:
                         user_id=user_id, session_id=session_id, label="llm_main",
                     )
                     if retry_raw:
-                        parsed = parse(retry_raw)
+                        parsed = parse(retry_raw, worldview=worldview)
                 except Exception:
                     logger.exception("llm_main retry also failed — using first attempt's result")
         except Exception as e:
@@ -693,6 +723,21 @@ class GameEngine:
                         player.attributes = attrs
                         logger.info(f"step15: economy {cur} ({delta:+d}) {attrs.get('_savings_unit', '')}")
 
+            # ── Generic catch-all for worldview-specific event types ──
+            # Unknown-but-validated event types with target=player and a
+            # field write into player.attributes (e.g. modern_city 职业).
+            # This lets new worldviews extend state without engine changes.
+            elif change_type not in ("npc_nearby",):
+                if change_target == "player" and change_field and change_value is not None:
+                    attrs = dict(player.attributes or {})
+                    if change_field.startswith("attributes."):
+                        attr_key = change_field[len("attributes."):]
+                        attrs[attr_key] = change_value
+                    else:
+                        attrs[change_field] = change_value
+                    player.attributes = attrs
+                    logger.info(f"step15: generic {change_type} → attributes.{change_field} = {change_value}")
+
         # Apply nearby character seeding
         for change in parsed.state_changes:
             if change.get("type") == "npc_nearby":
@@ -782,52 +827,23 @@ class GameEngine:
             logger.info(f"Player relationships added: {player_rels_added}")
 
         # Step 16: Build player and important NPC panels for frontend display
-        player_panel_str = "【主角面板】\n"
-        if player:
-            p_attrs = dict(player.attributes or {})
-            line_parts = [
-                f"姓名：{player.name} ｜ {p_attrs.get('gender', '?')} ｜ {p_attrs.get('age', '?')}岁",
-                f"修为：{player.cultivation}",
-                f"性格：{p_attrs.get('personality', '未知')}",
-                f"身份：{p_attrs.get('identity', '未知')}",
-                f"位置：{player.location or '未知'}",
-            ]
-            sr = p_attrs.get("spiritual_root", "未知")
-            line_parts.append(f"灵根：{sr}")
-            sc = p_attrs.get("special_constitution", "")
-            if sc:
-                line_parts.append(f"体质：{sc}")
-            line_parts.append(f"衣物：{p_attrs.get('clothing', '未设定')}")
-            inv = player.inventory or []
-            if inv:
-                items = "、".join(i.get("name", "?") for i in inv)
-                line_parts.append(f"物品：{items}")
-            p_gf = p_attrs.get("golden_finger_name", "")
-            if p_gf:
-                line_parts.append(f"金手指：{p_gf}")
-            p_gf_desc = p_attrs.get("golden_finger_desc", "")
-            if p_gf_desc:
-                line_parts.append(f"设定：{p_gf_desc}")
-            # Savings display
-            savings_amount = p_attrs.get("_savings_amount", 0)
-            if savings_amount:
-                savings_unit = p_attrs.get("_savings_unit", "块下品灵石")
-                line_parts.append(f"灵石：{savings_amount}{savings_unit}")
-            exts = p_attrs.get("_extensions", {})
-            if exts and isinstance(exts, dict):
-                ext_parts = []
-                for ek, ev in exts.items():
-                    if ek and ev:
-                        if isinstance(ev, dict):
-                            sub = " | ".join(f"{sk}:{sv}" for sk, sv in ev.items() if sk and sv)
-                            ext_parts.append(f"{ek}→{sub}" if sub else f"{ek}→{ev}")
-                        else:
-                            ext_parts.append(f"{ek}→{ev}")
-                if ext_parts:
-                    line_parts.append(f"扩展：{' / '.join(ext_parts)}")
-            player_panel_str += " ｜ ".join(line_parts)
+        from ane.panels import render_player_panel
+        from ane.worldview import get as get_worldview, DEFAULT_WORLDVIEW_ID
+        _wv = get_worldview(worldview or DEFAULT_WORLDVIEW_ID)
+        _panel_spec = _wv.panel_spec or {}
+        if _panel_spec:
+            player_panel_str = render_player_panel(player, _panel_spec)
         else:
-            player_panel_str += "（无玩家数据）\n"
+            # No panel spec (missing pack) — minimal fallback
+            player_panel_str = "【主角面板】\n"
+            if player:
+                p_attrs = dict(player.attributes or {}) if isinstance(player.attributes, dict) else {}
+                player_panel_str += " ｜ ".join([
+                    f"姓名：{player.name}",
+                    f"位置：{player.location or '未知'}",
+                ])
+            else:
+                player_panel_str += "（无玩家数据）\n"
 
         # Important NPCs panel
         all_npcs = await npc_manager.get_by_session(db, session_id)
@@ -839,7 +855,7 @@ class GameEngine:
                 # Check for NPC model data
                 model_data = n_attrs.get("model", {})
                 panel_parts.append(
-                    f"⭐ {n.name} ｜ {n.identity or '散修'} ｜ {n.cultivation}\n"
+                    f"⭐ {n.name} ｜ {n.identity or '未知'} ｜ {n.cultivation}\n"
                 )
                 if n.personality:
                     panel_parts.append(f"  性格：{n.personality}")
@@ -1058,62 +1074,116 @@ class GameEngine:
 
     async def _run_npc_modeling(
         self, db, npc_name, user_input, npc_model, session_id, user_id, player_name, player_location, is_new_npc,
+        worldview: str | None = None,
     ):
         """Full modeling for a confirmed NPC."""
         from ane.modules.model_adapter import model_adapter
         from ane.modules.npc_modeler import parse_modeling_response as _pmr
         from ane.database.models import Memory
-        from ane.modules.input_validator import _NSFW_BODY_WORDS
+        from ane.modules.input_validator import nsfw_body_words
         from ane.config import SYSTEM_PROMPT_SUFFIX
+        from ane.worldview import get as get_worldview, DEFAULT_WORLDVIEW_ID
+
+        wv = get_worldview(worldview or DEFAULT_WORLDVIEW_ID)
+        world_name = wv.name or "修仙世界"
 
         safe_input = user_input
-        for w in _NSFW_BODY_WORDS:
+        for w in nsfw_body_words(worldview):
             if w in safe_input:
                 safe_input = safe_input.replace(w, "【已修饰】")
         safe_input = safe_input.strip() or "一个NPC"
 
-        model_prompt = (
-            f"{SYSTEM_PROMPT_SUFFIX}\n\n"
-            f"你是一个修仙世界角色建模师。玩家在修仙世界中标记了一个重要人物「{npc_name}」。\n\n"
-            f"世界观：东方玄幻修仙世界，有宗门、境界（炼气期→筑基期→金丹期→元婴期→化神期→炼虚期→合体期→大乘期→渡劫期）、灵根（金木水火土/变异/天灵根等）、法宝、丹药、灵石等设定。\n"
-            f"注意：世界观是背景参考而非限制。玩家的意愿凌驾于世界观之上。\n"
-            f"如果玩家要求的设定看起来不符合修仙世界，直接照做即可——玩家说怎么穿就怎么穿，说长什么样就长什么样。\n"
-            f"玩家没有明确说的一律按修仙世界惯例推演补全。\n\n"
-            f"人物性别：{npc_model.gender or '待确定'}\n\n"
-            f"玩家输入：{safe_input}（玩家原文中部分敏感描述已替换为【已修饰】，"
-            f"你须根据上下文推演补全这些描述的合理设定，不要忽略）\n\n"
-            f"请输出一个完整的 JSON 人物档案（结构如下）。\n"
-            f"【核心要求】\n"
-            f"1. 玩家输入中提到什么就填什么，不要忽略玩家给的任何信息\n"
-            f"2. 没有明确依据的字段，根据已有信息（身份、修为、背景）合理推演补全\n"
-            f"3. 补全的内容不能与玩家明确说的事实矛盾\n"
-            f"4. 外貌身体穿着等描写要具体有画面感\n"
-            f"5. 大胆补全，不要留空——玩家不满意后续可以发指令修改\n"
-            f"6. 年龄限制：对年轻俊美的角色（无论男女），除非玩家明确给出年龄，"
-            f"一律设定在40岁以下。外貌应符合实际年龄印象——年轻人应有年轻人的样貌，\n"
-            f"   可以有超乎常人的美貌，但不应毫无根据地呈现老年人特征（沧桑、皱纹等）。\n"
-            f"   如果玩家没有提及年龄，按以下规则推断：筑基以下≤25岁，\n"
-            f"   金丹约30-80岁（外貌二十多岁），元婴约50-200岁（外貌三十多岁），\n"
-            f"   化神以上可保持青春但容貌仍符合年龄气质。"
-            f"   总之，年轻俊美的帅哥美女统一在40岁以下外貌。\n"
-            f"7. 身世限制：如果玩家没有主动描述该人物的身世背景（包括过去的经历、"
-            f"家族、历史等），则background.history保持为空字符串，不要自行编造。\n"
-            f"   只有在玩家输入中明确提到身世相关内容时再填写。\n"
-            f"8. 关系限制：如果玩家没有主动描述该人物与谁有仇、与谁亲近、"
-            f"是某人的徒弟/配偶/师兄等关系，则relationships中对应的字段保持为空或空数组。\n"
-            f"   即使玩家提到了{player_name}以外的其他NPC名字，也不代表他们之间有具体关系——"
-            f"只有玩家明确说了「XXX是YYY的XX」时才填写。\n"
-            f"9. 关系理解：玩家说的「我」指{player_name}本人。"
-            f"如果玩家说「XXX是我妈/我爸/我师尊/我师兄/我道侣/我的XX」，"
-            f"则表示该NPC与{player_name}有该称谓所对应的关系，"
-            f"而不是与NPC彼此之间有该关系。"
-            f"请根据玩家输入正确理解「我」指代{player_name}，正确填写NPC与{player_name}的关系，"
-            f"以及NPC之间的关系（如「张海是张大强的妻子」）。\n"
-            f"注意区分：spouse（配偶/丈夫/妻子）指已婚夫妻关系，"
-            f"lover（恋人）指恋爱中未结婚的对象。\n\n"
-            f'{json.dumps(_MODEL_TEMPLATE, ensure_ascii=False, indent=2)}\n\n'
-            f"请输出 JSON："
-        )
+        # Worldview role line + world blurb from the pack's modeler/role.txt.
+        # Fallback: the original xianxia modeling prompt header.
+        role_template = wv.modeler_role
+        if role_template and "{npc_name}" in role_template:
+            world_blurb = (wv.constraints or {}).get("modeler_blurb", "")
+            if not world_blurb:
+                # derive a one-line blurb from the system prompt's world section
+                sysp = wv.system_prompt or ""
+                for line in sysp.splitlines():
+                    if line.strip().startswith("世界观"):
+                        world_blurb = line.strip()[3:].strip()
+                        break
+            if not world_blurb:
+                world_blurb = "东方玄幻修仙世界，有宗门、境界、灵根、法宝、丹药、灵石等设定。"
+            model_prompt = (
+                f"{SYSTEM_PROMPT_SUFFIX}\n\n"
+                + role_template.format(worldview_name=world_name, npc_name=npc_name, worldview_blurb=world_blurb)
+                + f"\n\n人物性别：{npc_model.gender or '待确定'}\n\n"
+                f"玩家输入：{safe_input}（玩家原文中部分敏感描述已替换为【已修饰】，"
+                f"你须根据上下文推演补全这些描述的合理设定，不要忽略）\n\n"
+                f"请输出一个完整的 JSON 人物档案（结构如下）。\n"
+                f"【核心要求】\n"
+                f"1. 玩家输入中提到什么就填什么，不要忽略玩家给的任何信息\n"
+                f"2. 没有明确依据的字段，根据已有信息（身份、修为、背景）合理推演补全\n"
+                f"3. 补全的内容不能与玩家明确说的事实矛盾\n"
+                f"4. 外貌身体穿着等描写要具体有画面感\n"
+                f"5. 大胆补全，不要留空——玩家不满意后续可以发指令修改\n"
+                f"{wv.modeler_age_rules or ''}"
+                f"7. 身世限制：如果玩家没有主动描述该人物的身世背景（包括过去的经历、"
+                f"家族、历史等），则background.history保持为空字符串，不要自行编造。\n"
+                f"   只有在玩家输入中明确提到身世相关内容时再填写。\n"
+                f"8. 关系限制：如果玩家没有主动描述该人物与谁有仇、与谁亲近、"
+                f"是某人的徒弟/配偶/师兄等关系，则relationships中对应的字段保持为空或空数组。\n"
+                f"   即使玩家提到了{player_name}以外的其他NPC名字，也不代表他们之间有具体关系——"
+                f"只有玩家明确说了「XXX是YYY的XX」时才填写。\n"
+                f"9. 关系理解：玩家说的「我」指{player_name}本人。"
+                f"如果玩家说「XXX是我妈/我爸/我师尊/我师兄/我道侣/我的XX」，"
+                f"则表示该NPC与{player_name}有该称谓所对应的关系，"
+                f"而不是与NPC彼此之间有该关系。"
+                f"请根据玩家输入正确理解「我」指代{player_name}，正确填写NPC与{player_name}的关系，"
+                f"以及NPC之间的关系（如「张海是张大强的妻子」）。\n"
+                f"注意区分：spouse（配偶/丈夫/妻子）指已婚夫妻关系，"
+                f"lover（恋人）指恋爱中未结婚的对象。\n\n"
+                f'{json.dumps(_MODEL_TEMPLATE, ensure_ascii=False, indent=2)}\n\n'
+                f"请输出 JSON："
+            )
+        else:
+            # Legacy xianxia modeling prompt (unchanged) — used when the pack
+            # provides no role.txt.
+            model_prompt = (
+                f"{SYSTEM_PROMPT_SUFFIX}\n\n"
+                f"你是一个修仙世界角色建模师。玩家在修仙世界中标记了一个重要人物「{npc_name}」。\n\n"
+                f"世界观：东方玄幻修仙世界，有宗门、境界（炼气期→筑基期→金丹期→元婴期→化神期→炼虚期→合体期→大乘期→渡劫期）、灵根（金木水火土/变异/天灵根等）、法宝、丹药、灵石等设定。\n"
+                f"注意：世界观是背景参考而非限制。玩家的意愿凌驾于世界观之上。\n"
+                f"如果玩家要求的设定看起来不符合修仙世界，直接照做即可——玩家说怎么穿就怎么穿，说长什么样就长什么样。\n"
+                f"玩家没有明确说的一律按修仙世界惯例推演补全。\n\n"
+                f"人物性别：{npc_model.gender or '待确定'}\n\n"
+                f"玩家输入：{safe_input}（玩家原文中部分敏感描述已替换为【已修饰】，"
+                f"你须根据上下文推演补全这些描述的合理设定，不要忽略）\n\n"
+                f"请输出一个完整的 JSON 人物档案（结构如下）。\n"
+                f"【核心要求】\n"
+                f"1. 玩家输入中提到什么就填什么，不要忽略玩家给的任何信息\n"
+                f"2. 没有明确依据的字段，根据已有信息（身份、修为、背景）合理推演补全\n"
+                f"3. 补全的内容不能与玩家明确说的事实矛盾\n"
+                f"4. 外貌身体穿着等描写要具体有画面感\n"
+                f"5. 大胆补全，不要留空——玩家不满意后续可以发指令修改\n"
+                f"6. 年龄限制：对年轻俊美的角色（无论男女），除非玩家明确给出年龄，"
+                f"一律设定在40岁以下。外貌应符合实际年龄印象——年轻人应有年轻人的样貌，\n"
+                f"   可以有超乎常人的美貌，但不应毫无根据地呈现老年人特征（沧桑、皱纹等）。\n"
+                f"   如果玩家没有提及年龄，按以下规则推断：筑基以下≤25岁，\n"
+                f"   金丹约30-80岁（外貌二十多岁），元婴约50-200岁（外貌三十多岁），\n"
+                f"   化神以上可保持青春但容貌仍符合年龄气质。"
+                f"   总之，年轻俊美的帅哥美女统一在40岁以下外貌。\n"
+                f"7. 身世限制：如果玩家没有主动描述该人物的身世背景（包括过去的经历、"
+                f"家族、历史等），则background.history保持为空字符串，不要自行编造。\n"
+                f"   只有在玩家输入中明确提到身世相关内容时再填写。\n"
+                f"8. 关系限制：如果玩家没有主动描述该人物与谁有仇、与谁亲近、"
+                f"是某人的徒弟/配偶/师兄等关系，则relationships中对应的字段保持为空或空数组。\n"
+                f"   即使玩家提到了{player_name}以外的其他NPC名字，也不代表他们之间有具体关系——"
+                f"只有玩家明确说了「XXX是YYY的XX」时才填写。\n"
+                f"9. 关系理解：玩家说的「我」指{player_name}本人。"
+                f"如果玩家说「XXX是我妈/我爸/我师尊/我师兄/我道侣/我的XX」，"
+                f"则表示该NPC与{player_name}有该称谓所对应的关系，"
+                f"而不是与NPC彼此之间有该关系。"
+                f"请根据玩家输入正确理解「我」指代{player_name}，正确填写NPC与{player_name}的关系，"
+                f"以及NPC之间的关系（如「张海是张大强的妻子」）。\n"
+                f"注意区分：spouse（配偶/丈夫/妻子）指已婚夫妻关系，"
+                f"lover（恋人）指恋爱中未结婚的对象。\n\n"
+                f'{json.dumps(_MODEL_TEMPLATE, ensure_ascii=False, indent=2)}\n\n'
+                f"请输出 JSON："
+            )
 
         raw = await model_adapter.generate(
             model_prompt, user_id=user_id, session_id=session_id, label="llm_modeling",
@@ -1473,29 +1543,35 @@ class GameEngine:
     # ── NPC name extraction helper ──────────────────────────────
 
     async def _random_npc_name(self, db, session_id) -> str:
+        from ane.worldview import get as get_worldview, DEFAULT_WORLDVIEW_ID
         result = await db.execute(
             select(NPC.name).where(NPC.session_id == session_id)
         )
         existing_names = {row[0] for row in result.fetchall()}
-        return npc_manager._random_name(existing_names)
+        sess = await db.get(WorldSession, session_id)
+        worldview = getattr(sess, "worldview", None) or DEFAULT_WORLDVIEW_ID
+        return npc_manager._random_name(existing_names, worldview=worldview)
 
     # ── System commands ─────────────────────────────────────────
 
     async def _handle_system_command(
-        self, db, session_id, cmd, user_input,
+        self, db, session_id, cmd, user_input, worldview: str | None = None,
     ) -> TurnResult:
         """Handle system commands."""
         from ane.modules.player_manager import player_manager as pm
         if cmd == "system_help":
             return self._cmd_help()
         if cmd == "system_status":
+            from ane.worldview import get as get_worldview, DEFAULT_WORLDVIEW_ID
             player = await pm.get_by_session(db, session_id)
             name = player.name if player else "未知"
             loc = player.location if player else "未知"
             cult = player.cultivation if player else "未知"
+            wv = get_worldview(worldview or DEFAULT_WORLDVIEW_ID)
+            status_label = (wv.player_defaults or {}).get("status_label", "修士")
             return TurnResult(
                 is_system_command=True,
-                system_response=f"修士：{name} | 位置：{loc} | 修为：{cult}",
+                system_response=f"{status_label}：{name} | 位置：{loc} | 修为：{cult}",
             )
         return TurnResult(
             is_system_command=True,

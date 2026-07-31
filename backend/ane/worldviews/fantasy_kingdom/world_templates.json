@@ -1,0 +1,14 @@
+{
+  "regions": [
+    {"name": "铁橡堡", "type": "city", "description": "王国北方重镇，石砌城墙高耸，城门挂着王室徽章。集市热闹，旅店酒馆林立。"},
+    {"name": "橡木村", "type": "settlement", "description": "城墙外的小村庄，农夫种麦，铁匠打铁，村里有一间小教堂。"},
+    {"name": "国王大道", "type": "building", "description": "贯穿王国的主干道，商队、游侠、流浪诗人往来不绝。"},
+    {"name": "影牙森林", "type": "area", "description": "王国东侧的密林，相传深处有狼人和古代遗迹，猎人和冒险者出没。"},
+    {"name": "古墓地下城", "type": "area", "description": "废弃的地下墓穴，入口在橡木村东北，据说埋藏着旧王国的宝物。"},
+    {"name": "白塔法师议会", "type": "city", "description": "法师们的高塔群，魔法学院所在地，外人需获许方可进入。"},
+    {"name": "码头区", "type": "settlement", "description": "河流入海口的港口，渔夫、走私贩、水手鱼龙混杂。"}
+  ],
+  "sects": [],
+  "settlements": [],
+  "sect_filters": []
+}

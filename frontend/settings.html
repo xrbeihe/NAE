@@ -13,9 +13,6 @@
     --accent: #c9a96e;
     --accent-dim: #6b5a3e;
     --input-bg: #2a2218;
-    --color-ai: #d4c8b8;
-    --color-system: #6b5a3e;
-    --color-user: #e8dcc8;
   }
   * { margin:0; padding:0; box-sizing:border-box; }
   body {
@@ -50,15 +47,6 @@
     box-sizing: border-box; font-family: inherit;
   }
   #settings-page input:focus { border-color: var(--accent); outline: none; }
-  #settings-page input[type="color"] { width: 36px; height: 28px; border: none; border-radius: 3px; cursor: pointer; padding: 0; background: transparent; flex-shrink: 0; }
-
-  .color-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
-  .color-row label { flex: 0 0 70px; font-size: 13px; color: var(--text); }
-  .color-row input[type="color"] { width: 36px; height: 28px; border: none; border-radius: 3px; cursor: pointer; padding: 0; background: transparent; flex-shrink: 0; }
-  .color-row input[type="text"] { flex: 1; padding: 3px 6px; background: var(--input-bg); border: 1px solid var(--border); border-radius: 3px; color: var(--text); font-size: 12px; font-family: monospace; }
-  .font-row { display: flex; align-items: center; gap: 8px; margin: 10px 0 6px; }
-  .font-row label { flex: 0 0 70px; font-size: 13px; color: var(--text); }
-  .font-row select { flex: 1; padding: 4px 6px; background: var(--input-bg); border: 1px solid var(--border); border-radius: 3px; color: var(--text); font-size: 12px; font-family: inherit; }
 
   @media (max-width: 768px) {
     #header h1 { font-size: 14px; }
@@ -104,29 +92,18 @@
 
     <hr style="border:none;border-top:1px solid var(--border);margin:24px 0">
 
-    <!-- Colors -->
-    <h3 style="color:var(--accent);font-size:15px;margin-bottom:12px">🎨 文字颜色</h3>
-    <div class="color-row"><label>AI 正文</label><input type="color" id="color-picker-ai"><input type="text" id="color-text-ai" placeholder="#d4c8b8" oninput="safeApplyColor('ai', this.value)"></div>
-    <div class="color-row"><label>系统消息</label><input type="color" id="color-picker-system"><input type="text" id="color-text-system" placeholder="#6b5a3e" oninput="safeApplyColor('system', this.value)"></div>
-    <div class="color-row"><label>用户消息</label><input type="color" id="color-picker-user"><input type="text" id="color-text-user" placeholder="#e8dcc8" oninput="safeApplyColor('user', this.value)"></div>
-    <div style="display:flex;gap:6px;margin-top:10px"><button onclick="resetColors()" style="flex:1;padding:5px;background:transparent;border:1px solid var(--border);color:var(--accent-dim);border-radius:4px;cursor:pointer;font-size:12px">恢复默认</button></div>
+    <!-- Logs -->
+    <h3 style="color:var(--accent);font-size:15px;margin-bottom:12px">🗑 日志管理</h3>
+    <p style="font-size:12px;color:var(--accent-dim);margin-bottom:10px">清空前端与后端的所有日志文件。</p>
+    <button onclick="clearLogs()" style="background:transparent;border:1px solid var(--border);color:var(--accent-dim);padding:8px 20px;border-radius:4px;cursor:pointer;font-size:13px">🗑 清空日志</button>
+    <div id="logs-result" style="font-size:12px;margin-top:8px;white-space:pre-wrap"></div>
 
-    <!-- Font -->
-    <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
-    <div class="font-row"><label>字体</label>
-      <select id="font-select" onchange="applyFont(this.value)">
-        <option value="default">默认 (微软雅黑/宋体)</option>
-        <option value="songti">宋体</option>
-        <option value="heiti">黑体</option>
-        <option value="kaiti">楷体</option>
-        <option value="fangsong">仿宋</option>
-        <option value="lishu">隶书</option>
-        <option value="xingkai">华文行楷</option>
-      </select>
-    </div>
-  </div>
-</div>
+    <hr style="border:none;border-top:1px solid var(--border);margin:24px 0">
 
+        <!-- Worldview Designer entry -->
+    <h3 style="color:var(--accent);font-size:15px;margin-bottom:12px">🌍 世界观设计器</h3>
+    <p style="font-size:12px;color:var(--accent-dim);margin-bottom:10px">一键生成新世界观，或编辑已有世界观的角色创建表单、初始推荐、选项数据。</p>
+    <button onclick="location.href='/designer'" style="background:var(--accent);color:var(--panel);border:none;padding:10px 24px;border-radius:4px;cursor:pointer;font-size:14px">🎨 进入世界观设计器</button>
 <script src="/public/common.js"></script>
 <script>
 frontendLog('INFO', 'Settings page loaded');
@@ -206,36 +183,25 @@ async function changePassword() {
   } catch(e) { frontendLog('ERROR', 'Password change failed: ' + e.message); alert('修改密码失败: ' + e.message); }
 }
 
-// ── Colors (restore) ──
-['ai','system','user'].forEach(function(t) {
-  var saved = localStorage.getItem('color_' + t);
-  if (saved) {
-    document.documentElement.style.setProperty('--color-' + t, saved);
+// ── Clear logs ──
+async function clearLogs() {
+  if (!confirm('确定要清空前后端日志文件吗？')) return;
+  var resultEl = document.getElementById('logs-result');
+  resultEl.style.color = 'var(--accent-dim)';
+  resultEl.textContent = '正在清空…';
+  try {
+    var r = await apiFetch('/api/clear-logs', { method: 'POST' });
+    var d = await r.json();
+    var parts = [];
+    for (var k in d) parts.push(d[k].ok ? k + ': 已清空' : k + ': 失败');
+    resultEl.textContent = '🗑 ' + parts.join(' ｜ ');
+  } catch(e) {
+    frontendLog('ERROR', 'Clear logs failed: ' + e.message);
+    resultEl.style.color = 'var(--accent-dim)';
+    resultEl.textContent = '清空日志失败: ' + e.message;
   }
-});
-
-(function() {
-  var savedFont = localStorage.getItem('font_family');
-  if (savedFont) applyFont(savedFont);
-})();
-
-function safeApplyColor(type, hex) {
-  hex = hex.trim();
-  if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return;
-  document.getElementById('color-picker-' + type).value = hex;
-  document.getElementById('color-text-' + type).value = hex;
-  document.documentElement.style.setProperty('--color-' + type, hex);
-  localStorage.setItem('color_' + type, hex);
 }
 
-// Sync color picker
-['ai','system','user'].forEach(function(t) {
-  var picker = document.getElementById('color-picker-' + t);
-  var text = document.getElementById('color-text-' + t);
-  if (picker && text) {
-    picker.addEventListener('input', function() { safeApplyColor(t, picker.value); });
-  }
-});
 </script>
 </body>
 </html>

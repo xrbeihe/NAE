@@ -13,6 +13,31 @@ logger = logging.getLogger(__name__)
 
 class NPCManager:
 
+    @staticmethod
+    def _random_name(existing_names: set[str] | None = None, worldview: str | None = None) -> str:
+        """Generate a random passerby NPC name from the worldview's name pool.
+
+        Falls back to the xianxia pool when the pack has no npc_templates.
+        """
+        import random
+        from ane.worldview import get as get_worldview, DEFAULT_WORLDVIEW_ID
+
+        existing = set(existing_names or [])
+        wv = get_worldview(worldview or DEFAULT_WORLDVIEW_ID)
+        pool = wv.npc_templates or {}
+
+        surnames = pool.get("surnames") or ["林", "苏", "柳", "沈", "萧", "叶", "云", "白", "墨", "韩"]
+        given_m = pool.get("given_names_male") or ["寒渊", "辰逸", "子墨", "昊天", "云霆", "凌霄"]
+        given_f = pool.get("given_names_female") or ["雨凝", "如烟", "清漪", "若雪", "霜华", "月瑶"]
+
+        for _ in range(40):
+            surname = random.choice(surnames)
+            given = random.choice(given_m if random.random() < 0.5 else given_f)
+            name = surname + given
+            if name not in existing:
+                return name
+        return random.choice(surnames) + random.choice(given_m)
+
     async def create(self, db: AsyncSession, session_id: str, **kwargs) -> NPC:
         npc = NPC(session_id=session_id, **kwargs)
         db.add(npc)

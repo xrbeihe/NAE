@@ -164,7 +164,8 @@ generate(prompt: str, model: str = DEFAULT_MODEL) -> str
 - 统一 6 Provider（OpenAI / Anthropic / DeepSeek / SenseNova / Google Gemini / Ollama）
 - 重试逻辑：3 次尝试，指数退避（1s→2s→4s），最大 30s
 - 客户端超时 120s（OpenAI 兼容）或 300s（Ollama 本地）
-- Provider 选择通过 `model` 参数格式识别：`"openai:gpt-4o"`, `"deepseek:deepseek-v4-flash"`, `"ollama:qwen2.5"`
+- Provider 选择通过 `model` 参数格式识别：`"deepseek:deepseek-v4-flash"`, `"gemini:gemini-3.5-flash"` 等
+- **前端模型列表当前仅暴露 deepseek + gemini 两个**（`GET /api/models`），其余 provider 的适配器仍注册可用
 - **Token 用量追踪**：每次调用记录 `TokenUsage`（provider/model/label/user_id/prompt_tokens/completion_tokens/elapsed），内存存储
 - **`get_usage()` / `get_usage_summary()`**：按用户/标签查询用量
 - **Anthropic 适配器**：支持 `thinking: {"type": "adaptive"}` + `prompt-caching-2024-07-31` beta

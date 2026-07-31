@@ -27,6 +27,7 @@ class AuthResponse(BaseModel):
 
 class CreateSessionRequest(BaseModel):
     name: str = Field(default="未命名世界", max_length=100)
+    worldview: str = Field(default="xianxia_v1", max_length=48)
 
 
 class CreateSessionResponse(BaseModel):
@@ -100,7 +101,9 @@ class TurnResponse(BaseModel):
 # ── Character Creation ─────────────────────────────────────────
 
 class ApplyCharacterRequest(BaseModel):
-    name: str = Field(..., min_length=1, max_length=20, description="玩家姓名")
+    # Optional in the form path (fields map provides all values); the legacy
+    # path still requires name but the frontend always sends it.
+    name: str = Field(default="", min_length=0, max_length=20, description="玩家姓名")
     age: int = Field(default=19, ge=12, le=999, description="年龄")
     gender: str = Field(default="男", description="性别：男/女")
     background: str = Field(default="无父无母", description="出身背景")
@@ -112,6 +115,10 @@ class ApplyCharacterRequest(BaseModel):
     golden_finger_custom: str = Field(default="", max_length=500, description="金手指自定义描写")
     identity_custom: str = Field(default="", max_length=300, description="自定义身份描述")
     chosen_sect: str = Field(default="", description="选择的初始宗门")
+    # Generic form path: when the worldview has form.json, the frontend sends
+    # a flat {field_key: value} map built from the form spec. Values for custom
+    # inputs are sent as "{key}_custom".
+    fields: dict = Field(default_factory=dict, description="form.json 收集的字段值")
 
 # ── Map Move ───────────────────────────────────────────────────
 

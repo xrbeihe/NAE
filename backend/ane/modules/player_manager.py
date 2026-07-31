@@ -17,6 +17,32 @@ from ane.content.json_loader import load_json
 _WORLD_DATA = load_json("world_templates.json")
 _START_LOCATIONS: list[str] = [s["name"] for s in _WORLD_DATA.get("settlements", [])]
 
+
+def _pick_start_location(wv) -> str:
+    """Choose a player start location from the worldview pack's geography.
+
+    Priority: regions → settlements (xianxia-style cities) → legacy pool.
+    For IP worldviews the first region is usually the intended home village.
+    """
+    import random
+    wt = wv.world_templates or {}
+    regions = wt.get("regions") or []
+    settlements = wt.get("settlements") or []
+
+    if regions:
+        # Prefer the first city/area as home base; fall back to any region
+        for r in regions:
+            if r.get("type") in ("city", "settlement", "area") and r.get("name"):
+                return r["name"]
+        first = regions[0].get("name") if regions else ""
+        if first:
+            return first
+    if settlements:
+        names = [s["name"] for s in settlements if s.get("name")]
+        if names:
+            return random.choice(names)
+    return random.choice(_START_LOCATIONS) if _START_LOCATIONS else "未知"
+
 # Load player creation templates
 _templates_path = Path(__file__).resolve().parent.parent / "content" / "player_templates.json"
 with open(_templates_path, "r", encoding="utf-8") as f:
@@ -26,17 +52,30 @@ with open(_templates_path, "r", encoding="utf-8") as f:
 class PlayerManager:
     """Manages player data. Does NOT handle narrative logic."""
 
-    def get_templates(self) -> dict:
+    def get_templates(self, worldview: str | None = None) -> dict:
         """Return the player creation template data for the frontend."""
+        from ane.worldview import get as get_worldview, DEFAULT_WORLDVIEW_ID
+        wv = get_worldview(worldview or DEFAULT_WORLDVIEW_ID)
+        if wv.player_templates:
+            return wv.player_templates
         return PLAYER_TEMPLATES
 
-    async def create(self, db: AsyncSession, session_id: str) -> Player:
+    async def create(
+        self, db: AsyncSession, session_id: str, worldview: str | None = None,
+    ) -> Player:
         """Create a bare-minimum player stub. Character details come from apply_character()."""
-        location = random.choice(_START_LOCATIONS)
+        from ane.worldview import get as get_worldview, DEFAULT_WORLDVIEW_ID
+        wv = get_worldview(worldview or DEFAULT_WORLDVIEW_ID)
+        defaults = wv.player_defaults or {}
+
+        # Prefer the pack's own geography for the start location, so an IP world
+        # (e.g. naruto) starts in its own village rather than a xianxia city.
+        location = _pick_start_location(wv)
+
         player = Player(
             session_id=session_id,
-            name="无名修士",
-            cultivation="凡人",
+            name=defaults.get("name", "无名修士"),
+            cultivation=defaults.get("cultivation", "凡人"),
             location=location,
             attributes={"location_hierarchy": location},
         )
@@ -60,6 +99,7 @@ class PlayerManager:
         golden_finger_custom: str = "",
         identity_custom: str = "",
         personality_custom: str = "",
+        worldview: str | None = None,
     ) -> Player | None:
         """Apply player-chosen character details. Writes all choices into player attributes
         and updates core fields so the prompt reflects what the player actually chose."""
@@ -67,14 +107,17 @@ class PlayerManager:
         if not player:
             return None
 
-        id_data = PLAYER_TEMPLATES["identities"].get(identity, {})
+        templates = self.get_templates(worldview)
+        identities = templates.get("identities", {}) if isinstance(templates, dict) else {}
+
+        id_data = identities.get(identity, {})
         if not id_data:
             logger.warning(f"Unknown identity '{identity}' — using raw value")
             id_data = {"label": identity, "desc": "", "clothing": "", "monthly_income": "", "background": "", "spiritual_root": "", "talent_note": ""}
 
         bg_data = {}
-        if PLAYER_TEMPLATES.get("backgrounds"):
-            bg_data = next((b for b in PLAYER_TEMPLATES["backgrounds"] if b["value"] == background), {})
+        if isinstance(templates, dict) and templates.get("backgrounds"):
+            bg_data = next((b for b in templates["backgrounds"] if b["value"] == background), {})
         if not bg_data:
             bg_data = {"label": background, "desc": "", "initial_resource": "", "personality_tendency": "", "typical_sect_path": ""}
 
@@ -135,7 +178,7 @@ class PlayerManager:
 
         # ── Golden Finger ──
         if golden_finger_id:
-            gf_templates = PLAYER_TEMPLATES.get("golden_fingers", [])
+            gf_templates = templates.get("golden_fingers", []) if isinstance(templates, dict) else []
             gf_info = next((g for g in gf_templates if g["id"] == golden_finger_id), None)
             if golden_finger_id == "custom":
                 attrs["golden_finger_id"] = "custom"
@@ -165,6 +208,129 @@ class PlayerManager:
             gf_name = attrs.get("golden_finger_name", "?")
             logger.info(f"  Golden finger: {gf_name}")
         return player
+
+    async def apply_character_from_form(
+        self,
+        db: AsyncSession,
+        session_id: str,
+        values: dict,
+        worldview: str | None = None,
+    ) -> Player | None:
+        """Generic character creation driven by the worldview's form.json.
+
+        `values` is a flat {field_key: value} map. Custom inputs send their
+        text under "{key}_custom". Field specs from form.json decide where each
+        value lands (player column vs attributes), what derived fields are
+        copied from the selected option, and how card-grid options map.
+        """
+        from ane.worldview import get as get_worldview, DEFAULT_WORLDVIEW_ID
+        wv = get_worldview(worldview or DEFAULT_WORLDVIEW_ID)
+        form = wv.form or {}
+        fields = form.get("fields", [])
+        templates = self.get_templates(worldview)
+
+        player = await self.get_by_session(db, session_id)
+        if not player:
+            return None
+
+        attrs = dict(player.attributes or {})
+        sect_chosen = ""
+
+        for f in fields:
+            key = f.get("key", "")
+            kind = f.get("kind", "text")
+            store = f.get("store", f"attrs.{key}")
+            raw = values.get(key)
+            is_custom = (raw == "__custom__")
+
+            if kind == "select" and raw:
+                # Resolve the selected option dict from the template source
+                opt = self._find_option(templates, f.get("options_from"), raw)
+                custom_val = values.get(key + "_custom", "")
+                # Write the store value — the __custom__ marker stays in the store
+                self._write_field(player, attrs, store, raw)
+                # Derived fields from the option (e.g. identity → clothing/月入)
+                if opt:
+                    for derive_key in f.get("derive", []) or []:
+                        if derive_key in opt:
+                            attrs[derive_key] = opt[derive_key]
+                # Custom-field handling: store the custom text, flag it
+                if is_custom:
+                    attrs[key + "_custom"] = custom_val
+                    if key == "identity":
+                        attrs["identity_desc"] = "自定义身份"
+                        attrs["background_summary"] = custom_val or "自定义出身"
+                if key == "sect":
+                    sect_chosen = raw
+            elif kind == "card_grid":
+                opt = self._find_option(templates, f.get("options_from"), raw) if raw else None
+                omap = f.get("option_map", {}) or {}
+                # Map option fields to attributes (e.g. id→golden_finger_id)
+                if opt:
+                    for spec_key, attr_key in omap.items():
+                        if spec_key in opt:
+                            attrs[attr_key] = opt[spec_key]
+                        else:
+                            attrs[attr_key] = ""
+                else:
+                    for attr_key in omap.values():
+                        attrs[attr_key] = ""
+                if is_custom:
+                    custom_val = values.get(key + "_custom", "")
+                    attrs["golden_finger_id"] = "custom"
+                    attrs["golden_finger_name"] = "自定义"
+                    attrs["golden_finger_tagline"] = ""
+                    attrs["golden_finger_desc"] = custom_val
+                    attrs["golden_finger_custom"] = custom_val
+            elif kind == "number":
+                self._write_field(player, attrs, store, raw)
+            else:  # text
+                self._write_field(player, attrs, store, raw)
+
+        player.attributes = attrs
+        await db.flush()
+        logger.info(f"Character applied via form.json for session {session_id} ({worldview})")
+        # Return the chosen sect so the route can assign a city.
+        setattr(player, "_form_sect", sect_chosen)
+        return player
+
+    @staticmethod
+    def _find_option(templates: dict, options_from: str, value):
+        """Locate the selected option dict in a template source.
+
+        identities is a dict-of-dicts keyed by value; list sources use
+        either `value` or `id` as the matching key (golden_fingers use id).
+        """
+        if not value:
+            return None
+        src = templates.get(options_from) if isinstance(templates, dict) else None
+        if not src:
+            return None
+        if isinstance(src, dict):  # identities: {key: {...}}
+            return src.get(value)
+        if isinstance(src, list):  # cultivations/backgrounds/golden_fingers
+            for o in src:
+                if not isinstance(o, dict):
+                    continue
+                if o.get("value") == value or o.get("id") == value:
+                    return o
+        return None
+
+    @staticmethod
+    def _write_field(player, attrs: dict, store: str, value):
+        """Write a value to a player column or an attributes key per store spec."""
+        if value is None:
+            return
+        if store == "player.name":
+            player.name = str(value)
+        elif store == "player.cultivation":
+            player.cultivation = str(value)
+        elif store == "player.location":
+            player.location = str(value)
+        elif store.startswith("attrs."):
+            attrs[store[len("attrs."):]] = value
+        else:
+            attrs[store] = value
 
     async def get_by_session(self, db: AsyncSession, session_id: str) -> Player | None:
         result = await db.execute(

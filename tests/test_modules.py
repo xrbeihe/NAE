@@ -25,6 +25,7 @@ class TestInputValidator:
         assert result.intent == "travel"
         assert result.time_hint in ("short", "medium", "long")
 
+    @pytest.mark.xianxia
     def test_cultivate_intent(self):
         result = validate("我要闭关修炼突破瓶颈")
         assert result.intent == "cultivate"
@@ -50,12 +51,14 @@ class TestInputValidator:
         result = validate("嗯。")
         assert result.intent == "dialogue"
 
+    @pytest.mark.xianxia
     def test_cultivate_intent_explicit(self):
         # "我要修炼" is an explicit action command — should be cultivate
         result = validate("我要修炼突破瓶颈")
         assert result.intent == "cultivate"
         assert result.time_hint == "long"
 
+    @pytest.mark.xianxia
     def test_cultivate_keyword_demoted_in_descriptive_context(self):
         # "教导我修炼" is descriptive, not a command — should be dialogue
         result = validate("白慕彩教导我修炼")
@@ -256,6 +259,7 @@ class TestNarrativeConstraints:
         assert len(constraints._global_hard) > 0
         assert len(constraints._global_soft) >= 0
 
+    @pytest.mark.xianxia
     def test_context_constraints_extends_global(self):
         ctx = constraints.get_context_constraints(
             player_cultivation="筑基期",

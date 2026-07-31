@@ -1,0 +1,14 @@
+{
+  "regions": [
+    {"name": "阳光花园小区", "type": "settlement", "description": "老旧的居民小区，楼龄二十年，楼下有小广场和便民超市。"},
+    {"name": "云海大厦", "type": "city", "description": "市中心写字楼，聚集了数十家科技公司和创业团队。"},
+    {"name": "理工大学", "type": "city", "description": "市重点大学，校园绿树成荫，图书馆藏书丰富。"},
+    {"name": "中央商厦", "type": "settlement", "description": "大型购物中心，一层到三层是商场，楼上是餐厅和影院。"},
+    {"name": "地铁一号线", "type": "building", "description": "贯穿市区的地铁干线，早晚高峰人潮涌动。"},
+    {"name": "老城区", "type": "area", "description": "城市最早的街区，街道狭窄，有年代感的店铺和夜市。"},
+    {"name": "高新区", "type": "area", "description": "城市的新兴区域，高科技企业云集，道路宽阔整洁。"}
+  ],
+  "sects": [],
+  "settlements": [],
+  "sect_filters": []
+}

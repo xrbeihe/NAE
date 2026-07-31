@@ -35,6 +35,7 @@ def mock_llm():
 # ── Tests ────────────────────────────────────────────────────
 
 @pytest.mark.asyncio
+@pytest.mark.xianxia
 async def test_create_session(db):
     """Creating a session should return valid metadata."""
     result = await game_engine.create_session(db, user_id='test_user', name="测试世界")
@@ -71,6 +72,7 @@ async def test_full_turn_loop(db, mock_llm):
 
 
 @pytest.mark.asyncio
+@pytest.mark.xianxia
 async def test_system_commands(db):
     """System commands should not trigger LLM calls."""
     result = await game_engine.create_session(db, user_id='test_user', name="测试世界")
@@ -101,6 +103,7 @@ async def test_conversation_memory(db, mock_llm):
 
 
 @pytest.mark.asyncio
+@pytest.mark.xianxia
 async def test_time_advances_with_intent(db, mock_llm):
     """Time should advance more for 'cultivate' than 'dialogue'."""
     result = await game_engine.create_session(db, user_id='test_user', name="测试世界")

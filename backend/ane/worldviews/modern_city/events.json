@@ -1,0 +1,13 @@
+{
+  "seclusion_threshold": 2160,
+  "seclusion_event": {
+    "type": "routine_progress",
+    "description": "{npc_name}的日常工作生活一切如常。"
+  },
+  "idle_threshold": 2160,
+  "idle_probability": 0.2,
+  "idle_events": [
+    {"type": "routine_progress", "description": "听闻{npc_name}最近生活照旧，没什么特别的事。"},
+    {"type": "random_encounter", "description": "{npc_name}似乎经历了一些事，但详情不明。"}
+  ]
+}

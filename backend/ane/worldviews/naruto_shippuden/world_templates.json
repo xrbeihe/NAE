@@ -1,0 +1,17 @@
+{
+  "regions": [
+    {"name": "木叶隐村", "type": "city", "description": "火之国的忍者村，村门上刻着漩涡标志。火影楼、一乐拉面、忍者学校都在这里。", "attributes": {"atmosphere": "热闹而充满生机，忍者们穿梭于屋顶之间", "law_description": "忍者村规：禁止在村内使用破坏性忍术，任务优先", "factions": ["火影直辖", "暗部"]}},
+    {"name": "一乐拉面", "type": "building", "description": "木叶村最受欢迎的拉面店，老板手打的手艺一绝，鸣人的最爱。", "attributes": {"atmosphere": "热气腾腾，面香四溢", "factions": []}},
+    {"name": "忍者学校", "type": "building", "description": "木叶培养未来忍者的学校，入学考试与毕业考核决定能否成为下忍。", "attributes": {"atmosphere": "孩子们练习体术的喊声不断", "factions": []}},
+    {"name": "演习场第七区", "type": "area", "description": "第七班训练的演习场，卡卡西的千年杀教学之地。", "attributes": {"atmosphere": "树木被苦无和手里剑钉满痕迹", "factions": []}},
+    {"name": "火影岩", "type": "landmark", "description": "刻着历代火影头像的巨大岩壁，俯瞰整个木叶村。", "attributes": {"atmosphere": "历代火影的目光注视全村", "factions": []}},
+    {"name": "沙隐村", "type": "city", "description": "风之国的忍者村，我爱罗的故乡，沙漠中的要塞。", "attributes": {"atmosphere": "干燥炙热，黄沙漫天", "law_description": "沙漠法则：强者生存", "factions": ["风影"]}},
+    {"name": "雾隐村", "type": "city", "description": "水之国的忍者村，被称为血雾之里。", "attributes": {"atmosphere": "常年笼罩浓雾", "factions": ["水影"]}},
+    {"name": "云隐村", "type": "city", "description": "雷之国的忍者村，以强大的体术与雷遁闻名。", "attributes": {"atmosphere": "雷声隆隆的高山要塞", "factions": ["雷影"]}},
+    {"name": "岩隐村", "type": "city", "description": "土之国的忍者村，岩壁中的要塞。", "attributes": {"atmosphere": "岩石厚重，隐秘难攻", "factions": ["土影"]}},
+    {"name": "晓组织据点", "type": "faction", "description": "神秘组织晓的秘密据点，成员身穿黑底红云长袍。", "attributes": {"atmosphere": "阴森诡异，查克拉气息压抑", "law_description": "晓的规矩：以绝对实力说话", "factions": ["晓"]}}
+  ],
+  "sects": [],
+  "settlements": [],
+  "sect_filters": []
+}

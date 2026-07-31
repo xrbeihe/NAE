@@ -4,7 +4,6 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-import httpx
 from fastapi import FastAPI, Request, Response, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -12,9 +11,8 @@ from fastapi.staticfiles import StaticFiles
 
 from ane.config import (
     HOST, PORT, SECRET_KEY,
-    DEFAULT_MODEL, OLLAMA_BASE_URL,
-    OPENAI_API_KEY, ANTHROPIC_API_KEY, DEEPSEEK_API_KEY, GEMINI_API_KEY,
-    SENSENOVA_API_KEY, DATA_DIR, ROOT_DIR,
+    DEFAULT_MODEL, DEEPSEEK_API_KEY, GEMINI_API_KEY,
+    DATA_DIR, ROOT_DIR,
 )
 from ane.database.engine import init_db, engine, get_db
 from ane.database.unpacker import get_unpacker
@@ -279,67 +277,26 @@ async def get_logs(
 
 @app.get("/api/models")
 async def list_models():
-    """Return available LLM models for the frontend selector.
-
-    Queries Ollama for locally-pulled models, and lists configured
-    cloud providers with their default models and availability.
-    """
-    models: list[dict] = []
-
-    # ── 1. Cloud providers (one default model each) ──
-    cloud_defaults = [
-        ("openai", "gpt-4o", bool(OPENAI_API_KEY)),
-        ("deepseek", "deepseek-v4-flash", bool(DEEPSEEK_API_KEY)),
-        ("sensenova", "sensenova-6.7-flash-lite", bool(SENSENOVA_API_KEY)),
-        ("claude", "claude-sonnet-5", bool(ANTHROPIC_API_KEY)),
-        ("gemini", "gemini-3.5-flash", bool(GEMINI_API_KEY)),
-    ]
-    for provider, default_model, available in cloud_defaults:
-        models.append({
-            "id": f"{provider}:{default_model}",
-            "provider": provider,
-            "name": default_model,
-            "available": available,
+    """Return available LLM models for the frontend selector."""
+    models: list[dict] = [
+        {
+            "id": "deepseek:deepseek-v4-flash",
+            "provider": "deepseek",
+            "name": "deepseek-v4-flash",
+            "available": bool(DEEPSEEK_API_KEY),
             "source": "cloud",
-        })
+        },
+        {
+            "id": "gemini:gemini-3.5-flash",
+            "provider": "gemini",
+            "name": "gemini-3.5-flash",
+            "available": bool(GEMINI_API_KEY),
+            "source": "cloud",
+        },
+    ]
 
-    # ── 2. Ollama local models ──
-    ollama_reachable = False
-    try:
-        async with httpx.AsyncClient(timeout=5.0, trust_env=False) as client:
-            resp = await client.get(f"{OLLAMA_BASE_URL}/api/tags")
-            resp.raise_for_status()
-            data = resp.json()
-            seen: set[str] = set()
-            for m in data.get("models", []):
-                name = m["name"]
-                if name in seen:
-                    continue
-                seen.add(name)
-                models.append({
-                    "id": f"ollama:{name}",
-                    "provider": "ollama",
-                    "name": name,
-                    "available": True,
-                    "source": "local",
-                })
-            ollama_reachable = True
-    except Exception:
-        logger.warning("Ollama /api/tags unreachable")
-        if DEFAULT_MODEL.startswith("ollama:"):
-            fallback_name = DEFAULT_MODEL.split(":", 1)[1]
-        else:
-            fallback_name = "unknown"
-        models.append({
-            "id": f"ollama:{fallback_name}",
-            "provider": "ollama",
-            "name": fallback_name,
-            "available": False,
-            "source": "local",
-        })
-
-    # Sort: available first, then by source (local before cloud), then name
-    models.sort(key=lambda m: (not m["available"], m["source"] != "local", m["name"]))
+    # Sort: available first, then name
+    models.sort(key=lambda m: (not m["available"], m["name"]))
 
     return {
         "models": models,
@@ -380,6 +337,10 @@ app.include_router(_lib_router)
 from ane.api.auth_routes import router as auth_router  # noqa: E402
 app.include_router(auth_router)
 
+# Worldview registry
+from ane.api.worldview_routes import router as worldview_router  # noqa: E402
+app.include_router(worldview_router)
+
 _static_dir = Path(__file__).parent.parent.parent / "frontend"
 
 # ── Multi-page routes ──
@@ -396,6 +357,18 @@ async def login_page():
 @app.get("/settings", response_class=FileResponse)
 async def settings_page():
     return FileResponse(str(_static_dir / "settings.html"))
+
+@app.get("/designer", response_class=FileResponse)
+async def designer_page():
+    return FileResponse(str(_static_dir / "designer.html"))
+
+# chat.html was merged into app.html — redirect legacy paths for old bookmarks.
+from fastapi.responses import RedirectResponse
+
+@app.get("/chat")
+@app.get("/chat.html")
+async def legacy_chat_redirect():
+    return RedirectResponse(url="/")
 
 if _static_dir.exists():
     app.mount("/", StaticFiles(directory=str(_static_dir), html=False), name="static")

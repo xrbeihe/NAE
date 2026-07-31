@@ -93,6 +93,7 @@
   ▼
 ┌─ Step 9: NPC_MODELING（重要人物专属预置）─────────────────────┐
 │ 仅在 mark_important_npc=True 且 NPC 尚无 model_data 时触发    │
+│ （前端 ⭐ 入口已关闭，当前 turn 不会传 true；机制保留）        │
 │ 调 LLM 生成 90+ 字段的完整人物档案：                           │
 │   basic / appearance / voice / clothing / jewelry / equipment  │
 │   behavior / speech_style / combat_style / personality        │
@@ -117,7 +118,7 @@
   │
   ▼
 ┌─ Step 11: Model Adapter (llm_main) ───────────────────────────┐
-│ 调用主 LLM 生成叙事。支持 6 个 Provider + Ollama 本地模型     │
+│ 调用主 LLM 生成叙事。前端模型列表当前仅暴露 deepseek + gemini     │
 │ 重试逻辑: 3 次尝试，超时 120s（client timeout）                │
 │ 输出: raw_response string（JSON: narrative + state_changes +  │
 │                nearby_characters）                             │
@@ -211,10 +212,12 @@
 
 ## 重要人物建模流程（已替代旧版本）
 
-此流程已完全从 turn 管线中剥离，改为独立的 NPC 建模 API：
+此流程已完全从 turn 管线中剥离，改为独立的 NPC 建模 API。
+
+> **状态更新（2026-07-31）**：⭐ 局内建模前端入口已关闭，下方「用户勾选 ⭐」的触发路径当前无 UI 入口；`/npc-modeling` 接口与建模能力保留，NPC 总库（`/npcs/library`）仍在调用建模能力。
 
 ```
-    用户勾选 ⭐ + 输入
+    用户勾选 ⭐ + 输入（入口已关闭）
           │
           ▼
  POST /sessions/{id}/npc-modeling
@@ -413,8 +416,8 @@ for db_npc in all_db_npcs:
 | 全量建模 | `game_engine.py` | GameEngine._run_npc_modeling() |
 | 建模入口 | `game_engine.py` | GameEngine.do_npc_modeling() |
 | 建模路由 | `api/routes.py` | npc_modeling() + npc_modeling_confirm() |
-| 前端弹窗 | `frontend/index.html` | showNpcConfirmDialog() |
-| 前端建模卡 | `frontend/index.html` | formatNpcModel() |
+| 前端弹窗 | `frontend/app.html` | showNpcConfirmDialog()（已随 ⭐ 入口移除） |
+| 前端建模卡 | `frontend/app.html` | formatNpcModel() |
 | 记忆管理 | `memory_manager.py` | MemoryManager (全部) |
 | Prompt组装 | `prompt_builder.py` | PromptBuilder (全部) |
 | 后台摘要+LongMemory | `game_engine.py` | GameEngine._run_bg_llm_summary() |

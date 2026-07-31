@@ -1,0 +1,92 @@
+{
+  "title": "创建你的角色",
+  "fields": [
+    {
+      "key": "name",
+      "label": "姓名",
+      "kind": "text",
+      "placeholder": "输入你的道号或姓名",
+      "default": "张二狗",
+      "maxlength": 20,
+      "random_button": true,
+      "store": "player.name"
+    },
+    {
+      "key": "age",
+      "label": "年龄",
+      "kind": "number",
+      "default": 19,
+      "min": 12,
+      "max": 999,
+      "store": "attrs.age"
+    },
+    {
+      "key": "gender",
+      "label": "性别",
+      "kind": "select",
+      "options_from": "genders",
+      "store": "attrs.gender"
+    },
+    {
+      "key": "background",
+      "label": "出身背景",
+      "kind": "select",
+      "options_from": "backgrounds",
+      "hint_template": "{desc} ｜ 初始资源：{initial_resource} ｜ 性格倾向：{personality_tendency}",
+      "store": "attrs.background",
+      "derive": ["background_summary", "personality_tendency"]
+    },
+    {
+      "key": "cultivation",
+      "label": "修为",
+      "kind": "select",
+      "options_from": "cultivations",
+      "hint_template": "{desc}",
+      "allow_custom": true,
+      "custom_label": "自定义修为",
+      "store": "player.cultivation"
+    },
+    {
+      "key": "personality",
+      "label": "性格",
+      "kind": "select",
+      "options_from": "personalities",
+      "hint_template": "{desc}",
+      "allow_custom": true,
+      "custom_label": "自定义性格描述",
+      "store": "attrs.personality"
+    },
+    {
+      "key": "identity",
+      "label": "身份",
+      "kind": "select",
+      "options_from": "identities",
+      "hint_template": "衣物：{clothing} ｜ 月入：{monthly_income} ｜ {background}",
+      "allow_custom": true,
+      "custom_label": "自定义身份描述",
+      "store": "attrs.identity",
+      "derive": ["identity_desc", "clothing", "monthly_income", "spiritual_root", "talent_note", "background_summary"]
+    },
+    {
+      "key": "sect",
+      "label": "宗门",
+      "kind": "select",
+      "options_from": "sects",
+      "hint": "选择你的初始宗门，系统会自动分配一个对应城市",
+      "visible_if": "has_sects",
+      "store": "attrs.sect",
+      "special": "assign_city"
+    },
+    {
+      "key": "golden_finger",
+      "label": "金手指 — 你的天命所在",
+      "kind": "card_grid",
+      "options_from": "golden_fingers",
+      "allow_custom": true,
+      "custom_label": "自定义描写",
+      "visible_if": "has_golden_fingers",
+      "option_map": {"id": "golden_finger_id", "name": "golden_finger_name", "tagline": "golden_finger_tagline", "desc": "golden_finger_desc"},
+      "store": "attrs.golden_finger_id"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "worldview_id": "naruto_shippuden",
+  "name": "火影忍者",
+  "version": "1.0.0",
+  "author": "ANE Team",
+  "description": "忍者世界：木叶隐村与五大忍国，查克拉、忍术、写轮眼。基于岸本齐史同名作品。",
+  "base_map": "naruto",
+  "maturity_rating": "adult",
+  "tags": ["naruto", "ninja", "ip", "anime"],
+  "assembly": "shell+kernel",
+  "player_defaults": {
+    "name": "无名忍者",
+    "cultivation": "下忍",
+    "location_hint": "木叶村",
+    "savings": "3张任务委托单",
+    "savings_unit": "张委托单",
+    "status_label": "忍者"
+  },
+  "extra_event_types": ["ninja_mission"],
+  "time_per_intent": {
+    "travel": 24
+  },
+  "calendar": {
+    "seasons": ["春", "夏", "秋", "冬"],
+    "times_of_day": ["黎明", "清晨", "正午", "午后", "黄昏", "夜晚", "深夜"],
+    "month_to_season": [[1,3,"春"],[4,6,"夏"],[7,9,"秋"],[10,12,"冬"]]
+  }
+}

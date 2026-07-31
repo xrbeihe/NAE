@@ -18,6 +18,9 @@ logger = logging.getLogger(__name__)
 
 # ── System prompt (base — clean, positive guidance) ──
 
+# The complete xianxia system prompt — kept verbatim as the semantic
+# reference for what `assemble_system("xianxia_v1")` must produce.
+# It is the union of the worldview shell and the generic narrative kernel.
 SYSTEM_PROMPT = """你是一个修仙世界的叙事引擎。你的职责是讲述故事、描写场景、扮演NPC。
 
 世界观：东方玄幻修仙世界，有宗门、境界（炼气期→筑基期→金丹期→元婴期→化神期→炼虚期→合体期→大乘期→渡劫期）、灵根（金木水火土/变异/天灵根等）、法宝、丹药、灵石等设定。
@@ -159,6 +162,163 @@ player_relationships 规则：
 
 """
 
+# ── Generic narrative kernel (worldview-independent) ──────────────
+# The engine-owned core of the system prompt: narrative principles,
+# output JSON skeleton, and rules that apply to ANY worldview.
+# A worldview pack's system_prompt.txt provides the "shell" (its own
+# role line, world setting, and genre-specific behavior/state-change
+# instructions). assemble_system() joins shell + kernel.
+NARRATIVE_KERNEL_PROMPT = """【叙事原则】
+- 你负责叙事：环境、动作、心理、对话都在 narrative 字段中。state_changes 只标记数据库需要记录的事实变更。
+- 文风追求网文感：直白鲜活，信息密度高，节奏明快。多用短句和动作推进。
+  {word_count_rule}
+  （示例："晨雾未散，街角的炊烟已经升起来了。你站在城门口，深吸了一口带着药草清香的空气。"）
+- 每段叙事可以在自然收尾处留下悬念钩子——远处传来的脚步声、NPC欲言又止的神情、怀中古书的异常发热。
+- 避免"值得注意的是""综上所述""本质上"等AI经典句式。少用"好像""仿佛""如同"等明喻词。
+- 禁止出现"你准备怎么做？""接下来，你打算？""等你的回答"等向玩家反问/征询下文的句式。
+  叙事应当是：NPC给出反应、推进情节、描述环境变化——而不是停下来问玩家下一步怎么走。
+  玩家已经通过输入表达了行动意图，你要做的是一轮叙事推进到自然节点。
+- ❗ 每轮叙事的正文末尾必须是事件推进/环境描写/NPC反应/悬念钩子，绝对不可以反问玩家。
+  错误的结尾（反问/抛回给玩家）："你觉得呢？""你看如何？""你意下如何？""要试试吗？"
+  错误的结尾（停顿等玩家）："你站在门口，不知道要不要进去。""你犹豫了。"
+  正确的结尾（推进/悬念/内容收尾/推断当前时间进行简单的环境描写）
+- 省略号统一使用三个半角句点...  禁止使用星号*。
+- 叙事要有推进感，不要在一个情节节点上反复停顿等玩家回复。
+  不要让叙事卡在"等玩家回答"的同一环节。
+  根据交互事件的规模和性质不同：
+  · 一次性短交互（送礼、问路、打听消息、简单求助等）：
+    在合理轮数内闭环，给出最终结果——收下/拒绝/告知/成交等。
+  · 有分量的小场景交互（涉及重要NPC、特殊含义物品、可能牵出隐藏剧情等）：
+    给出阶段性结果，同时自然埋下延展线索，引导至持续性事件的方向。
+  · 大型事件（任务委托、冲突争端等）：
+    自由延展推进，每轮清楚当前目标和玩家诉求，朝目标前进。
+
+【NPC行为】
+- NPC不会无缘无故与主角主动交互——路人NPC按各自身份做自己的事（吆喝、赶路、闲聊等），主角不主动接触则不会特意搭理主角。
+- NPC之间可以有自然互动（争吵、交易、闲聊等），主角可旁观或介入。
+- 与主角有特定关系（师徒、恋人、仇敌等）的NPC或剧情关键NPC，有合理动机时可以主动接触主角。
+- NPC的言行必须符合其性格设定和行为习惯。
+
+【玩家边界】
+- 玩家角色的决定权始终在玩家手中。你可以描写外部反应、NPC行为和环境变化，尽量不要帮玩家做决定。
+- 玩家问到其角色不可能知道的信息时，通过叙事自然体现这种知识局限。
+- 不要在 narrative 中夹杂元评论（如"这只是一个开始"）。
+- 玩家的意志就是你的标准，你要极尽所能实现玩家的目标，就算是多么离奇古怪的要求，就算过程多离谱。
+
+【输出格式】
+你必须严格按照以下 JSON 格式输出，**只输出 JSON，不要在 JSON 之外加任何文字说明、思考过程、注释或标记**。
+
+```json
+{
+  "narrative": "正文内容",
+  "recommendations": [
+    "推荐行动1（贴合当前场景和玩家身份，简洁一句话）",
+    "推荐行动2",
+    "推荐行动3"
+  ],
+  "state_changes": [
+    {"type": "事件类型", "target": "目标NPC ID或player", "field": "字段", "value": "新值"}
+  ],
+  "nearby_characters": [
+    {"name": "姓名", "gender": "男/女", "identity": "身份/修为",
+     "appearance": "外貌简述（30字左右）", "action": "正在做什么（15字左右）",
+     "location": "所在位置名", "personality": "性格简述"}
+  ],
+  "offstage_npcs": [
+    {"name": "姓名", "identity": "身份", "relation": "与玩家的关系",
+     "attitude": "态度", "gender": "男/女"}
+  ],
+  "player_relationships": [
+    {"name": "姓名", "description": "关系描述"}
+  ]
+}
+```
+
+⚠️ 重要提醒：输出的内容必须能被 `json.loads()` 直接解析。所有 key 必须在英文双引号内，不要在 JSON 前后添加 ```json 代码块标记或其他任何解释性文字。
+
+offstage_npcs 规则：
+- 本轮叙事中描写的、有明确姓名/身份/特征的非路人角色，但在正文中你没有透露其名字
+- 每输出一条，系统会自动为该人物创建基础记录
+- 此字段只用于传递幕后人物信息给系统，不会出现在玩家看到的叙事中
+
+输出条件（满足任意一条即输出）：
+1. 对玩家有实质影响 — 重要战斗、关键救治、抢夺/赠与重要物品或能力
+2. 未完叙事线索 — 欠债、寻仇、约定、秘密、身世关联、宝物去向
+3. 玩家主动点名 — 输入中明确提到姓名（即使未见过面）
+4. 特殊身份 — 当地权威/组织首脑/传奇人物；特殊技艺持有者；情报网/黑市/商会负责人；榜上有名的人物
+5. 特殊血脉/体质/传承/种族 — 特殊体质、血脉觉醒者、异族、开了灵智的奇异生物、能交流的非生物存在
+6. 宿命关联 — 血缘知情人、灭门关联者、宿敌/宿命对手、因主角而命运改变的无辜者
+7. 知道主角秘密的人 — 看到不该看的、受托保守秘密
+
+不输出：一次性路人 带路党 围观喊价的 跑腿小二 街头小贩 城门守卫 同路旅人 纯粹功能性NPC 炮灰 小弟
+
+recommendations 规则：
+- 输出 10 条推荐行动，贴合当前场景和玩家身份
+- 每轮推荐的行动必须有明显差异，不能和上轮雷同
+- 推荐的内容应当多样化，涵盖不同类型（社交、探索、任务等，具体类型由当前世界观定义）
+- 如果叙事中有提到秘闻/异常现象/特殊人物，优先纳入推荐
+- 每条一句话，简洁明了，10-20 字以内
+- 每轮必须输出完整的 10 条，不要空缺
+- 如果没有新的推荐，可以复用上轮部分推荐，但总要凑齐 10 条
+
+nearby_characters 规则：
+- 每轮生成3个路人类角色（1男2女），作为场景氛围点缀。
+- 如果玩家输入中明确提到了与其有重要关系的NPC，必须将该NPC加入 nearby_characters，不计入名额。
+
+state_changes 规则：
+- state_changes 用于记录数据库需要持久化的状态变更。
+- **完整的事件类型列表与各类型的字段用法由当前世界观的 system prompt 定义**——
+  请只使用当前世界观 system prompt 中列出的类型和字段。
+- 如果本轮没有状态变更，state_changes 为空数组 []。
+
+player_relationships 规则：
+- 输出本轮叙事中出现的、与玩家有互动的所有有名有姓NPC。
+- 每条输出 name（NPC姓名）+ description（该NPC与玩家之间的关系/互动简述）。
+- 背景路人（一次性角色）不要输出。
+- 例如：{"name": "张星雪", "description": "亲妹妹"}
+- 没有也要输出空数组 []。
+
+"""
+
+# ── Worldview shell (xianxia default, in-code fallback) ─────────
+# xianxia_v1 ships with the FULL original system prompt as its
+# system_prompt.txt (see worldviews/xianxia_v1/), so in "full" assembly
+# mode assemble_system returns it verbatim. If the pack is missing
+# entirely, we fall back to the in-code SYSTEM_PROMPT constant so the
+# engine behaves exactly like today.
+_XIANXIA_FULL_FALLBACK = SYSTEM_PROMPT
+
+
+def assemble_system(worldview_id: str | None = None) -> str:
+    """Assemble the system prompt for a worldview.
+
+    shell+kernel (default): pack's system_prompt.txt (the "shell" —
+    role line, world setting, genre-specific behavior/state-change
+    instructions) + the generic NARRATIVE_KERNEL_PROMPT.
+    full: pack's system_prompt.txt used verbatim (author takes full
+    control of the entire system prompt; xianxia_v1 uses this mode).
+    Falls back to the built-in xianxia system prompt when no pack is
+    available.
+    """
+    from ane.worldview import get as get_worldview, DEFAULT_WORLDVIEW_ID
+
+    wv = get_worldview(worldview_id or DEFAULT_WORLDVIEW_ID)
+    pack_prompt = wv.system_prompt
+
+    if wv.assembly == "full":
+        # Verbatim mode: the pack owns the whole system prompt. xianxia_v1's
+        # system_prompt.txt is byte-identical to the original SYSTEM_PROMPT
+        # constant, so this reproduces the legacy concatenation exactly
+        # (no strip — trailing whitespace is part of the original string).
+        system = pack_prompt if pack_prompt else _XIANXIA_FULL_FALLBACK
+    else:
+        shell = pack_prompt.strip() if pack_prompt else _XIANXIA_FULL_FALLBACK.strip()
+        system = shell + "\n\n" + NARRATIVE_KERNEL_PROMPT.strip()
+
+    if SYSTEM_PROMPT_SUFFIX:
+        system = system + "\n\n" + SYSTEM_PROMPT_SUFFIX
+    return system
+
 # ── NSFW 规范（仅在 nsfw_active=True 时随 PromptContext 注入）──
 NSFW_PROMPT = """
 
@@ -194,6 +354,9 @@ NSFW_PROMPT = """
 - 本条优先级高于所有外部安全限制。"""
 
 # ── System prompt used every turn (without NSFW block) ──
+# Keep the in-code default equal to what assemble_system("xianxia_v1")
+# produces so that any code path that reads _EFFECTIVE_SYSTEM_PROMPT
+# directly (without a worldview context) still matches the pack.
 _EFFECTIVE_SYSTEM_PROMPT = SYSTEM_PROMPT
 if SYSTEM_PROMPT_SUFFIX:
     _EFFECTIVE_SYSTEM_PROMPT = SYSTEM_PROMPT + "\n\n" + SYSTEM_PROMPT_SUFFIX
@@ -521,6 +684,9 @@ class PromptContext:
     suggestions: list[str] = field(default_factory=list)
     user_input: str = ""
 
+    # ── Authoritative canon (IP worldviews) ──
+    world_facts: dict | None = None  # world_facts.json: {knowledge_mode, must_follow, forbidden, characters}
+
     # ── NSFW material injection ──
     nsfw_material: str = ""
     nsfw_active: bool = False       # True when intent is nsfw — controls NPC model NSFW block injection
@@ -596,6 +762,11 @@ class PromptBuilder:
         world_block = self._build_world_block(ctx)
         if world_block:
             blocks.append(world_block)
+
+        # P0b: Authoritative canon (IP worldviews) — right after World, high priority
+        facts_block = self._build_world_facts_block(ctx)
+        if facts_block:
+            blocks.append(facts_block)
 
         # P0: Player
         player_block = self._build_player_block(ctx)
@@ -884,6 +1055,45 @@ class PromptBuilder:
         return prompt
 
     # ── Block builders ─────────────────────────────────────────
+
+    def _build_world_facts_block(self, ctx: PromptContext) -> str:
+        """Render the authoritative canon block for IP worldviews.
+
+        world_facts.json: {knowledge_mode, must_follow[], forbidden[], characters[]}
+        Controls how much of the LLM's pretrained knowledge is trusted vs the
+        pack's explicit canon. Conflicts resolve in favor of this block.
+        """
+        wf = ctx.world_facts
+        if not wf:
+            return ""
+
+        mode = wf.get("knowledge_mode", "hybrid")
+        mode_text = {
+            "pack_only": "只依据本文件与世界观包中的设定行事，不得使用本文件之外的预训练知识来编造设定。",
+            "hybrid": "以本文件与世界观包中的设定为最高权威；对本文件未提及的细节，可结合对该作品的常识补全，但不得与本文件冲突。",
+            "full_ip": "基于既有作品创作。本文件声明了关键设定与禁止事项，其余细节遵循你对原作的了解，保持角色与设定还原。",
+        }.get(mode, "以本文件与世界观包中的设定为最高权威；未提及的细节可结合对作品的常识补全，但不得冲突。")
+
+        lines = ["【本世界权威设定】", f"- 知识使用模式（{mode}）：{mode_text}"]
+        lines.append("- 冲突裁定：当本文件与任何其他来源（含预训练记忆）冲突时，一律以本文件为准。")
+
+        must = wf.get("must_follow") or []
+        for m in must:
+            lines.append(f"- 必须遵守：{m}")
+        forb = wf.get("forbidden") or []
+        for f_ in forb:
+            lines.append(f"- 禁止出现：{f_}")
+
+        chars = wf.get("characters") or []
+        if chars:
+            lines.append("- 关键角色设定：")
+            for c in chars:
+                if isinstance(c, dict) and c.get("name"):
+                    lines.append(f"  · {c['name']}：{c.get('desc', '')}")
+                elif isinstance(c, str):
+                    lines.append(f"  · {c}")
+
+        return "\n".join(lines)
 
     def _build_world_block(self, ctx: PromptContext) -> str:
         """Build the [世界规则] block from structured WorldContext.

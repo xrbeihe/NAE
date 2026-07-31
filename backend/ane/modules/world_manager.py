@@ -33,12 +33,31 @@ class WorldManager:
         await db.flush()
         return region
 
-    async def generate_initial_world(self, db: AsyncSession, session_id: str) -> list[WorldRegion]:
-        """Generate world regions from templates (sects + settlements)."""
+    async def generate_initial_world(
+        self, db: AsyncSession, session_id: str, worldview: str | None = None,
+    ) -> list[WorldRegion]:
+        """Generate world regions from the worldview pack's templates.
+
+        The pack's world_templates.json may use either a flat
+        sects+settlements list (xianxia-style) or a generic "regions" list.
+        Falls back to the legacy content templates when no pack is present.
+        """
+        from ane.worldview import get as get_worldview, DEFAULT_WORLDVIEW_ID
+        wv = get_worldview(worldview or DEFAULT_WORLDVIEW_ID)
         all_regions: list[WorldRegion] = []
 
-        from ane.content.world_templates import SECTS, SETTLEMENTS
-        for entry in SECTS + SETTLEMENTS:
+        entries: list[dict] = []
+        if wv.world_templates:
+            entries = wv.world_templates.get("regions", [])
+            if not entries:
+                entries = wv.world_templates.get("sects", []) + wv.world_templates.get("settlements", [])
+
+        if not entries:
+            # Legacy fallback: content/world_templates.json via the content module
+            from ane.content.world_templates import SECTS, SETTLEMENTS
+            entries = list(SECTS) + list(SETTLEMENTS)
+
+        for entry in entries:
             region = await self.create_region(
                 db, session_id, entry["name"], entry["type"], entry["description"],
                 attributes=entry.get("attributes", {}),

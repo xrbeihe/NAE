@@ -38,4 +38,21 @@ async def init_db():
             await conn.execute(text("PRAGMA journal_mode=WAL"))
             await conn.execute(text("PRAGMA busy_timeout=3000"))
             logger.info("SQLite WAL mode enabled")
+            # Non-destructive schema migration for pre-existing databases:
+            # add worldview columns to sessions if missing. ALTER TABLE with
+            # a NOT NULL DEFAULT is a metadata-only operation in SQLite — it
+            # does not rewrite rows, so live data is preserved.
+            cols = await conn.execute(text("PRAGMA table_info(sessions)"))
+            col_names = {row[1] for row in cols.fetchall()}
+            if col_names:
+                if "worldview" not in col_names:
+                    await conn.execute(
+                        text("ALTER TABLE sessions ADD COLUMN worldview TEXT NOT NULL DEFAULT 'xianxia_v1'")
+                    )
+                    logger.info("Migration: added sessions.worldview (default 'xianxia_v1')")
+                if "worldview_version" not in col_names:
+                    await conn.execute(
+                        text("ALTER TABLE sessions ADD COLUMN worldview_version TEXT NOT NULL DEFAULT ''")
+                    )
+                    logger.info("Migration: added sessions.worldview_version (default '')")
         await conn.run_sync(Base.metadata.create_all)

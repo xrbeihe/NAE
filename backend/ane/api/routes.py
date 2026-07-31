@@ -30,6 +30,9 @@ router = APIRouter(prefix="/sessions", tags=["sessions"])
 
 # ── Static data routes (registered before /{session_id} to avoid path capture) ──
 
+# Legacy filter list — kept for backward compatibility. New worldviews'
+# world_templates.json are already curated, so filtering is only applied
+# when the pack supplies no sect_filters of its own.
 _NON_XIANXIA_KEYWORDS = [
     "魔法少女", "契约兽", "魔女",
     "地精", "精灵", "矮人", "兽人",
@@ -41,7 +44,18 @@ _NON_XIANXIA_KEYWORDS = [
 ]
 
 
-def _is_reject_by_keywords(name: str, entry: dict) -> bool:
+def _worldview_world_templates(worldview: str | None) -> dict:
+    """Return the active pack's world_templates.json."""
+    from ane.worldview import get as get_worldview, DEFAULT_WORLDVIEW_ID
+    wv = get_worldview(worldview or DEFAULT_WORLDVIEW_ID)
+    if wv.world_templates:
+        return wv.world_templates
+    from ane.content.json_loader import load_json
+    return load_json("world_templates.json")
+
+
+def _is_reject_by_keywords(name: str, entry: dict, filters: list[str] | None = None) -> bool:
+    keywords = filters if filters is not None else _NON_XIANXIA_KEYWORDS
     all_text = name
     all_text += entry.get("description", "")
     for k, v in entry.get("attributes", {}).items():
@@ -53,42 +67,51 @@ def _is_reject_by_keywords(name: str, entry: dict) -> bool:
                     all_text += item
                 elif isinstance(item, dict):
                     all_text += item.get("name", "") + " " + item.get("summary", "")
-    for kw in _NON_XIANXIA_KEYWORDS:
+    for kw in keywords:
         if kw in all_text:
             return True
     return False
 
 
+def _sect_suffix_ok(name: str, data: dict) -> bool:
+    """xianxia-style suffix filter — only applied when pack data uses it."""
+    suffixes = data.get("sect_suffixes")
+    if suffixes:
+        return any(name.endswith(s) for s in suffixes)
+    return (name.endswith("圣地") or name.endswith("宗") or name.endswith("门")
+            or name.endswith("宫") or name.endswith("阁") or name.endswith("殿")
+            or name.endswith("谷") or name.endswith("观") or name.endswith("派"))
+
+
+def _sect_filters(data: dict) -> list[str] | None:
+    filters = data.get("sect_filters")
+    return filters if isinstance(filters, list) else None
+
+
 @router.get("/models/sects")
-async def list_sects():
-    from ane.content.json_loader import load_json
-    data = load_json("world_templates.json")
+async def list_sects(worldview: str | None = None):
+    data = _worldview_world_templates(worldview)
     filtered = []
     for e in data.get("sects", []):
         name = e["name"]
-        if not (name.endswith("圣地") or name.endswith("宗") or name.endswith("门")
-                or name.endswith("宫") or name.endswith("阁") or name.endswith("殿")
-                or name.endswith("谷") or name.endswith("观") or name.endswith("派")):
+        if not _sect_suffix_ok(name, data):
             continue
-        if _is_reject_by_keywords(name, e):
+        if _is_reject_by_keywords(name, e, _sect_filters(data)):
             continue
         filtered.append(name)
     return {"sects": filtered}
 
 
 @router.get("/models/sects/detail")
-async def list_sects_detail():
+async def list_sects_detail(worldview: str | None = None):
     """返回宗门名 + 描述，供地图保存时展示设定用"""
-    from ane.content.json_loader import load_json
-    data = load_json("world_templates.json")
+    data = _worldview_world_templates(worldview)
     result = []
     for e in data.get("sects", []):
         name = e["name"]
-        if not (name.endswith("圣地") or name.endswith("宗") or name.endswith("门")
-                or name.endswith("宫") or name.endswith("阁") or name.endswith("殿")
-                or name.endswith("谷") or name.endswith("观") or name.endswith("派")):
+        if not _sect_suffix_ok(name, data):
             continue
-        if _is_reject_by_keywords(name, e):
+        if _is_reject_by_keywords(name, e, _sect_filters(data)):
             continue
         desc = e.get("description", "")
         attrs = e.get("attributes", {})
@@ -107,31 +130,29 @@ async def list_sects_detail():
 
 
 @router.get("/models/cities")
-async def list_cities():
-    from ane.content.json_loader import load_json
-    data = load_json("world_templates.json")
+async def list_cities(worldview: str | None = None):
+    data = _worldview_world_templates(worldview)
     filtered = []
     for e in data.get("settlements", []):
         name = e["name"]
         if not name.endswith("城"):
             continue
-        if _is_reject_by_keywords(name, e):
+        if _is_reject_by_keywords(name, e, _sect_filters(data)):
             continue
         filtered.append(name)
     return {"cities": filtered}
 
 
 @router.get("/models/cities/detail")
-async def list_cities_detail():
+async def list_cities_detail(worldview: str | None = None):
     """返回城市名 + 描述，供地图保存时展示设定用"""
-    from ane.content.json_loader import load_json
-    data = load_json("world_templates.json")
+    data = _worldview_world_templates(worldview)
     result = []
     for e in data.get("settlements", []):
         name = e["name"]
         if not name.endswith("城"):
             continue
-        if _is_reject_by_keywords(name, e):
+        if _is_reject_by_keywords(name, e, _sect_filters(data)):
             continue
         result.append({
             "name": name,
@@ -156,6 +177,24 @@ async def _get_users_session(db: AsyncSession, session_id: str, user_id: str) ->
     return session
 
 
+async def _assign_city_for_sect(
+    db: AsyncSession, player, sect_name: str, worldview: str | None,
+) -> None:
+    """Assign a random city from the worldview pack when a sect is chosen."""
+    import random as _rnd
+    world_data = _worldview_world_templates(worldview)
+    settlements = world_data.get("settlements", [])
+    city_names = [s["name"] for s in settlements
+                  if s["name"].endswith("城") and not _is_reject_by_keywords(s["name"], s, _sect_filters(world_data))]
+    if city_names:
+        chosen_city = _rnd.choice(city_names)
+        player.location = chosen_city
+        attrs = dict(player.attributes or {})
+        attrs["location_hierarchy"] = f"{sect_name} → {chosen_city}"
+        attrs["sect"] = sect_name
+        player.attributes = attrs
+
+
 # ── Session CRUD ────────────────────────────────────────────
 
 @router.post("", response_model=CreateSessionResponse, status_code=201)
@@ -164,7 +203,19 @@ async def create_session(
     db: AsyncSession = Depends(get_db),
     user = Depends(get_current_user),
 ):
-    result = await game_engine.create_session(db, user_id=user.id, name=req.name)
+    from ane.worldview import _is_valid_id, list_worldviews, DEFAULT_WORLDVIEW_ID
+    if not _is_valid_id(req.worldview):
+        raise HTTPException(status_code=400, detail=f"无效的世界观 ID: {req.worldview!r}")
+    # Validate the pack exists (falls back silently inside create_session; we
+    # surface an explicit error for a wrong id so the frontend can recover).
+    if req.worldview != DEFAULT_WORLDVIEW_ID:
+        available = {w["id"] for w in list_worldviews()}
+        if req.worldview not in available:
+            raise HTTPException(
+                status_code=400,
+                detail=f"世界观 {req.worldview!r} 不存在。可用: {sorted(available) or '（无）'}",
+            )
+    result = await game_engine.create_session(db, user_id=user.id, name=req.name, worldview=req.worldview)
     return CreateSessionResponse(**result)
 
 
@@ -448,9 +499,29 @@ async def process_turn(
     )
 
 @router.get("/{session_id}/templates")
-async def get_character_templates():
+async def get_character_templates(
+    session_id: str,
+    worldview: str | None = None,
+    db: AsyncSession = Depends(get_db),
+):
     from ane.modules.player_manager import player_manager
-    return player_manager.get_templates()
+    from ane.worldview import get as get_worldview, DEFAULT_WORLDVIEW_ID
+    # __any__ → generic templates; otherwise prefer the session's worldview,
+    # falling back to the ?worldview= query param.
+    wv_id = worldview
+    if session_id and session_id != "__any__":
+        s = await db.get(WorldSession, session_id)
+        if s:
+            wv_id = s.worldview
+    templates = player_manager.get_templates(worldview=wv_id)
+    # Attach the pack's ui.json so the frontend can render labels/buttons.
+    wv = get_worldview(wv_id or DEFAULT_WORLDVIEW_ID)
+    result = dict(templates)
+    result["ui"] = wv.ui or {}
+    result["player_defaults"] = wv.player_defaults or {}
+    result["form"] = wv.form  # may be None → frontend falls back to legacy form
+    result["world_templates"] = wv.world_templates or {}  # for has_sects visibility etc.
+    return result
 
 
 @router.post("/{session_id}/character")
@@ -461,36 +532,42 @@ async def apply_character(
     user = Depends(get_current_user),
 ):
     session = await _get_users_session(db, session_id, user.id)
-    player = await game_engine.apply_character(
-        db, session_id,
-        name=req.name, age=req.age, gender=req.gender,
-        background=req.background,
-        cultivation=req.cultivation,
-        personality=req.personality,
-        identity=req.identity,
-        golden_finger_id=req.golden_finger_id,
-        golden_finger_custom=req.golden_finger_custom,
-        identity_custom=req.identity_custom,
-        personality_custom=req.personality_custom,
-    )
-    if not player:
-        raise HTTPException(status_code=404, detail="Player not found")
+    worldview = getattr(session, "worldview", None)
+    from ane.worldview import get as get_worldview, DEFAULT_WORLDVIEW_ID
+    wv = get_worldview(worldview or DEFAULT_WORLDVIEW_ID)
 
-    # ── If player chose a sect, assign a random city from system DB ──
-    if req.chosen_sect:
-        from ane.content.json_loader import load_json
-        import random as _rnd
-        world_data = load_json("world_templates.json")
-        settlements = world_data.get("settlements", [])
-        city_names = [s["name"] for s in settlements
-                      if s["name"].endswith("城") and not _is_reject_by_keywords(s["name"], s)]
-        if city_names:
-            chosen_city = _rnd.choice(city_names)
-            player.location = chosen_city
-            attrs = dict(player.attributes or {})
-            attrs["location_hierarchy"] = f"{req.chosen_sect} → {chosen_city}"
-            attrs["sect"] = req.chosen_sect
-            player.attributes = attrs
+    # ── Resolve chosen values ──
+    # Form path: pack ships form.json + frontend sends `fields` map.
+    # Legacy path: explicit request fields.
+    chosen_sect = ""
+    if wv.form and req.fields:
+        player = await pm.apply_character_from_form(
+            db, session_id, dict(req.fields), worldview=worldview,
+        )
+        if not player:
+            raise HTTPException(status_code=404, detail="Player not found")
+        chosen_sect = getattr(player, "_form_sect", "") or ""
+    else:
+        player = await game_engine.apply_character(
+            db, session_id,
+            name=req.name, age=req.age, gender=req.gender,
+            background=req.background,
+            cultivation=req.cultivation,
+            personality=req.personality,
+            identity=req.identity,
+            golden_finger_id=req.golden_finger_id,
+            golden_finger_custom=req.golden_finger_custom,
+            identity_custom=req.identity_custom,
+            personality_custom=req.personality_custom,
+            worldview=worldview,
+        )
+        if not player:
+            raise HTTPException(status_code=404, detail="Player not found")
+        chosen_sect = req.chosen_sect
+
+    # ── If a sect was chosen, assign a random city from the worldview pack ──
+    if chosen_sect:
+        await _assign_city_for_sect(db, player, chosen_sect, worldview)
 
     await db.commit()
     # ── Persist a character-creation card into conversation (survives refresh) ──
@@ -524,35 +601,28 @@ async def apply_character(
         turn_number=0,
     ))
 
-    # ── Write 10 initial recommendations ──
+    # ── Write initial recommendations ──
+    # Text comes from the worldview's ui.json (author-editable); falls back
+    # to the legacy xianxia wording when the pack has none.
     import json as _json
     from ane.database.models import Memory as _Mem2
     from sqlalchemy import delete as _delete
 
-    # 根据身份和出身生成初始推荐
     sect_name = attrs.get("sect", "")
-    location_name = attrs.get("location_hierarchy", player.location or "")
     has_golden_finger = bool(attrs.get("golden_finger_name"))
 
-    recs = [
-        "四处走走，熟悉周围的环境",
-        "找当地人打听本地的消息",
-        "去坊市看看有没有合适的装备或丹药",
-    ]
+    ui_recs = (wv.ui or {}).get("initial_recommendations", {}) or {}
+    base = ui_recs.get("base") or ["四处走走，熟悉周围的环境", "找当地人打听本地的消息", "去坊市看看有没有合适的装备或丹药"]
+    with_sect = ui_recs.get("with_sect") or ["前往宗门大殿报到，领取身份令牌", "拜访同门师兄弟，结交新朋友"]
+    with_gf = ui_recs.get("with_golden_finger") or ["找个安静的地方探查自己的机缘"]
+    without_gf = ui_recs.get("without_golden_finger") or ["尝试感应天地灵气，熟悉自己的根骨"]
+    tail = ui_recs.get("tail") or ["检查随身物品，清点灵石", "向遇到的修士打听附近的风土人情", "去藏书阁或经楼翻阅本地志"]
+
+    recs = list(base)
     if sect_name:
-        recs += [
-            f"前往宗门大殿报到，领取身份令牌",
-            f"拜访同门师兄弟，结交新朋友",
-        ]
-    if has_golden_finger:
-        recs.append("找个安静的地方探查自己的机缘")
-    else:
-        recs.append("尝试感应天地灵气，熟悉自己的根骨")
-    recs += [
-        "检查随身物品，清点灵石",
-        "向遇到的修士打听附近的风土人情",
-        "去藏书阁或经楼翻阅本地志",
-    ]
+        recs += list(with_sect)
+    recs.append(list(with_gf)[0] if has_golden_finger else list(without_gf)[0])
+    recs += list(tail)
 
     await db.execute(
         _delete(_Mem2).where(
@@ -572,46 +642,16 @@ async def apply_character(
     attrs = dict(player.attributes or {}) if player and player.attributes else {}
 
     # ── Build player_panel matching game_engine.py step 16 format ──
-    panel_parts = [
-        f"姓名：{player.name} ｜ {attrs.get('gender', '?')} ｜ {attrs.get('age', '?')}岁",
-        f"修为：{player.cultivation}",
-        f"性格：{attrs.get('personality', '未知')}",
-        f"身份：{attrs.get('identity', '未知')}",
-        f"位置：{player.location or '未知'}",
-    ]
-    sr = attrs.get("spiritual_root", "未知")
-    panel_parts.append(f"灵根：{sr}")
-    sc = attrs.get("special_constitution", "")
-    if sc:
-        panel_parts.append(f"体质：{sc}")
-    panel_parts.append(f"衣物：{attrs.get('clothing', '未设定')}")
-    inv = player.inventory or []
-    if inv:
-        items = "、".join(i.get("name", "?") for i in inv)
-        panel_parts.append(f"物品：{items}")
-    p_gf = attrs.get("golden_finger_name", "")
-    if p_gf:
-        panel_parts.append(f"金手指：{p_gf}")
-    p_gf_desc = attrs.get("golden_finger_desc", "")
-    if p_gf_desc:
-        panel_parts.append(f"设定：{p_gf_desc}")
-    savings_amount = attrs.get("_savings_amount", 0)
-    if savings_amount:
-        savings_unit = attrs.get("_savings_unit", "块下品灵石")
-        panel_parts.append(f"灵石：{savings_amount}{savings_unit}")
-    exts = attrs.get("_extensions", {})
-    if exts and isinstance(exts, dict):
-        ext_parts = []
-        for ek, ev in exts.items():
-            if ek and ev:
-                if isinstance(ev, dict):
-                    sub = " | ".join(f"{sk}:{sv}" for sk, sv in ev.items() if sk and sv)
-                    ext_parts.append(f"{ek}→{sub}" if sub else f"{ek}→{ev}")
-                else:
-                    ext_parts.append(f"{ek}→{ev}")
-        if ext_parts:
-            panel_parts.append(f"扩展：{' / '.join(ext_parts)}")
-    player_panel_str = "【主角面板】\n" + " ｜ ".join(panel_parts)
+    from ane.panels import render_player_panel
+    from ane.worldview import get as get_worldview, DEFAULT_WORLDVIEW_ID
+    wv = get_worldview(getattr(session, "worldview", None) or DEFAULT_WORLDVIEW_ID)
+    panel_spec = wv.panel_spec or {}
+    player_panel_str = render_player_panel(player, panel_spec) if panel_spec else (
+        "【主角面板】\n" + " ｜ ".join([
+            f"姓名：{player.name}",
+            f"位置：{player.location or '未知'}",
+        ])
+    )
 
 
     return {
@@ -727,6 +767,7 @@ async def npc_modeling_confirm(
         model_data = await game_engine._run_npc_modeling(
             db, req.name, req.input, db_npc,
             session_id, user.id, player_name, player_location, is_new_npc=True,
+            worldview=getattr(session, "worldview", None),
         )
     return {"npc_name": req.name, "model_data": model_data or existing_model}
 

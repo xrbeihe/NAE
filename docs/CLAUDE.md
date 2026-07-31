@@ -73,7 +73,7 @@
 ├── frontend/              # 前端 SPA（FastAPI 直接挂载）
 │   ├── app.html           # 主应用（首页 NPC 总库 + 聊天界面）
 │   ├── login.html         # 登录/注册
-│   ├── settings.html      # 用户设置（颜色/字体/头像/密码）
+│   ├── settings.html      # 用户设置（头像/密码/清空日志）
 │   └── public/
 │       └── common.js      # 共享工具函数（JWT、日志、颜色、NPC 格式化）
 ├── tests/                 # 测试（pytest，87 个用例）
