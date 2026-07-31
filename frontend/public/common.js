@@ -109,6 +109,16 @@ function setSessionAvatar(sid, dataUrl) {
   try { localStorage.setItem('ane_avatar_' + sid, dataUrl); } catch(e) {}
 }
 
+// ── System avatar (per-world, for AI messages) ──
+function getSystemAvatar(sid) {
+  if (!sid) return '';
+  try { return localStorage.getItem('ane_sys_avatar_' + sid) || ''; } catch(e) { return ''; }
+}
+function setSystemAvatar(sid, dataUrl) {
+  if (!sid) return;
+  try { localStorage.setItem('ane_sys_avatar_' + sid, dataUrl); } catch(e) {}
+}
+
 // ── NPC model formatting (shared across home.html and chat.html) ──
 // SAFE: returns plain text, all user data already runs through escHtml.
 // Callers MUST use textContent (not innerHTML) or escHtml() each field before HTML insertion.

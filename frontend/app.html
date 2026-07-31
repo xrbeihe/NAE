@@ -257,7 +257,6 @@
     /* ── session-bar 按钮左对齐 ── */
     #session-bar { justify-content: flex-start; }
     #session-bar > div:first-of-type { margin-left: 0; }
-    #word-count-select { max-width: 80px; font-size: 10px !important; }
   }
   @media (max-width: 480px) {
     #session-sidebar { max-height: 35vh; }
@@ -347,14 +346,6 @@
         <button id="model-btn" onclick="showModelPopup()">✨<span id="model-btn-label">loading</span></button>
         <select id="model-select" style="display:none"></select>
         <button id="color-btn" onclick="showColorPopup()" style="background:transparent;border:1px solid var(--border);color:var(--accent-dim);padding:2px 6px;border-radius:3px;cursor:pointer;font-size:12px;font-family:inherit">🎨</button>
-        <select id="word-count-select" onchange="onWordCountChange(this)" style="background:transparent;border:1px solid var(--border);color:var(--accent-dim);padding:2px 6px;border-radius:3px;font-size:11px;font-family:inherit;cursor:pointer;max-width:100px">
-          <option value="200-500">200-500字</option>
-          <option value="500-800">500-800字</option>
-          <option value="500-1200" selected>500-1200字</option>
-          <option value="800-1500">800-1500字</option>
-          <option value="1000-2000">1000-2000字</option>
-          <option value="1500-2000">1500-2000字</option>
-        </select>
         <button class="cmd-btn" onclick="clearLogs()">🗑 清空日志</button>
       </div>
     </div>
@@ -372,6 +363,7 @@
           <span onclick="showRelationshipGraph()" style="cursor:pointer;font-size:13px" title="关系网图谱">🚻</span>
           <span onclick="showNpcLibraryPopup()" style="cursor:pointer;font-size:13px" title="NPC总库">📚</span>
           <span id="summary-bar-btn" onclick="showLatestSummary()" style="cursor:pointer;font-size:13px;margin-left:2px" title="查看上轮场景摘要">📘</span>
+          <span id="word-count-btn" onclick="showWordCountPopup(event)" style="cursor:pointer;font-size:13px;margin-left:2px" title="正文字数设置">🔤</span>
         </span>
       </div>
       <div id="rec-grid">
@@ -464,6 +456,10 @@
   <b>⭐ 局内建模</b><br>勾选后发送，系统从输入中提取人名，已有档案的做增量更新，新人物弹窗确认后全量建模。不占用本轮叙事。<br><br>
   <b>📦 加载建模</b><br>勾选后，输入中提到的已建模人物自动注入完整档案到 Prompt，叙事更精准。名字需严格匹配。<br><br>两者互斥，不可同时使用。
 </div>
+<div id="word-count-popup" style="display:none;position:fixed;z-index:9999;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px;width:180px;box-shadow:0 4px 16px rgba(0,0,0,0.6)">
+  <div style="font-size:13px;color:var(--accent);margin-bottom:8px;text-align:center">🔤 正文字数</div>
+  <div id="word-count-options" style="display:flex;flex-direction:column;gap:4px"></div>
+</div>
 <div id="npc-lib-popup" class="npc-lib-popup">
   <div class="npc-lib-header"><span>📚 NPC总库</span><span onclick="closeNpcLibraryPopup()" style="cursor:pointer;font-size:16px;color:var(--accent-dim)">✕</span></div>
   <div style="display:flex;flex:1;min-height:0;overflow:hidden">
@@ -482,6 +478,10 @@
 <div id="avatar-preview-overlay" onclick="if(event.target===this)closeAvatarPreview()">
   <div id="avatar-preview-box">
     <h3>🖼️ 世界头像</h3>
+    <div id="avatar-tabs" style="display:flex;gap:4px;margin-bottom:10px;flex-shrink:0">
+      <button id="avatar-tab-player" onclick="avatarTab('player')" style="flex:1;padding:5px 8px;border:1px solid var(--border);border-radius:4px;background:var(--input-bg);color:var(--accent-dim);cursor:pointer;font-size:12px;font-family:inherit">🧑 主角头像</button>
+      <button id="avatar-tab-system" onclick="avatarTab('system')" style="flex:1;padding:5px 8px;border:1px solid var(--border);border-radius:4px;background:var(--input-bg);color:var(--accent-dim);cursor:pointer;font-size:12px;font-family:inherit">🤖 系统头像</button>
+    </div>
     <div id="avatar-zoom-bar">
       <span style="font-size:11px;color:var(--accent-dim)">🔍</span>
       <input type="range" id="avatar-zoom-range" min="20" max="300" value="100" oninput="onAvatarZoom(this.value)">
@@ -567,15 +567,6 @@ let _pending_world_intro = null;
 let lastTurnNumber = 0;
 let _npcLibData = [];
 let _npcImportedData = {};
-
-// ── 字数范围初始化 ──
-(function() {
-  try {
-    var saved = localStorage.getItem('ane_word_count');
-    var sel = document.getElementById('word-count-select');
-    if (sel && saved) { sel.value = saved; }
-  } catch(e) {}
-})();
 
 // ── User menu ──
 function toggleUserMenu() {
@@ -967,14 +958,11 @@ async function sendTurn() {
   addMsg('user', text);
   var sb = document.getElementById('send-btn'); var ld = document.getElementById('loading-indicator'); sb.disabled = true; ld.classList.add('active');
   try {
-    var wcSelect = document.getElementById('word-count-select');
+    var wcVal = getWordCountRange();
   var wcMin = 500, wcMax = 1200;
-  if (wcSelect) {
-    var wcVal = wcSelect.value || '500-1200';
-    var parts = wcVal.split('-');
-    wcMin = parseInt(parts[0]) || 500;
-    wcMax = parseInt(parts[1]) || 1200;
-  }
+  var wcParts = wcVal.split('-');
+  wcMin = parseInt(wcParts[0]) || 500;
+  wcMax = parseInt(wcParts[1]) || 1200;
   var tr = await apiFetch('/sessions/' + sessionId + '/turn', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({input: text, model: selectedModel, load_model_data: document.getElementById('load-model-check').checked, word_count_min: wcMin, word_count_max: wcMax}) });
     var td = await tr.json();
     if (td.detail) { addMsg('system', '天道运转出错: ' + td.detail); sb.disabled = false; ld.classList.remove('active'); return; }
@@ -992,9 +980,50 @@ async function sendTurn() {
 }
 
 // ── 字数选择 ──
-function onWordCountChange(sel) {
-  try { localStorage.setItem('ane_word_count', sel.value); } catch(e) {}
+var _wordCountOptions = ['200-500','500-800','500-1200','800-1500','1000-2000','1500-2000'];
+var _currentWordCount = '500-1200';
+function getWordCountRange() {
+  var saved = null;
+  try { saved = localStorage.getItem('ane_word_count'); } catch(e) {}
+  if (saved && _wordCountOptions.indexOf(saved) !== -1) { _currentWordCount = saved; }
+  return _currentWordCount;
 }
+function renderWordCountPopup() {
+  var c = document.getElementById('word-count-options'); if (!c) return;
+  var current = getWordCountRange();
+  c.innerHTML = _wordCountOptions.map(function(v) {
+    var active = v === current;
+    return '<div onclick="selectWordCount(\'' + v + '\')" style="padding:5px 10px;border:1px solid ' + (active ? 'var(--accent)' : 'var(--border)') + ';border-radius:4px;background:' + (active ? 'rgba(201,169,110,0.15)' : 'var(--input-bg)') + ';color:' + (active ? 'var(--accent)' : 'var(--text)') + ';cursor:pointer;font-size:12px;font-family:inherit;text-align:center">' + v + '字</div>';
+  }).join('');
+}
+function showWordCountPopup(e) {
+  var popup = document.getElementById('word-count-popup');
+  renderWordCountPopup();
+  popup.style.display = 'block';
+  var btn = document.getElementById('word-count-btn');
+  var r = btn.getBoundingClientRect();
+  popup.style.left = (r.right - 180) + 'px';
+  popup.style.top = (r.top - popup.offsetHeight - 6) + 'px';
+  if (popup.getBoundingClientRect().top < 0) popup.style.top = (r.bottom + 4) + 'px';
+  e.stopPropagation();
+  setTimeout(function() { document.addEventListener('click', _hideWordCountPopup); }, 0);
+}
+function _hideWordCountPopup() {
+  document.getElementById('word-count-popup').style.display = 'none';
+  document.removeEventListener('click', _hideWordCountPopup);
+}
+function selectWordCount(v) {
+  _currentWordCount = v;
+  try { localStorage.setItem('ane_word_count', v); } catch(e) {}
+  _hideWordCountPopup();
+  addMsg('system', '🔤 正文字数已设为：' + v + '字');
+}
+document.addEventListener('click', function(e) {
+  var btn = document.getElementById('word-count-btn');
+  if (btn && btn.contains(e.target)) return;
+  var popup = document.getElementById('word-count-popup');
+  if (popup && !popup.contains(e.target)) popup.style.display = 'none';
+});
 
 // ── UI helpers ──
 function addMsg(type, text, turnNumber) {
@@ -1015,7 +1044,9 @@ function addMsg(type, text, turnNumber) {
     if (type === 'ai') {
       var ava = document.createElement('div'); ava.className = 'msg-avatar';
       ava.style.background = 'var(--input-bg)'; ava.style.color = 'var(--accent-dim)';
-      ava.textContent = '🤖';
+      var sysAva = getSystemAvatar(sessionId);
+      if (sysAva) { ava.innerHTML = '<img src="' + sysAva + '" alt="">'; }
+      else { ava.textContent = '🤖'; }
       wrapper.appendChild(ava);
     }
     var bubble = document.createElement('div'); bubble.className = 'msg-bubble';
@@ -1284,7 +1315,7 @@ function showRelationshipGraph() {
 function updateInfoPanel(text) {
   var ball = document.getElementById('player-ball'); var panel = document.getElementById('player-ball-panel');
   if (!text || text.startsWith('（无玩家数据）') || text === '【主角面板】\n（无）') { ball.style.display = 'none'; panel.classList.remove('visible'); panel.innerHTML = ''; ball.style.cursor = ''; return; }
-  ball.style.display = 'flex'; ball.style.cursor = 'grab'; panel.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-weight:bold;color:var(--accent);font-size:13px">🧑 角色信息</span><span id="panel-avatar-btn" onclick="showAvatarPreview()" style="cursor:pointer;font-size:13px;padding:2px 6px;border:1px solid var(--border);border-radius:4px;color:var(--accent-dim);flex-shrink:0">🖼️</span></div><div style="font-size:12px;line-height:1.6;white-space:pre-wrap;color:var(--text)">' + escHtml(text) + '</div>';
+  ball.style.display = 'flex'; ball.style.cursor = 'grab'; panel.innerHTML = '<div style="font-size:12px;line-height:1.6;white-space:pre-wrap;color:var(--text)">' + escHtml(text) + '</div>';
   ball.textContent = text.includes('｜ 女 ｜') ? '👩' : '🧑';
 }
 function togglePlayerBall() {
@@ -1329,8 +1360,8 @@ function setupPanelDrag() {
     document.removeEventListener('touchend', onEnd);
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onEnd); }
-  panel.addEventListener('mousedown', function(e) { if (e.target.id === 'panel-avatar-btn') return; onStart(e.clientX, e.clientY); });
-  panel.addEventListener('touchstart', function(e) { if (e.touches.length === 1) { var t = e.target; if (t && t.id === 'panel-avatar-btn') return; onStart(e.touches[0].clientX, e.touches[0].clientY); } }, {passive: true});
+  panel.addEventListener('mousedown', function(e) { onStart(e.clientX, e.clientY); });
+  panel.addEventListener('touchstart', function(e) { if (e.touches.length === 1) { onStart(e.touches[0].clientX, e.touches[0].clientY); } }, {passive: true});
 }
 
 // ── Ball drag (reposition the ball itself) ──
@@ -1923,13 +1954,23 @@ function refreshAvatarBtn() {
   if (savedAva) { btn.innerHTML = '<img src="' + savedAva + '" style="width:100%;height:100%;object-fit:cover">'; }
   else { btn.textContent = '🧑'; btn.style.background = ''; }
 }
+// ── Avatar mode: 'player' or 'system' ──
+var _avatarMode = 'player';
+function avatarTab(mode) {
+  _avatarMode = mode;
+  var p = document.getElementById('avatar-tab-player'), s = document.getElementById('avatar-tab-system');
+  if (p) { p.style.background = mode === 'player' ? 'rgba(201,169,110,0.15)' : 'var(--input-bg)'; p.style.borderColor = mode === 'player' ? 'var(--accent)' : 'var(--border)'; p.style.color = mode === 'player' ? 'var(--accent)' : 'var(--accent-dim)'; }
+  if (s) { s.style.background = mode === 'system' ? 'rgba(201,169,110,0.15)' : 'var(--input-bg)'; s.style.borderColor = mode === 'system' ? 'var(--accent)' : 'var(--border)'; s.style.color = mode === 'system' ? 'var(--accent)' : 'var(--accent-dim)'; }
+  // Load the avatar for this mode into the preview
+  var img = document.getElementById('avatar-crop-img');
+  var savedAva = mode === 'player' ? getSessionAvatar(sessionId) : getSystemAvatar(sessionId);
+  if (savedAva) { img.src = savedAva; _avatarZoom = 100; _avatarRingX = 50; _avatarRingY = 50; _avatarUpdateRing(); onAvatarZoom(100); }
+  else { img.src = ''; }
+}
 function showAvatarPreview() {
   if (!sessionId) return;
   var overlay = document.getElementById('avatar-preview-overlay');
-  var img = document.getElementById('avatar-crop-img');
-  var savedAva = getSessionAvatar(sessionId);
-  if (savedAva) { img.src = savedAva; _avatarZoom = 100; _avatarRingX = 50; _avatarRingY = 50; _avatarUpdateRing(); onAvatarZoom(100); }
-  else { img.src = ''; }
+  avatarTab(_avatarMode);  // load current avatar, refresh tab styles
   overlay.classList.add('visible');
 }
 function closeAvatarPreview() { document.getElementById('avatar-preview-overlay').classList.remove('visible'); }
@@ -1970,7 +2011,8 @@ function saveCroppedAvatar() {
   if (!img || !img.src || !sessionId) return;
   var dataUrl = cropAvatarFromImg(img);
   if (!dataUrl) return;
-  setSessionAvatar(sessionId, dataUrl);
+  if (_avatarMode === 'system') setSystemAvatar(sessionId, dataUrl);
+  else setSessionAvatar(sessionId, dataUrl);
   refreshAvatarBtn();
   closeAvatarPreview();
 }
@@ -1990,7 +2032,8 @@ function onAvatarFileSelected(e) {
 }
 function clearAvatar() {
   if (!sessionId) return;
-  setSessionAvatar(sessionId, '');
+  if (_avatarMode === 'system') setSystemAvatar(sessionId, '');
+  else setSessionAvatar(sessionId, '');
   refreshAvatarBtn();
   closeAvatarPreview();
 }
