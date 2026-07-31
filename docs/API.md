@@ -1,8 +1,9 @@
 # ANE API 端点速查
 
-> 基础路径：`http://127.0.0.1:8001`
+> 基础路径：`http://127.0.0.1:8002`
 > 认证方式：JWT Bearer Token（`Authorization: Bearer <token>`）
-> 除 `/auth/register`、`/auth/login`、`/api/health` 外，所有 `/sessions/*` 端点需要登录。
+> 除 `/auth/register`、`/auth/login`、`/api/health`、`GET /worldviews` 外，所有端点需要登录（世界观管理端点为可选认证）。
+> 端口以 `config.json` + `.env` 的 `ANE_PORT` 为准（CI 部署固定 8002）。
 
 ---
 
@@ -40,10 +41,16 @@ Token 有效期 7 天。前端存储在 `localStorage`，每次请求自动附�
 | POST | `/sessions/{session_id}/abandon` | — | `{ok}` | 标记会话为废弃（zero-turn 会话，用户关标签页时发） |
 
 ### `POST /sessions` — 创建时会做：
-1. 创建 `WorldSession` 记录
-2. 创建世界区域（约 7 区域，含区域属性和层级）
-3. 创建玩家 stub（初始名"无名修士"，随机初始位置）
+1. 创建 `WorldSession` 记录（含 `worldview` 指定世界观包，默认 xianxia_v1）
+2. 按世界观包生成世界区域（`world_templates.json` 的 regions/sects+settlements）
+3. 创建玩家 stub（默认名/出生地按世界观包 `player_defaults` + 地理）
 4. 返回 session_id + 初始世界状态
+
+请求体（`CreateSessionRequest`）：
+```json
+{"name": "未命名世界", "worldview": "xianxia_v1"}
+```
+- `worldview`：可选，`^[a-z0-9_]{1,48}$`，无效或不存在返回 400 + 可用列表
 
 ### `GET /sessions/{session_id}` — 返回的额外数据
 - `conversation`: 完整对话历史（`[{turn_number, content}]`，格式为【玩家】xxx\n【AI】yyy\n【附近人物】[...]）
@@ -169,18 +176,23 @@ Token 有效期 7 天。前端存储在 `localStorage`，每次请求自动附�
 ### `ApplyCharacterRequest`
 ```json
 {
-  "name": "林逸",             // 玩家姓名，必填，最长 20 字
+  "name": "林逸",             // 玩家姓名，必填（form 路径可省略，由 fields 提供），最长 20 字
   "age": 19,                  // 12-999，默认 19
   "gender": "男",             // 男/女
-  "background": "家族旁支",   // 出身背景：无父无母/贫穷家庭/家族旁支/家族嫡系/富商家庭/血脉相传/皇亲国戚
-  "cultivation": "凡人",       // 修为：凡人→渡劫期
+  "background": "家族旁支",   // 出身背景
+  "cultivation": "凡人",       // 修为/能力等级
   "personality": "谨慎隐忍",  // 性格选择
-  "identity": "外门弟子",      // 身份：杂役弟子/外门弟子/内门弟子/核心弟子/散修/自定义
+  "identity": "外门弟子",      // 身份
   "golden_finger_id": "heavenly_book",
   "golden_finger_custom": "",
-  "identity_custom": ""
+  "identity_custom": "",
+  "fields": {}                 // 可选：世界观有 form.json 时，前端发送此扁平 map（{field_key: value}）
 }
 ```
+
+**双路径**：
+- **旧路径**：显式传 name/age/gender/... 顶层字段
+- **form 路径**：世界观包带 `form.json` 时，前端收集表单为 `fields` map 提交；后端按 form spec 通用写入（`store` 决定写 player 列或 attributes，`derive` 联动选项字段，`option_map` 映射卡片）。两种路径并存，form 优先。
 
 角色创建响应包含金手指信息：
 ```json
@@ -194,15 +206,54 @@ Token 有效期 7 天。前端存储在 `localStorage`，每次请求自动附�
 }
 ```
 
-### 角色创建模板数据（`GET /sessions/{session_id}/templates`）
+### 角色创建模板数据（`GET /sessions/{session_id}/templates?worldview=可选`）
 
-返回 `player_templates.json` 的全部内容，前端用来渲染下拉框。包含：
-- `genders` — 性别列表
-- `backgrounds` — 7 种出身（含 desc/initial_resource/personality_tendency/typical_sect_path）
-- `cultivations` — 10 个修为等级（凡人→渡劫期，含寿元和能力描述）
-- `personalities` — 4 种性格（含完整 desc）
-- `identities` — 5 种身份 + 自定义（含 clothing/monthly_income/background/spiritual_root/talent_note + desc）
-- `golden_fingers` — 9 种金手指（含 icon/name/tagline/desc）
+返回世界观包的 `player_templates.json` + 附加字段，前端渲染角色创建弹窗：
+- `genders` / `backgrounds` / `cultivations` / `personalities` / `identities` / `golden_fingers` — 选项数据（按世界观）
+- `ui` — 前端文案（labels/create_button/modal_title/initial_recommendations）
+- `player_defaults` — 默认名/能力/存款单位
+- `form` — form.json（声明式表单 spec，可能为 null → 前端回退 legacy 表单）
+- `world_templates` — 世界地理（供 has_sects/has_golden_fingers 显隐判断）
+
+`?worldview=` 查询参数指定包；`__any__` 会话 id 时用该参数，否则优先取会话绑定的世界观。
+
+---
+
+## 世界观管理（作者工具链）
+
+`/worldviews/*` 端点管理世界观包（设计器 designer.html 调用）。GET 列表/校验可匿名，写操作需登录。
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/worldviews` | 列出已安装世界观（id/name/description/version/tags） |
+| GET | `/worldviews/{id}/validate` | 校验包，返回 `{ok, errors[], warnings[]}`（缺文件/坏 JSON/语义检查） |
+| POST | `/worldviews/{id}/reload` | 清该包 loader 缓存（改文件后调用） |
+| POST | `/worldviews/generate` | 填短表单生成完整包 zip（见下） |
+| POST | `/worldviews/upload` | 上传 zip 安装新包（自动校验，默认包 xianxia_v1 受保护） |
+| DELETE | `/worldviews/{id}` | 删除包（默认包受保护） |
+| GET/PUT | `/worldviews/{id}/form` | 读写 form.json（声明式角色表单） |
+| GET/PUT | `/worldviews/{id}/ui` | 读写 ui.json（按钮/标题/称呼/初始推荐） |
+| GET/PUT | `/worldviews/{id}/data/{file}` | 读写白名单 JSON 工件（player/world/npc_templates、constraints、events、world_facts 等） |
+
+### `POST /worldviews/generate` 请求体
+```json
+{
+  "id": "my_world", "name": "我的世界", "description": "一句话设定",
+  "genre": "fantasy",              // fantasy / modern / scifi / xianxia
+  "power_name": "工艺等级", "money_name": "金币", "role_label": "旅人",
+  "professions": "发明家、机械师", "places": "齿轮工坊、蒸汽广场",
+  "create_button": "踏入蒸汽城",
+  "world_setting": "长描述（可选）", "era": "时代背景（可选）",
+  "factions": "势力（可选）", "taboos": "禁忌（可选）",
+  "npc_names": "姓氏池（可选）", "golden_fingers": "特殊能力（可选）",
+  "event_theme": "事件主题（可选）",
+  "ip_based": true, "ip_work": "火影忍者"   // IP 世界观选项
+}
+```
+返回完整世界观包 zip（11-12 个文件）。生成器自动拼接通用叙事内核（shell+kernel），作者无需写通用 prompt。
+
+### 世界观包工件
+每包 `backend/ane/worldviews/<id>/` 包含：manifest.json / system_prompt.txt / intent_keywords.json / constraints.json / world_templates.json / player_templates.json / npc_templates.json / panel.json / ui.json / events.json / form.json / modeler/role.txt / modeler/age_rules.txt / world_facts.json（IP 可选）。完整规范见 `docs/WORLDVIEW_PACK_SPEC.md`。
 
 ---
 
@@ -292,4 +343,4 @@ user_logs/
 
 ## 启动
 
-后端默认监听 **`127.0.0.1:8001`**（`HOST`/`PORT` 配置在 `config.json` + `.env` 可覆盖）。
+后端默认监听 **`0.0.0.0:8002`**（`HOST`/`PORT` 配置在 `config.json` + `.env` 可覆盖，CI 部署固定 8002）。

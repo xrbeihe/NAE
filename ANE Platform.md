@@ -1,10 +1,10 @@
 
 # ANE Platform — Multi-Worldview AI Narrative Engine
 
-> 📌 **愿景文档**：本文档是 ANE Platform 未来的规划蓝图，部分功能尚未实施。当前实现以 CLAUDE.md 和代码为准。
+> ✅ **已实现**：本文档的愿景已全部落地（2026-08）。当前平台支持纯 JSON/文本世界观包创作任意世界观，含自创与 IP 两种路径。实现细节见 [docs/WORLDVIEW_PACK_SPEC.md](docs/WORLDVIEW_PACK_SPEC.md)、[docs/WORLDVIEW_DESIGNER.md](docs/WORLDVIEW_DESIGNER.md)、[docs/IP_WORLDVIEW.md](docs/IP_WORLDVIEW.md)。
 
-> 版本：v0.1（草案）
-> 基于：ANE 修仙版 Phase 1 MVP（代码现状 2026-07-26）
+> 版本：v1.0（已实现）
+> 基于：ANE 修仙版 Phase 1 MVP（代码现状 2026-08-01）
 
 ---
 
@@ -295,3 +295,33 @@ my_world.zip
 | 世界观市场/社区商店 | 超出 MVP 范围 |
 | 实时世界观热切换 | 一个 Session 绑定一个世界观 |
 | 作者自定义 LLM 模型 | 使用平台统一模型配置 |
+
+---
+
+## 9. 已实现追加（v1.0）
+
+愿景 §1-§8 已全部落地，并追加以下能力：
+
+### 9.1 世界观包系统（已实现）
+- `backend/ane/worldviews/<id>/` 纯 JSON/文本目录，作者零代码创作
+- 已内置 4 个包：`xianxia_v1`（修仙）/ `modern_city`（现代都市）/ `fantasy_kingdom`（西幻）/ `naruto_shippuden`（火影 IP）
+- loader（worldview.py）扫目录注册 + 逐工件降级链（包 → xianxia → 引擎常量）+ 路径注入防护
+- System Prompt 双模式：`shell+kernel`（外壳+通用内核）/ `full`（包内完整文本）
+- 会话级包版本钉住（worldview_version）+ 无损迁移（ALTER TABLE ADD COLUMN）
+
+### 9.2 作者设计器（已实现）
+- 独立页面 `/designer`：世界观列表 + ✨ 一键生成 + 📦 上传安装 + 校验/重载/删除
+- 4 个可视化编辑器：✏️ 表单（form.json）/ 💬 文案（ui.json）/ 📋 选项（数据表格）/ 📖 设定（world_facts）
+- 通用数据 API：GET/PUT `/worldviews/{id}/data/{file}`（白名单工件）
+
+### 9.3 声明式角色表单（已实现）
+- `form.json`：作者声明角色创建表单（kind/options_from/hint_template/allow_custom/visible_if/store/derive/option_map）
+- 前端动态渲染 + 后端 `apply_character_from_form` 通用写入，无需改引擎
+
+### 9.4 IP 世界观支持（已实现）
+- `world_facts.json`：权威设定块每轮注入（knowledge_mode 三档 + 冲突裁定 + must_follow/forbidden/characters）
+- 控制 LLM 对预训练记忆的使用（火影包实测：遵守时间线、无主线剧透）
+- 生成器 `ip_based` 选项自动产出 IP 骨架
+
+### 9.5 工具链 API（已实现）
+`POST /worldviews/generate`（生成器）/ `upload`（zip 安装）/ `validate` / `reload` / `DELETE`

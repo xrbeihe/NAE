@@ -197,12 +197,75 @@ jobs:
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
+        with:
+          clean: false
+      - name: Write .env from secrets
+        run: |
+          echo "DEEPSEEK_API_KEY=${{ secrets.DEEPSEEK_API_KEY }}" | sudo tee /etc/ane/.env
+          echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" | sudo tee -a /etc/ane/.env
+          echo "ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}" | sudo tee -a /etc/ane/.env
+          sudo chmod 600 /etc/ane/.env
+      - name: Ensure venv + install/update dependencies
+        run: |
+          if [ ! -x .venv/bin/pip ]; then
+            echo "Creating venv..."
+            python3 -m venv .venv
+          fi
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -r requirements.txt
+          .venv/bin/pip install pytest-asyncio aiosqlite
+        shell: bash
+      - name: Ensure systemd uses /etc/ane/.env
+        run: |
+          if ! grep -q 'EnvironmentFile=/etc/ane/.env' /etc/systemd/system/ane.service; then
+            sudo sed -i '/^\[Service\]/a EnvironmentFile=/etc/ane/.env' /etc/systemd/system/ane.service
+            sudo systemctl daemon-reload
+          fi
+        shell: bash
+      - name: Point systemd at the workflow venv
+        run: |
+          TARGET="/home/runner/actions-runner/_work/NAE/NAE/.venv/bin/python"
+          if ! grep -q "ExecStart=${TARGET}" /etc/systemd/system/ane.service; then
+            echo "Fixing ExecStart to $TARGET"
+            sudo sed -i "s|ExecStart=.*|ExecStart=${TARGET} -m ane.main|" /etc/systemd/system/ane.service
+            sudo systemctl daemon-reload
+          fi
+          grep -E '^(ExecStart|WorkingDirectory|EnvironmentFile)' /etc/systemd/system/ane.service
+        shell: bash
       - name: Restart ANE service
         run: |
-          sudo systemctl restart ane.service
-          sleep 3
-          systemctl is-active ane.service
+          sudo systemctl restart ane.service || true
+          # Poll the health endpoint — systemctl active doesn't mean the port is up
+          ok=0
+          for i in $(seq 1 45); do
+            if curl -sf http://localhost:8002/api/health >/dev/null 2>&1; then
+              echo "ANE health OK after ~${i}s"; ok=1; break
+            fi
+            sleep 2
+          done
+          if [ "$ok" != "1" ]; then
+            echo "::error::ANE health check failed (8002 not serving)"
+            systemctl is-active ane.service || true
+            sudo journalctl -u ane.service -n 60 --no-pager || true
+            exit 1
+          fi
+        shell: bash
       - name: Verify
         run: |
+          for i in $(seq 1 10); do
+            if curl -sf http://localhost:8002/api/health; then echo; exit 0; fi
+            sleep 2
+          done
           curl -sf http://localhost:8002/api/health
 ```
+
+### CI 部署排障经验（2026-08）
+
+| 症状 | 根因 | 修复 |
+|------|------|------|
+| curl exit 7（连接拒绝） | 服务器缺 python-multipart（新功能依赖） | deploy 加依赖安装步骤 |
+| `.venv/bin/pip: 无此文件` | 虚拟环境未创建 | deploy 先 `python3 -m venv .venv` |
+| systemctl active 但端口无监听 | systemd 指向旧 venv，缺 python-multipart 启动失败循环重启 | 自愈 ExecStart 指向 workflow venv |
+| `systemctl is-active` 返回 active 但 curl 失败 | is-active 只看进程存活，不看端口就绪 | 改为 curl 轮询（90s）判断就绪 |
+
+**关键教训**：`systemctl is-active` 只判断进程是否存活，应用启动失败会循环重启（进程始终活着）。部署就绪必须**以 curl 健康检查为准**。系统日志（journalctl）若 CI 时刻无记录，说明服务根本没启动或被旧配置指向。本地调试时若 `init_db` 卡住，先删 `*.db-wal`/`*.db-shm` 残留。

@@ -1,8 +1,30 @@
 
 AI Narrative Engine (ANE)
 
-Software Architecture Specification v2.2
+Software Architecture Specification v2.3
 
+
+---
+
+修订说明（v2.2 → v2.3）— 世界观平台落地（2026-08）
+
+  本轮将 ANE 从单世界观（修仙）叙事引擎升级为通用世界观角色扮演平台：
+
+  新增能力：
+    ✅ 世界观包系统 — worldviews/<id>/ 纯 JSON/文本，作者零代码创作任意世界观
+    ✅ worldview.py loader — 扫目录注册 + 逐工件降级链（包→xianxia→引擎常量）+ 路径注入防护
+    ✅ System Prompt 双模式 — shell+kernel（外壳+通用内核）/ full（包内完整文本）
+    ✅ 声明式角色表单 form.json — 前端动态渲染 + 后端 apply_character_from_form 通用写入
+    ✅ 作者设计器 /designer — 一键生成器 + 表单/文案/选项/设定 4 个可视化编辑器
+    ✅ IP 世界观支持 — world_facts.json 权威设定注入（knowledge_mode 三档 + 冲突裁定）
+    ✅ 世界观工具链 API — generate/upload/validate/reload/delete + 通用 data 读写
+    ✅ 已内置 4 个包：xianxia_v1（修仙）/ modern_city（现代都市）/ fantasy_kingdom（西幻）/ naruto_shippuden（火影 IP）
+    ✅ 150 测试全绿，真实 LLM 验证现代都市与火影世界
+
+  架构调整：
+    - 修仙硬编码（456 处）全部世界观化，xianxia 行为逐字等价（golden 测试锁定）
+    - sessions 表新增 worldview + worldview_version 列（无损迁移自动 ADD COLUMN）
+    - 前端双页收敛：chat.html 移除，统一 app.html + character.js + designer.html
 
 ---
 

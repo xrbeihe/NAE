@@ -20,6 +20,21 @@
 
 ---
 
+## WorldSession 表（sessions）
+
+世界观平台新增两列（启动时无损迁移自动添加）：
+
+```sql
+worldview         TEXT DEFAULT 'xianxia_v1'   -- 会话绑定的世界观包 id
+worldview_version TEXT DEFAULT ''            -- 创建时钉住的包版本
+```
+
+- `worldview`：决定该会话使用哪个世界观包（加载 system_prompt/表单/约束/地理等）
+- `worldview_version`：会话创建时记录包版本；包升级时检测但不自动迁移旧会话（升级检测日志记录）
+- **迁移**：`engine.py::init_db()` 在 create_all 前用 `PRAGMA table_info(sessions)` 判断，缺列时 `ALTER TABLE ADD COLUMN ... DEFAULT`——SQLite 元数据级操作，无损、不重写既有行。已上线数据自动获得 `xianxia_v1` 默认值
+
+---
+
 ## NPC_Relationship 表
 
 ```sql

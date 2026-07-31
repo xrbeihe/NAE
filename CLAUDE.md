@@ -33,20 +33,25 @@ backend/          → 后端源码
   ane/
     main.py          FastAPI 入口
     game_engine.py   核心编排器（turn 管线）
+    worldview.py     世界观包 loader/注册表（扫目录 + 降级链 + 注入防护）
+    panels.py        主角面板配置化渲染器
     config.py        配置（JSON + env 覆盖）
     config.json      服务器/数据库/LLM 配置
-    database/        ORM 模型 + 异步引擎
-    modules/         14 个独立模块（含 npc_modeler、memory_manager）
+    database/        ORM 模型 + 异步引擎（含世界观列无损迁移）
+    modules/         15 个独立模块（含 npc_modeler、pack_generator）
     content/         7 个 JSON 模板库 + 2 个 Python 封装层
+    worldviews/      世界观包目录（xianxia_v1/modern_city/fantasy_kingdom/naruto_shippuden）
     tools/           NSFW 收割 + GUI 工具
-    api/             FastAPI 路由 + Pydantic schemas
+    api/             FastAPI 路由 + Pydantic schemas + worldview_routes
 frontend/         → 前端 SPA
   app.html           主应用（首页 NPC 总库 + 聊天界面，display 切换）
   login.html         独立登录/注册页
-  settings.html      独立用户设置页（头像/密码/清空日志）
+  settings.html      用户设置页（头像/密码/日志/设计器入口）
+  designer.html      世界观设计器（/designer 路由）
   public/
     common.js        共享工具函数（JWT、日志、颜色、NPC 格式化等）
-tests/            → 测试（pytest，87 个用例）
+    character.js     角色创建 + 世界观选择逻辑（ES5 共享）
+tests/            → 测试（pytest，150 个用例）
 data/             → SQLite 数据库文件
 docs/             → 文档
 ```
@@ -63,8 +68,11 @@ ane.bat
 # 仅后端（带热重载 ANE_RELOAD=1）
 cd backend && ANE_RELOAD=1 .venv\Scripts\python -m ane.main
 
-# 测试（108 个用例全通过）
+# 测试（150 个用例全通过）
 .venv\Scripts\pytest tests/ -v
+
+# 设计器页
+http://localhost:8002/designer
 
 # 自动备份（每 30 秒监控全目录）
 watch_backup.bat

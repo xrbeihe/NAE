@@ -22,8 +22,39 @@
 | NPCManager | `npc_manager.py` | NPC CRUD + mark_important | GameEngine |
 | WorldManager | `world_manager.py` | 世界区域 CRUD + 初始生成 + 位置层级上下文 | GameEngine |
 | **NPC Modeler** | **`npc_modeler.py`** | **结构化人物档案建模：解析 LLM 输出 + 渲染模型到 Prompt** | **GameEngine** |
+| **Worldview** | **`worldview.py`** | **世界观包 loader/注册表：扫目录 + 逐工件降级链 + 路径注入防护** | **所有模块（按世界观取配置）** |
+| **PanelRenderer** | **`panels.py`** | **主角面板配置化渲染器（按 panel.json spec）** | GameEngine, API routes |
+| **PackGenerator** | **`modules/pack_generator.py`** | **世界观包生成器：短表单 → 完整包 zip** | worldview_routes |
 | JSONLoader | `content/json_loader.py` | 中文 JSON 文件惰性加载 + 缓存 | Player/NPC/World/NSFW 模板 |
 | **Auth** | **`auth.py`** | **JWT 生成/验证 + 密码 pbkdf2_sha256 哈希 + get_current_user 依赖** | **API routes** |
+
+---
+
+## 世界观平台新增模块详情
+
+### Worldview（`worldview.py`）
+
+```python
+get(wv_id) -> Worldview            # 加载包（缓存 + 缺包降级到 xianxia_v1 + 内置兜底）
+list_worldviews() -> list[dict]    # 扫目录返回 manifest 摘要
+reload(wv_id=None)                 # 清 loader 缓存
+validate_pack(wv_id) -> {ok, errors, warnings}
+read_form / write_form / read_ui / write_ui
+read_artifact / write_artifact     # 通用白名单 JSON 工件读写
+```
+
+- **Worldview dataclass**：manifest/system_prompt/intent_keywords/constraints/world_templates/npc_templates/player_templates/panel_spec/ui/modeler_role/modeler_age_rules/events/form/world_facts
+- **降级链**：包文件存在且合法 → 默认包（xianxia_v1）该文件 → 引擎内建常量。整包缺失 → 内置 xianxia 兜底，引擎不崩溃
+- **路径注入防护**：id 仅 `^[a-z0-9_]{1,48}$`
+- 仅依赖 stdlib（叶子模块，防环导入）
+
+### PanelRenderer（`panels.py`）
+
+`render_player_panel(player, panel_spec)` — 按包 `panel.json` 的 fields spec 渲染主角面板。字段声明 kind/source（player/attrs/items/exts）/show_if/unit_attr。xianxia spec 逐字复刻原内联面板（golden 测试锁定），game_engine 与 routes 共用消除重复。
+
+### PackGenerator（`modules/pack_generator.py`）
+
+`build_pack(author) -> {path: str}` / `generate_pack_zip(author) -> bytes`。短表单（id/name/desc/genre/power/money/role/professions/places/create_button + world_setting/era/factions/taboos/npc_names/golden_fingers/event_theme/ip_based/ip_work）生成 11-13 个工件。IP 模式产出 world_facts.json 骨架。
 
 ---
 

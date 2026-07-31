@@ -16,6 +16,9 @@ worldviews/<worldview_id>/
   npc_templates.json         可选 — NPC 姓名池/身份池
   panel.json                 可选 — 主角面板字段 spec
   ui.json                    可选 — 前端文案（按钮/标签/推荐语）
+  events.json                可选 — NPC 离线演化事件池
+  form.json                  可选 — 声明式角色创建表单（无则前端回退 legacy 表单）
+  world_facts.json           可选 — IP 世界观权威设定（控制 LLM 预训练记忆使用）
   modeler/role.txt           可选 — 角色建模师 prompt 模板
   modeler/age_rules.txt      可选 — 建模年龄规则
 ```
@@ -188,6 +191,57 @@ worldviews/<worldview_id>/
 - `source`: `player`（Player 列）/ `attrs`（attributes JSON）/ `items`（背包）/ `exts`（_extensions）。
 - `show_if`: `truthy`（有值才显示）/ `nonzero`（非零才显示）。
 - `unit_attr`: 追加计量单位后缀。
+
+## form.json（声明式角色创建表单，可选）
+
+无此文件时前端回退 legacy 硬编码表单。有则前端按 spec 动态渲染、后端 `apply_character_from_form` 通用写入：
+
+```json
+{
+  "title": "创建你的忍者",
+  "fields": [
+    {"key": "name", "label": "姓名", "kind": "text", "random_button": true, "store": "player.name"},
+    {"key": "age", "label": "年龄", "kind": "number", "default": 12, "min": 10, "max": 60, "store": "attrs.age"},
+    {"key": "cultivation", "label": "忍者等级", "kind": "select", "options_from": "cultivations",
+     "hint_template": "{desc}", "allow_custom": true, "custom_label": "自定义等级", "store": "player.cultivation"},
+    {"key": "identity", "label": "身份", "kind": "select", "options_from": "identities",
+     "hint_template": "月入：{monthly_income}", "allow_custom": true,
+     "store": "attrs.identity", "derive": ["identity_desc", "clothing", "monthly_income"]},
+    {"key": "golden_finger", "label": "特殊能力", "kind": "card_grid", "options_from": "golden_fingers",
+     "allow_custom": true, "visible_if": "has_golden_fingers",
+     "option_map": {"id": "golden_finger_id", "name": "golden_finger_name", "tagline": "golden_finger_tagline", "desc": "golden_finger_desc"},
+     "store": "attrs.golden_finger_id"}
+  ]
+}
+```
+
+字段属性：
+- `kind`: `text`（+`random_button` 随机名）/ `number`（min/max）/ `select`（下拉）/ `card_grid`（卡片网格，如金手指）
+- `options_from`: 从 player_templates 取选项（cultivations/identities/backgrounds/personalities/golden_fingers）；`sects` 特殊（从世界模板）
+- `hint_template`: 解释小字，`{字段名}` 占位符从选中选项填充
+- `allow_custom` + `custom_label`: 选中 `__custom__` 时弹出文本框
+- `store`: 写入位置（`player.name`/`player.cultivation`/`player.location` 列，或 `attrs.xxx`）
+- `derive`: 选中选项后复制到 attributes 的字段列表（如 identity → clothing/monthly_income）
+- `option_map`: 卡片选项字段重命名映射（金手指 id→golden_finger_id 等）
+- `visible_if`: `has_sects` / `has_golden_fingers` 条件显隐
+
+## world_facts.json（IP 世界观权威设定，可选）
+
+基于既有作品时使用，控制 LLM 对预训练记忆的使用。每轮注入【本世界权威设定】块，声明冲突时以此为准：
+
+```json
+{
+  "knowledge_mode": "hybrid",
+  "must_follow": ["故事基于作品《火影忍者》展开", "时间线在第四次忍界大战之前"],
+  "forbidden": ["不得出现佩恩/晓组织入侵木叶"],
+  "characters": [
+    {"name": "漩涡鸣人", "desc": "九尾人柱力，木叶下忍"},
+    {"name": "宇智波佐助", "desc": "写轮眼拥有者"}
+  ]
+}
+```
+
+`knowledge_mode` 三档：`pack_only`（仅包内设定）/ `hybrid`（包内为最高权威 + 常识补全，推荐）/ `full_ip`（基于原作自由发挥）。完整指南见 [IP_WORLDVIEW.md](IP_WORLDVIEW.md)。
 
 ## ui.json
 
