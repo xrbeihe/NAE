@@ -44,6 +44,12 @@ jobs:
           echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" | sudo tee -a /etc/ane/.env
           echo "ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}" | sudo tee -a /etc/ane/.env
           sudo chmod 600 /etc/ane/.env
+      - name: Install/update dependencies
+        run: |
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -r requirements.txt
+          .venv/bin/pip install pytest-asyncio aiosqlite
+        shell: bash
       - name: Ensure systemd uses /etc/ane/.env
         run: |
           if ! grep -q 'EnvironmentFile=/etc/ane/.env' /etc/systemd/system/ane.service; then
