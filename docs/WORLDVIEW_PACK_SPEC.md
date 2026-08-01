@@ -21,6 +21,7 @@ worldviews/<worldview_id>/
   world_facts.json           可选 — IP 世界观权威设定（控制 LLM 预训练记忆使用）
   modeler/role.txt           可选 — 角色建模师 prompt 模板
   modeler/age_rules.txt      可选 — 建模年龄规则
+  modeler/schema.json        可选 — NPC 建模字段树（包级替换修仙默认 90+ 字段；无则降级 xianxia 模板）
 ```
 
 `worldview_id` 只允许 `[a-z0-9_]`，最长 48 字符（防路径注入）。

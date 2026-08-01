@@ -4,7 +4,7 @@
 
 ## 表总览
 
-9 张业务表，含关系网边表 `npc_relationships`：
+11 张业务表（v1.2 新增 2 张：开源共享库 + 评分）：
 
 | 表名 | 模型名 | 说明 |
 |------|--------|------|
@@ -17,6 +17,8 @@
 | `event_logs` | EventLog | 状态变更事件日志 |
 | `memories` | Memory | 对话/摘要/推荐/日志 三层记忆 |
 | `user_npcs` | UserNPC | 用户级 NPC 总库（跨世界共享模型数据） |
+| `worldview_shares` | WorldviewShare | 开源世界观共享库（作者推送，全用户可见） |
+| `worldview_ratings` | WorldviewRating | 开源世界观评分（1-5 星，同用户重复评覆盖） |
 
 ---
 
@@ -335,3 +337,33 @@ UNIQUE(user_id, name)
 ```
 
 用于在**用户级别**跨世界共享 NPC 模型数据。一个用户创建的 NPC 模型可导入多个世界的 NPC 实例。导入后 `NPC.source_user_npc_id` 指向此条记录。
+
+## WorldviewShare 表（开源共享库，v1.2）
+
+```sql
+id            TEXT PRIMARY KEY     -- UUID hex[:12]
+user_id       TEXT NOT NULL         -- FK → users.id（推送者）
+worldview_id  TEXT NOT NULL         -- 包 id（worldviews/<id>/ 目录）
+title         TEXT NOT NULL         -- 分享标题
+description   TEXT DEFAULT ""       -- 简介
+tags          JSON DEFAULT []       -- 标签（作者点选，≤12 个）
+version       TEXT DEFAULT ""       -- 推送时的包版本
+created_at    DATETIME
+updated_at    DATETIME
+```
+
+每个包最多一条共享记录（重新推送覆盖元数据）。`DELETE /worldviews/share` 仅作者本人可撤销。
+
+## WorldviewRating 表（开源评分，v1.2）
+
+```sql
+id            TEXT PRIMARY KEY     -- UUID hex[:12]
+user_id       TEXT NOT NULL         -- FK → users.id
+worldview_id  TEXT NOT NULL         -- 被评分的包 id
+rating        INT NOT NULL          -- 1-5 星
+created_at    DATETIME
+
+UNIQUE(user_id, worldview_id)
+```
+
+同一用户对同一包重复评分覆盖旧值。列表接口按 worldview_id 聚合 `COUNT` + `AVG`。

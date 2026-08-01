@@ -4,6 +4,7 @@ import io
 import json
 import shutil
 import zipfile
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import Response
@@ -289,3 +290,212 @@ async def delete_worldview(
     shutil.rmtree(target)
     reload_pack(worldview_id)
     return {"deleted": worldview_id}
+
+
+# ── 开源共享库（worldview sharing platform）──────────────
+# 所有已登录用户都能推送自己的世界观（公开共享）、浏览他人开源的世界观、
+# 评分，以及一键安装使用。
+
+@router.post("/share")
+async def share_worldview(
+    req: dict,
+    db: AsyncSession = Depends(get_db),
+    user = Depends(get_optional_user),
+):
+    """Push an installed worldview to the public shared library.
+
+    Body: {worldview_id, title?, description?, tags?: []}
+    Tags are free-form short labels chosen by the author.
+    """
+    from sqlalchemy import select
+    from ane.database.models import WorldviewShare
+    if not user:
+        raise HTTPException(status_code=401, detail="请先登录")
+    wv_id = (req.get("worldview_id") or "").strip()
+    if not _is_valid_id(wv_id):
+        raise HTTPException(status_code=400, detail=f"无效的世界观 ID: {wv_id!r}")
+    if wv_id == DEFAULT_WORLDVIEW_ID:
+        raise HTTPException(status_code=400, detail="默认世界观不需要开源共享")
+
+    # The pack must be installed on disk.
+    pack_dir = WORLDVIEWS_DIR / wv_id
+    if not pack_dir.is_dir():
+        raise HTTPException(status_code=404, detail=f"世界观 {wv_id} 不存在")
+
+    title = (req.get("title") or "").strip() or wv_id
+    description = (req.get("description") or "").strip()
+    tags_raw = req.get("tags") or []
+    tags = [str(t).strip() for t in tags_raw if str(t).strip()][:12]
+
+    existing = await db.execute(
+        select(WorldviewShare).where(WorldviewShare.worldview_id == wv_id)
+    )
+    share = existing.scalar_one_or_none()
+    if share:
+        # Re-push updates the share metadata (author re-publishes).
+        share.title = title
+        share.description = description
+        share.tags = tags
+        share.version = (req.get("version") or "").strip() or share.version
+        share.updated_at = datetime.utcnow()
+        share.user_id = user.id
+    else:
+        from ane.worldview import get as get_worldview
+        wv = get_worldview(wv_id)
+        share = WorldviewShare(
+            user_id=user.id,
+            worldview_id=wv_id,
+            title=title,
+            description=description,
+            tags=tags,
+            version=(req.get("version") or "").strip() or str(wv.manifest.get("version", "")),
+        )
+        db.add(share)
+    await db.commit()
+    return {"shared": wv_id, "title": title, "tags": tags}
+
+
+@router.delete("/share")
+async def unshare_worldview(
+    worldview_id: str = "",
+    db: AsyncSession = Depends(get_db),
+    user = Depends(get_optional_user),
+):
+    """Remove a worldview from the shared library (author only)."""
+    from sqlalchemy import select
+    from ane.database.models import WorldviewShare
+    if not user:
+        raise HTTPException(status_code=401, detail="请先登录")
+    wv_id = worldview_id.strip()
+    if not wv_id:
+        raise HTTPException(status_code=400, detail="缺少 worldview_id")
+    existing = await db.execute(
+        select(WorldviewShare).where(WorldviewShare.worldview_id == wv_id)
+    )
+    share = existing.scalar_one_or_none()
+    if not share:
+        raise HTTPException(status_code=404, detail=f"世界观 {wv_id} 不在共享库")
+    if share.user_id != user.id:
+        raise HTTPException(status_code=403, detail="只能撤销自己推送的世界观")
+    await db.delete(share)
+    await db.commit()
+    return {"unshared": wv_id}
+
+
+@router.get("/shared")
+async def list_shared_worldviews(
+    db: AsyncSession = Depends(get_db),
+    user = Depends(get_optional_user),
+):
+    """List all open-sourced worldviews with avg rating + rating count."""
+    from sqlalchemy import select, func
+    from ane.database.models import WorldviewShare, WorldviewRating, User
+    result = await db.execute(select(WorldviewShare).order_by(WorldviewShare.updated_at.desc()))
+    shares = result.scalars().all()
+
+    # Batch-load author names (avoid SQLAlchemy lazy-load in async — would raise MissingGreenlet).
+    author_ids = {s.user_id for s in shares}
+    author_names = {}
+    if author_ids:
+        users = await db.execute(select(User.id, User.username, User.display_name).where(User.id.in_(author_ids)))
+        for uid, uname, dname in users.fetchall():
+            author_names[uid] = dname or uname
+
+    # Aggregate ratings per worldview_id.
+    rating_rows = await db.execute(
+        select(
+            WorldviewRating.worldview_id,
+            func.count(WorldviewRating.id),
+            func.avg(WorldviewRating.rating),
+        ).group_by(WorldviewRating.worldview_id)
+    )
+    agg = {wv_id: (cnt, avg) for wv_id, cnt, avg in rating_rows.fetchall()}
+
+    # Whether the current user has installed this pack locally (worldview on disk).
+    installed_ids = {w["id"] for w in list_worldviews()}
+    # Whether the current user rated it.
+    my_ratings = set()
+    if user:
+        mine = await db.execute(
+            select(WorldviewRating.worldview_id).where(WorldviewRating.user_id == user.id)
+        )
+        my_ratings = {r[0] for r in mine.fetchall()}
+
+    items = []
+    for s in shares:
+        cnt, avg = agg.get(s.worldview_id, (0, 0))
+        author_name = author_names.get(s.user_id, "")
+        items.append({
+            "worldview_id": s.worldview_id,
+            "title": s.title or s.worldview_id,
+            "description": s.description,
+            "tags": s.tags or [],
+            "version": s.version,
+            "author": author_name,
+            "created_at": s.created_at.isoformat() if s.created_at else "",
+            "rating_count": int(cnt),
+            "avg_rating": round(float(avg), 1) if avg else 0.0,
+            "installed": s.worldview_id in installed_ids,
+            "mine": user is not None and s.user_id == user.id,
+            "my_rating": s.worldview_id in my_ratings,
+        })
+    return {"worldviews": items}
+
+
+@router.post("/shared/{worldview_id}/rate")
+async def rate_shared_worldview(
+    worldview_id: str,
+    req: dict,
+    db: AsyncSession = Depends(get_db),
+    user = Depends(get_optional_user),
+):
+    """Rate a shared worldview 1-5 stars. Re-rating replaces the old value."""
+    from sqlalchemy import select
+    from ane.database.models import WorldviewRating
+    if not user:
+        raise HTTPException(status_code=401, detail="请先登录")
+    rating = req.get("rating")
+    try:
+        rating = int(rating)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="评分必须是 1-5 的整数")
+    if rating < 1 or rating > 5:
+        raise HTTPException(status_code=400, detail="评分必须是 1-5 的整数")
+
+    existing = await db.execute(
+        select(WorldviewRating).where(
+            WorldviewRating.user_id == user.id,
+            WorldviewRating.worldview_id == worldview_id,
+        )
+    )
+    row = existing.scalar_one_or_none()
+    if row:
+        row.rating = rating
+    else:
+        db.add(WorldviewRating(user_id=user.id, worldview_id=worldview_id, rating=rating))
+    await db.commit()
+    return {"rated": worldview_id, "rating": rating}
+
+
+@router.post("/shared/{worldview_id}/install")
+async def install_shared_worldview(
+    worldview_id: str,
+    db: AsyncSession = Depends(get_db),
+    user = Depends(get_optional_user),
+):
+    """Install a shared worldview for the current user.
+
+    The pack is already on this server's disk (sharing is server-local), so
+    "install" mainly marks it as adopted — and since worldviews are global
+    packs (not per-user), installing means it becomes selectable. If the pack
+    was deleted locally meanwhile, we cannot restore it (no zip archive kept),
+    so we report that clearly.
+    """
+    if not _is_valid_id(worldview_id):
+        raise HTTPException(status_code=400, detail=f"无效的世界观 ID: {worldview_id!r}")
+    pack_dir = WORLDVIEWS_DIR / worldview_id
+    if not pack_dir.is_dir():
+        raise HTTPException(status_code=404, detail=f"世界观 {worldview_id} 不在本机（包可能已被删除）")
+    reload_pack(worldview_id)
+    return {"installed": worldview_id, "available": True}
+

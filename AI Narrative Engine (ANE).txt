@@ -578,7 +578,7 @@ Phase 1 — 核心回路（MVP）  ✅ 已完成
     ✅ Output Parser（三种 JSON 提取策略 + json_repair 修复 + 套话移除）
     ✅ Event Bus（内存路由，handler 日志级别）
     ✅ Model Adapter（6 Provider + Ollama + Token Usage Tracker）
-    ✅ Database Schema（8 张表 + ORM）
+    ✅ Database Schema（8 张表 + ORM；世界观平台已扩至 11 张：新增 worldviews 相关表，最新结构见 docs/DATABASE.md）
     ✅ NPC Modeler（结构化角色建模，90+ 字段）
     ✅ _llm_nameget（NPC 姓名提取）
     ✅ llm_summary（场景事实提取）

@@ -214,6 +214,8 @@ Token 有效期 7 天。前端存储在 `localStorage`，每次请求自动附�
 - `player_defaults` — 默认名/能力/存款单位
 - `form` — form.json（声明式表单 spec，可能为 null → 前端回退 legacy 表单）
 - `world_templates` — 世界地理（供 has_sects/has_golden_fingers 显隐判断）
+- `npc_templates` — NPC 提示库数据（姓名池/原型/quick-pick，供「新建建模NPC」弹窗）
+- `modeler_schema` — 包内 `modeler/schema.json`（NPC 建模字段树，驱动编辑弹窗动态渲染）
 
 `?worldview=` 查询参数指定包；`__any__` 会话 id 时用该参数，否则优先取会话绑定的世界观。
 
@@ -234,6 +236,18 @@ Token 有效期 7 天。前端存储在 `localStorage`，每次请求自动附�
 | GET/PUT | `/worldviews/{id}/form` | 读写 form.json（声明式角色表单） |
 | GET/PUT | `/worldviews/{id}/ui` | 读写 ui.json（按钮/标题/称呼/初始推荐） |
 | GET/PUT | `/worldviews/{id}/data/{file}` | 读写白名单 JSON 工件（player/world/npc_templates、constraints、events、world_facts 等） |
+
+### 开源世界观共享（v1.2）
+
+`/worldviews/*` 下的开源共享端点（所有登录用户可推送/评分/使用，前端：designer「📤 开源」+ 主页面「🌐 开源世界观广场」）。
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/worldviews/share` | 推送已安装包到共享库，body `{worldview_id, title?, description?, tags?: []}` |
+| DELETE | `/worldviews/share?worldview_id=` | 撤销自己的开源（仅作者本人） |
+| GET | `/worldviews/shared` | 列出所有开源包（含 avg_rating / rating_count / installed / mine / my_rating / author） |
+| POST | `/worldviews/shared/{id}/rate` | 评分 1-5，body `{rating}`（同用户重复评覆盖） |
+| POST | `/worldviews/shared/{id}/install` | 安装到本机（确认包在磁盘 + 重载 loader） |
 
 ### `POST /worldviews/generate` 请求体
 ```json

@@ -51,7 +51,7 @@ frontend/         → 前端 SPA
   public/
     common.js        共享工具函数（JWT、日志、颜色、NPC 格式化等）
     character.js     角色创建 + 世界观选择逻辑（ES5 共享）
-tests/            → 测试（pytest，150 个用例）
+tests/            → 测试（pytest，152 个用例）
 data/             → SQLite 数据库文件
 docs/             → 文档
 ```
@@ -68,7 +68,7 @@ ane.bat
 # 仅后端（带热重载 ANE_RELOAD=1）
 cd backend && ANE_RELOAD=1 .venv\Scripts\python -m ane.main
 
-# 测试（150 个用例全通过）
+# 测试（152 个用例全通过）
 .venv\Scripts\pytest tests/ -v
 
 # 设计器页
@@ -79,6 +79,16 @@ watch_backup.bat
 ```
 
 ## 功能变更记录
+
+### 🌐 开源世界观共享平台
+- **推送**：designer 便捷开发板块每个世界观卡片新增「📤 开源」按钮 → 弹窗填简介 + 点选标签（修仙/都市/西幻/科幻/冒险/日常/轻松/硬核/IP改编/无超自然）→ 推送到后端共享库
+- **广场**：主页面（app.html）新增「🌐 开源世界观广场」区块（NPC总库下方），展示所有用户开源的世界观卡片（标题/作者/简介/标签/星级评分/已安装标记）
+- **评分**：每个开源世界观支持 1-5 星评分（`worldview_ratings` 表，同用户重复评覆盖），列表显示平均分 + 人数
+- **使用**：点「▶ 使用」一键安装（安装到本机世界观池）+ 打开该世界观的角色创建，直接开新世界
+- **撤销**：作者可撤销自己的开源（「撤销开源」按钮），仅限本人
+- **数据**：新增 `worldview_shares`（共享库）+ `worldview_ratings`（评分）两表，`init_db` 自动建表
+- **API**：`POST /worldviews/share`（推送）、`DELETE /worldviews/share?worldview_id=`（撤销）、`GET /worldviews/shared`（列表含评分）、`POST /worldviews/shared/{id}/rate`（评分）、`POST /worldviews/shared/{id}/install`（安装）
+- 修复：异步下访问 `s.user` 关系触发 SQLAlchemy MissingGreenlet → 改为批量查询 author 名
 
 ### 🎨 designer 选项编辑器扩展（NPC 自定义）
 - 「📋 选项」新增 9 个 NPC tab：姓氏池/男名池/女名池/NPC性格池/修为级别池/体型池/衣着池/体质天赋池/NPC原型

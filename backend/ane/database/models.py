@@ -196,3 +196,35 @@ class UserNPC(Base):
     user = relationship("User", back_populates="user_npcs")
 
     __table_args__ = (UniqueConstraint("user_id", "name", name="uq_user_npc_name"),)
+
+
+# ── Worldview Share (开源共享库) ─────────────────────────
+
+class WorldviewShare(Base):
+    """An open-sourced worldview pushed by a user for others to browse/use."""
+    __tablename__ = "worldview_shares"
+
+    id            = Column(String, primary_key=True, default=_new_id)
+    user_id       = Column(String, ForeignKey("users.id"), nullable=False)
+    worldview_id  = Column(String, nullable=False, index=True)   # pack id on disk
+    title         = Column(String, nullable=False)
+    description   = Column(Text, default="")
+    tags          = Column(JSON, default=list)
+    version       = Column(String, default="")
+    created_at    = Column(DateTime, default=datetime.utcnow)
+    updated_at    = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User")
+
+
+class WorldviewRating(Base):
+    """A 1-5 star rating a user gives to an open-sourced worldview."""
+    __tablename__ = "worldview_ratings"
+
+    id            = Column(String, primary_key=True, default=_new_id)
+    user_id       = Column(String, ForeignKey("users.id"), nullable=False)
+    worldview_id  = Column(String, nullable=False, index=True)   # shared pack id
+    rating        = Column(Integer, nullable=False)              # 1-5
+    created_at    = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint("user_id", "worldview_id", name="uq_wv_rating"),)

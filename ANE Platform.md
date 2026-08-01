@@ -325,3 +325,55 @@ my_world.zip
 
 ### 9.5 工具链 API（已实现）
 `POST /worldviews/generate`（生成器）/ `upload`（zip 安装）/ `validate` / `reload` / `DELETE`
+
+## 10. 已实现追加（v1.1 — 自定义能力深化）
+
+v1.0 平台架构之上，本轮把"作者自定义"从表层推向引擎全链路：
+
+### 10.1 NPC 建模档案世界观化（modeler/schema.json）
+- 新增包级工件 `modeler/schema.json`：作者声明自己世界的 NPC 建模字段树，**包级全替换**修仙默认 90+ 字段
+- 建模 prompt / `_llm_cover` 增量更新 / [重要人物] 渲染统一按包 schema 组装；包未提供时降级 xianxia 模板
+- `render_model_for_prompt` 改为**通用递归渲染**：遍历 model dict 本身，任意字段（含未知分节）都能渲染进 Prompt
+- 前端 NPC 编辑弹窗按 schema 动态渲染字段树（替换第二份硬编码模板）；`GET /sessions/{id}/templates` 返回 `modeler_schema`
+- `write_artifact` 白名单放行 `modeler/schema.json` 子路径；生成器自动产出通用 schema
+
+### 10.2 NPC 提示库世界观化
+- 「新建建模NPC」弹窗的 📚 提示库（角色模板/姓名池/修为/性格/体型/衣着）从前端硬编码改为按世界观读取
+- 数据源 = 包内 `npc_templates.json`；空数组 = 作者明确"无此项"（前端隐藏对应区块）；`quick_pick_sections` 可自定义区块
+- `POST /npcs/library` 新增 `worldview` 参数，总库建模按当前世界观走包模板
+
+### 10.3 意图分类优先级修正
+- 引擎内置 CORE 意图（nsfw/ntr/travel/trade/dialogue…）兜底基础分类；包级意图插入 CORE trade 之前
+- 使世界观特有意图（work/shopping/training/quest 等）不被宽泛 CORE 抢先；修复"外卖"含"卖"被 trade 误判
+
+### 10.4 四个内置包内容完善（开箱即用）
+- **modern_city**：补 form.json、25 都市地点、12 NPC 原型、6 金手指、8 出身、4 组意图
+- **fantasy_kingdom**：6 大势力、17 地点、姓名池 28/24/24、12 原型、4 组意图
+- **naruto_shippuden**：补 modeler/schema.json、41 角色 world_facts、10 组织、10 忍者原型、4 组意图
+- **xianxia_v1**：补 4 组意图、8 事件、5 triggers
+- 数据字段对齐：backgrounds 补 `background_summary`、identities 补 `identity_desc`
+
+### 10.5 清理氛围死代码
+- `SceneContext` 移除从未赋值的 `atmosphere/weather/present_characters/perceptible_objects`；prompt_builder 对应分支删除
+- designer「地点氛围」编辑 tab 移除；包数据中 atmosphere 键清理
+
+## 11. 已实现追加（v1.2 — 开源世界观共享平台）
+
+从"作者自己做包"升级为"社区共享"：
+
+### 11.1 开源推送（designer）
+- 每个世界观卡片新增「📤 开源」按钮 → 弹窗填简介 + 点选标签（修仙/都市/西幻/科幻/冒险/日常/轻松/硬核/IP改编/无超自然）→ 推送共享库
+- 作者可撤销自己的开源（仅限本人）
+
+### 11.2 开源世界观广场（主页面）
+- 主页面 NPC总库下方新增「🌐 开源世界观广场」区块
+- 卡片展示：标题 / 作者 / 版本 / 简介 / 标签 / **星级评分** / 已安装标记
+- 点「▶ 使用」→ 一键安装 + 打开该世界观的角色创建，直接开新世界
+
+### 11.3 评分系统
+- 每个开源世界观支持 1-5 星评分（同用户重复评覆盖），列表显示平均分 + 评分人数
+
+### 11.4 数据与 API
+- 新增 `worldview_shares`（共享库）+ `worldview_ratings`（评分）两表，`init_db` 自动建表
+- API：`POST /worldviews/share`（推送）/ `DELETE /worldviews/share?worldview_id=`（撤销）/ `GET /worldviews/shared`（列表含评分）/ `POST /worldviews/shared/{id}/rate`（评分）/ `POST /worldviews/shared/{id}/install`（安装）
+- 异步注意：访问 ORM 关系会触发 SQLAlchemy MissingGreenlet，改用批量查询

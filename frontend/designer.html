@@ -225,6 +225,32 @@
   </div>
 </div>
 
+<!-- Open-source share modal -->
+<div id="share-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;width:min(480px,94vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border)">
+      <span id="share-title" style="font-size:15px;color:var(--accent)">📤 开源共享世界观</span>
+      <span onclick="closeShareModal()" style="cursor:pointer;font-size:20px;color:var(--accent-dim)">✕</span>
+    </div>
+    <div style="padding:6px 18px;border-bottom:1px solid var(--border);font-size:12px;color:var(--accent-dim)">推送后所有用户都能在「开源世界观广场」看到、评分并一键使用这个世界观。</div>
+    <div style="flex:1;overflow-y:auto;padding:12px 18px">
+      <div style="font-size:12px;color:var(--accent-dim);margin-bottom:4px">世界观 ID</div>
+      <div id="share-wv-id" style="font-size:14px;color:var(--text);font-weight:bold;margin-bottom:12px"></div>
+      <label style="display:block;margin-bottom:2px;font-size:11px;color:var(--accent-dim)">分享标题</label>
+      <input type="text" id="share-title-input" placeholder="一句话介绍这个世界观" style="width:100%;padding:8px 12px;margin-bottom:10px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px;box-sizing:border-box">
+      <label style="display:block;margin-bottom:2px;font-size:11px;color:var(--accent-dim)">简介（展示在广场卡片上）</label>
+      <textarea id="share-desc-input" placeholder="这个世界的背景、特色、适合什么玩法…" style="width:100%;padding:8px 12px;margin-bottom:10px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px;font-family:inherit;resize:vertical;min-height:80px;box-sizing:border-box;line-height:1.5"></textarea>
+      <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--accent-dim)">标签（点击选择，可多选）</label>
+      <div id="share-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px"></div>
+    </div>
+    <div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="closeShareModal()" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:8px 16px;border-radius:4px;cursor:pointer;font-size:13px">取消</button>
+      <button onclick="submitShare()" style="background:var(--accent);color:var(--panel);border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:13px">📤 推送</button>
+    </div>
+    <div id="share-msg" style="padding:0 18px 10px;font-size:12px;color:var(--accent-dim);white-space:pre-wrap"></div>
+  </div>
+</div>
+
 <script src="/public/common.js"></script>
 <script>
 // ── Auth guard ──
@@ -276,6 +302,7 @@ async function loadWorldviewList() {
             '<button onclick="openRecEditor(\'' + _esc(w.id) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">💬 文案</button>' +
             '<button onclick="openOptEditor(\'' + _esc(w.id) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">📋 选项</button>' +
             '<button onclick="openFactsEditor(\'' + _esc(w.id) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">📖 设定</button>' +
+            '<button onclick="openShareModal(\'' + _esc(w.id) + '\', \'' + _esc(w.name) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">📤 开源</button>' +
             '<button onclick="validateWorldview(\'' + _esc(w.id) + '\')" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">校验</button>' +
             '<button onclick="reloadWorldview(\'' + _esc(w.id) + '\')" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">重载</button>' +
             (isDefault ? '' : '<button onclick="deleteWorldview(\'' + _esc(w.id) + '\')" style="background:none;border:1px solid var(--danger,#8a3a3a);color:#b06060;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">删除</button>') +
@@ -330,6 +357,60 @@ async function deleteWorldview(id) {
   } catch(e) {
     frontendLog('ERROR', 'Delete failed: ' + e.message);
     resultEl.textContent = '删除失败: ' + e.message;
+  }
+}
+
+// ── 开源共享世界观 ──
+var _SHARE_TAGS = ['修仙', '都市', '西幻', '科幻', '冒险', '日常', '轻松', '硬核', 'IP改编', '无超自然'];
+var _shareState = { wvId: '', wvName: '', selectedTags: {} };
+
+function openShareModal(wvId, wvName) {
+  _shareState.wvId = wvId;
+  _shareState.wvName = wvName || wvId;
+  _shareState.selectedTags = {};
+  document.getElementById('share-wv-id').textContent = wvId + (wvName ? ' — ' + wvName : '');
+  document.getElementById('share-title-input').value = '';
+  document.getElementById('share-desc-input').value = '';
+  document.getElementById('share-msg').textContent = '';
+  // render tag chips
+  var tagsEl = document.getElementById('share-tags');
+  tagsEl.innerHTML = _SHARE_TAGS.map(function(t) {
+    return '<span onclick="toggleShareTag(this, \'' + _esc(t) + '\')" data-tag="' + _esc(t) + '" style="padding:4px 10px;border:1px solid var(--border);border-radius:14px;cursor:pointer;font-size:12px;color:var(--accent-dim);background:var(--panel)">' + _esc(t) + '</span>';
+  }).join('');
+  document.getElementById('share-overlay').style.display = 'flex';
+}
+
+function closeShareModal() { document.getElementById('share-overlay').style.display = 'none'; }
+
+function toggleShareTag(el, tag) {
+  var on = _shareState.selectedTags[tag];
+  _shareState.selectedTags[tag] = !on;
+  el.style.borderColor = !on ? 'var(--accent)' : 'var(--border)';
+  el.style.background = !on ? 'rgba(201,169,110,0.15)' : 'var(--panel)';
+  el.style.color = !on ? 'var(--accent)' : 'var(--accent-dim)';
+}
+
+async function submitShare() {
+  var msgEl = document.getElementById('share-msg');
+  var title = document.getElementById('share-title-input').value.trim() || _shareState.wvName;
+  var desc = document.getElementById('share-desc-input').value.trim();
+  var tags = Object.keys(_shareState.selectedTags).filter(function(t) { return _shareState.selectedTags[t]; });
+  msgEl.textContent = '正在推送…';
+  try {
+    var r = await apiFetch('/worldviews/share', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({worldview_id: _shareState.wvId, title: title, description: desc, tags: tags})
+    });
+    var d = await r.json();
+    if (r.ok) {
+      msgEl.textContent = '✅ 已开源推送「' + d.title + '」！所有用户现在可以在主页面「开源世界观广场」看到它。';
+      closeShareModal();
+    } else {
+      msgEl.textContent = '推送失败: ' + (d.detail || '未知错误');
+    }
+  } catch(e) {
+    msgEl.textContent = '推送失败: ' + e.message;
   }
 }
 

@@ -23,11 +23,14 @@
 |------|---------|---------|
 | ✏️ 表单 | 角色创建表单结构（字段/控件/选项来源/自定义/提示小字/排序） | `form.json` |
 | 💬 文案 | 按钮/标题/称呼 + 5 组初始推荐行动 | `ui.json` |
-| 📋 选项 | 数据表格（职业/出身/性格/身份/特殊能力/地点/地点氛围/NPC身份池） | `player_templates.json` / `world_templates.json` / `npc_templates.json` |
+| 📋 选项 | 数据表格（职业/出身/性格/身份/特殊能力/地点/NPC身份池 + 9 个 NPC 生成池 tab：姓氏池/男名池/女名池/NPC性格池/修为级别池/体型池/衣着池/体质天赋池/NPC原型） | `player_templates.json` / `world_templates.json` / `npc_templates.json` |
 | 📖 设定 | IP 世界观权威设定（知识模式/必须遵守/禁止出现/关键角色） | `world_facts.json` |
+| 📤 开源 | 推送本世界观到开源共享库（填简介 + 点选标签），所有用户可在主页面「开源世界观广场」看到/评分/使用；作者可撤销 | 共享库表 |
 | 校验 | 包完整性检查（缺文件/坏 JSON/语义） | — |
 | 重载 | 清 loader 缓存（改文件后调用；重载某世界会后默认选中它） | — |
 | 删除 | 删除包（默认包 xianxia_v1 受保护） | — |
+
+> 📋 选项支持字符串数组（姓名池等，`kind: str_list`）与对象数组（NPC原型等）两种数据形态的增删改保存；NPC 原型的 identity/personality/cultivation/behavior_note 可可视化编辑，写回 `npc_templates.json` 的 `core_archetypes`。
 
 ## 一键生成表单
 

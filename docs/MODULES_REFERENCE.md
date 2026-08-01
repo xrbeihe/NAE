@@ -1,4 +1,4 @@
-# ANE 模块参考 — 14 个独立模块 (+ Auth + JSONLoader 基础设施) 速查
+# ANE 模块参考 — 15 个独立模块 (+ Auth + JSONLoader 基础设施) 速查
 
 > 全部单例。所有模块在 `game_engine.py` 中导入并通过 turn 管线编排。
 > 模块间禁止直接耦合；交流通过 Event Bus + 方法调用（GameEngine 统一调度）。

@@ -43,8 +43,8 @@
 │       ├── migrate_users.py       # 数据库迁移脚本
 │       ├── database/
 │       │   ├── engine.py          # 异步 SQLAlchemy 引擎
-│       │   └── models.py          # ORM 模型（9 张表：users + 8 业务表）
-│       ├── modules/               # 14 个独立模块（全部单例）
+│       │   └── models.py          # ORM 模型（11 张表：users + 10 业务表，含开源共享/评分）
+│       ├── modules/               # 15 个独立模块（全部单例）
 │       │   ├── input_validator.py # 安全检查 + 意图分类 + 中文数字解析
 │       │   ├── time_manager.py    # 时间推进 + Phase 1 内联 Scheduler
 │       │   ├── narrative_constraints.py
@@ -57,7 +57,8 @@
 │       │   ├── player_manager.py   # Player CRUD + 角色创建
 │       │   ├── npc_manager.py      # NPC CRUD（无初始生成，按需创建）
 │       │   ├── npc_modeler.py      # 结构化人物档案建模（90+字段，替代 HTEM）
-│       │   └── world_manager.py    # 世界区域 CRUD + 初始生成
+│       │   ├── world_manager.py    # 世界区域 CRUD + 初始生成
+│       │   └── pack_generator.py   # 一键生成世界观包 zip
 │       ├── content/               # JSON 模板数据
 │       │   ├── world_templates.json  # 宗门/城市模板
 │       │   ├── player_templates.json # 角色创建选项
@@ -66,17 +67,20 @@
 │       ├── api/                   # FastAPI 路由
 │       │   ├── routes.py          # Session/Turn/NPC/记忆 API（认证保护）
 │       │   ├── auth_routes.py     # 注册/登录/改密 API
+│       │   ├── worldview_routes.py# 世界观工具链 + 开源共享/评分 API
 │       │   └── schemas.py
 │       └── tools/                 # 工具脚本
 │           ├── nsfw_harvest.py     # NSFW 素材收割
 │           └── portrait_harvest.py # 角色肖像收割
 ├── frontend/              # 前端 SPA（FastAPI 直接挂载）
-│   ├── app.html           # 主应用（首页 NPC 总库 + 聊天界面）
+│   ├── app.html           # 主应用（首页 NPC 总库 + 开源广场 + 聊天界面）
 │   ├── login.html         # 登录/注册
-│   ├── settings.html      # 用户设置（头像/密码/清空日志）
+│   ├── settings.html      # 用户设置（头像/密码/清空日志/设计器入口）
+│   ├── designer.html      # 世界观设计器（/designer 路由）
 │   └── public/
-│       └── common.js      # 共享工具函数（JWT、日志、颜色、NPC 格式化）
-├── tests/                 # 测试（pytest，87 个用例）
+│       ├── common.js      # 共享工具函数（JWT、日志、颜色、NPC 格式化）
+│       └── character.js   # 角色创建 + 世界观选择逻辑
+├── tests/                 # 测试（pytest，152 个用例）
 │   ├── conftest.py        # engine + db fixtures
 │   ├── test_modules.py    # 单元测试
 │   └── test_turn.py       # 集成测试
