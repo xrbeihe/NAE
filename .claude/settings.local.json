@@ -158,7 +158,13 @@
       "Bash(.venv/Scripts/python fix_app_html.py)",
       "Bash(.venv/Scripts/python check_encoding.py)",
       "Bash(.venv/Scripts/python diagnose2.py)",
-      "Bash(.venv/Scripts/python fix_encoding.py)"
+      "Bash(.venv/Scripts/python fix_encoding.py)",
+      "Bash(.venv/Scripts/python -m py_compile backend/ane/database/models.py backend/ane/modules/card_schema.py backend/ane/api/card_routes.py backend/ane/main.py)",
+      "Bash(.venv/Scripts/python -m py_compile backend/ane/companion_engine.py backend/ane/api/chat_routes.py)",
+      "Bash(.venv/Scripts/python -m pytest tests/test_companion.py -q)",
+      "Bash(.venv/Scripts/python -c ' *)",
+      "Bash(node --check _check.js)",
+      "Bash(.venv/Scripts/python -m pytest tests/ -q --ignore=tests/test_modeling_chain.py)"
     ]
   }
 }
