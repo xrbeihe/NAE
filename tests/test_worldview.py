@@ -224,6 +224,68 @@ def test_validate_xianxia_pack_ok():
     assert not report["errors"]
 
 
+# ── Structural validators (name pools / panel sources / timelines) ──
+
+def test_name_pool_duplicates_detected():
+    from ane.worldview import _check_name_pools
+    errors, warnings = [], []
+    _check_name_pools({"surnames": ["林", "林"], "given_names_male": [], "given_names_female": []},
+                      errors, warnings)
+    assert any("重复" in w for w in warnings)
+
+
+def test_name_pool_gender_overlap_detected():
+    from ane.worldview import _check_name_pools
+    errors, warnings = [], []
+    _check_name_pools({"surnames": [], "given_names_male": ["红"], "given_names_female": ["红"]},
+                      errors, warnings)
+    assert any("重叠" in w for w in warnings)
+
+
+def test_name_pool_surname_as_given_detected():
+    from ane.worldview import _check_name_pools
+    errors, warnings = [], []
+    _check_name_pools({"surnames": ["宇智波"], "given_names_male": ["宇智波"], "given_names_female": []},
+                      errors, warnings)
+    assert any("完整姓名" in w for w in warnings)
+
+
+def test_panel_source_alignment():
+    from ane.worldview import _check_panel_sources
+    panel = {"fields": [{"label": "血继限界", "key": "golden_finger_name", "source": "attrs"},
+                        {"label": "未知字段", "key": "nonexistent_key", "source": "attrs"}]}
+    pt = {"golden_fingers": [{"id": "x", "name": "写轮眼"}]}
+    errors, warnings = [], []
+    _check_panel_sources(panel, pt, errors, warnings)
+    # golden_finger_name is backed by option_map → no warning; nonexistent_key warns
+    assert not any("golden_finger_name" in w for w in warnings)
+    assert any("nonexistent_key" in w for w in warnings)
+
+
+def test_timeline_completeness():
+    from ane.worldview import _check_timelines
+    wf = {"timelines": [
+        {"id": "t1", "label": "第七班成立", "description": "…", "must_follow": [], "forbidden": [], "characters": []},
+        {"id": "t1", "label": "", "description": "", "must_follow": [], "forbidden": [], "characters": []},
+        {"id": "t3", "label": "ok", "description": "…", "forbidden": []},  # missing must_follow
+    ]}
+    errors, warnings = [], []
+    _check_timelines(wf, errors, warnings)
+    assert any("重复" in w for w in warnings)       # t1 dup id
+    assert any("缺少 label" in w for w in warnings) # t1 missing label
+    assert any("缺少 must_follow" in w for w in warnings)  # t3
+    assert not errors
+
+
+def test_naruto_timelines_pass_validator():
+    """The naruto pack's 19 timelines satisfy the completeness rules."""
+    from ane.worldview import validate_pack
+    report = validate_pack("naruto_shippuden")
+    assert report["ok"] is True
+    # no duplicate/missing timeline warnings
+    assert not any("timeline" in w or "timelines" in w for w in report["warnings"])
+
+
 @pytest.mark.asyncio
 async def test_upload_worldview_via_asgi(tmp_path):
     """End-to-end: build a minimal pack zip, upload via the ASGI app."""

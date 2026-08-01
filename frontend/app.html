@@ -411,6 +411,11 @@
     <select id="worldview-select" onchange="onWorldviewChange()" style="width:100%;padding:8px 12px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:inherit;font-size:14px;appearance:none">
       <option value="xianxia_v1">修仙世界</option>
     </select>
+    <div id="timeline-row" style="display:none">
+      <label id="timeline-label">⏳ 起始时间线</label>
+      <select id="timeline-select" onchange="onTimelineChange()" style="width:100%;padding:8px 12px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:inherit;font-size:14px;appearance:none"></select>
+      <div id="timeline-hint" class="hint" style="display:none"></div>
+    </div>
     <div id="char-fields"><!-- dynamic form fields rendered by character.js --></div>
     <div class="btn-row">
       <button class="btn-skip" onclick="skipCharacter()">先用默认，以后再说</button>
@@ -774,11 +779,43 @@ async function showCharacterModal(sid) {
   if (titleEl) { var ui = worldviewState.ui || {}; titleEl.textContent = ui.modal_title || '创建你的角色'; }
   // Render the form fields (form.json spec if present, legacy fallback otherwise)
   renderFormFields();
+  fillTimelineSelect();
   // Button text from ui.json
   var submitBtn = document.getElementById('char-submit-btn');
   if (submitBtn && worldviewState.ui && worldviewState.ui.create_button) submitBtn.textContent = worldviewState.ui.create_button;
   document.getElementById('char-modal-overlay').classList.add('visible');
   document.getElementById('char-modal-overlay').dataset.sid = sid;
+}
+
+// ── 起始时间线选择（IP 世界观 world_facts.timelines）──
+function fillTimelineSelect() {
+  var row = document.getElementById('timeline-row');
+  var sel = document.getElementById('timeline-select');
+  if (!row || !sel) return;
+  var wf = (charTemplates && charTemplates.world_facts) || null;
+  var timelines = (wf && Array.isArray(wf.timelines)) ? wf.timelines : [];
+  if (!timelines.length) { row.style.display = 'none'; return; }
+  row.style.display = 'block';
+  sel.innerHTML = '<option value="">默认时间线</option>' + timelines.map(function(t) {
+    return '<option value="' + escAttr(t.id) + '">' + escHtml(t.label || t.id) + '</option>';
+  }).join('');
+  // Show the first timeline's description by default (with default option selected show none)
+  onTimelineChange();
+}
+
+function onTimelineChange() {
+  var sel = document.getElementById('timeline-select');
+  var hint = document.getElementById('timeline-hint');
+  if (!sel || !hint) return;
+  var wf = (charTemplates && charTemplates.world_facts) || null;
+  var timelines = (wf && Array.isArray(wf.timelines)) ? wf.timelines : [];
+  var t = timelines.find(function(x) { return x.id === sel.value; });
+  if (t && t.description) {
+    hint.textContent = t.description;
+    hint.style.display = 'block';
+  } else {
+    hint.style.display = 'none';
+  }
 }
 
 function randomName() {
@@ -849,7 +886,9 @@ async function applyCharacter() {
       var btn = document.getElementById('new-session-btn'); btn.disabled = true; btn.textContent = '···';
       resetWorldState();
       addMsg('system', '⏳ 世界正在生成中，请稍候...');
-      var cr = await apiFetch('/sessions', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name: wvName, worldview: getCurrentWorldviewId()}) });
+      var timelineSel = document.getElementById('timeline-select');
+      var timeline = (timelineSel && timelineSel.value) ? timelineSel.value : '';
+      var cr = await apiFetch('/sessions', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name: wvName, worldview: getCurrentWorldviewId(), timeline: timeline}) });
       var cd = await cr.json(); sid = cd.session_id; btn.disabled = false; btn.textContent = '+';
       // 拿到 session_id 就写 localStorage，不等角色创建完成
       sessionId = sid;

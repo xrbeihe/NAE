@@ -83,3 +83,97 @@ def test_no_facts_returns_none():
     from ane.worldview import get as get_worldview
     wv = get_worldview("xianxia_v1")
     assert wv.world_facts is None
+
+
+# ── Timeline variants (world_facts.timelines) ─────────────
+
+TIMELINE_FACTS = {
+    "knowledge_mode": "hybrid",
+    "must_follow": ["基础规则"],
+    "forbidden": ["基础禁止"],
+    "characters": [{"name": "基础角色", "desc": "base"}],
+    "timelines": [
+        {
+            "id": "t1",
+            "label": "忍者学校时期",
+            "description": "九尾之乱后重建，鸣人6-11岁。",
+            "must_follow": ["鸣人是学生，未毕业"],
+            "forbidden": ["不得出现中忍考试"],
+            "characters": [{"name": "海野伊鲁卡", "desc": "鸣人的老师"}],
+        },
+        {
+            "id": "t2",
+            "label": "第七班成立",
+            "description": "鸣人12岁，卡卡西带班。",
+        },
+    ],
+}
+
+
+def test_timeline_variant_overrides_base():
+    """Selecting a timeline replaces base must_follow/forbidden/characters."""
+    from ane.game_engine import _resolve_world_facts_for_timeline
+    r = _resolve_world_facts_for_timeline(TIMELINE_FACTS, "t1")
+    assert r["must_follow"] == ["鸣人是学生，未毕业"]     # overridden
+    assert r["forbidden"] == ["不得出现中忍考试"]
+    assert r["characters"][0]["name"] == "海野伊鲁卡"
+    assert r["timeline_label"] == "忍者学校时期"          # exposed for prompt
+    assert r["timeline_description"].startswith("九尾之乱后")
+    # knowledge_mode preserved from base
+    assert r["knowledge_mode"] == "hybrid"
+
+
+def test_timeline_variant_missing_keys_keep_base():
+    """A variant that omits some keys falls back to base for those."""
+    from ane.game_engine import _resolve_world_facts_for_timeline
+    r = _resolve_world_facts_for_timeline(TIMELINE_FACTS, "t2")
+    # t2 has no must_follow/forbidden/characters → base kept
+    assert r["must_follow"] == ["基础规则"]
+    assert r["characters"][0]["name"] == "基础角色"
+    assert r["timeline_label"] == "第七班成立"
+
+
+def test_no_timeline_returns_base_unchanged():
+    from ane.game_engine import _resolve_world_facts_for_timeline
+    r = _resolve_world_facts_for_timeline(TIMELINE_FACTS, "")
+    assert r is TIMELINE_FACTS
+    assert "timeline_label" not in r
+
+
+def test_unknown_timeline_falls_back_to_base():
+    from ane.game_engine import _resolve_world_facts_for_timeline
+    r = _resolve_world_facts_for_timeline(TIMELINE_FACTS, "nope")
+    assert r is TIMELINE_FACTS
+
+
+def test_timeline_rendered_in_prompt():
+    """The chosen timeline label/description appears in the canon block."""
+    from ane.game_engine import _resolve_world_facts_for_timeline
+    r = _resolve_world_facts_for_timeline(TIMELINE_FACTS, "t1")
+    prompt = _build(r)
+    assert "当前时间线：忍者学校时期" in prompt
+    assert "九尾之乱后重建" in prompt
+
+
+def test_naruto_pack_ships_timelines():
+    """The naruto pack ships fine-grained timeline nodes (19 total)."""
+    from ane.worldview import get as get_worldview
+    wf = get_worldview("naruto_shippuden").world_facts
+    timelines = wf.get("timelines") or []
+    assert len(timelines) == 19
+    labels = {t["id"] for t in timelines}
+    expected = {
+        # 鸣人出生前
+        "warring_states", "konoha_founding", "first_war", "second_war", "third_war", "nine_tails_attack",
+        # 鸣人出生后 —— 细分关键事件
+        "academy_era", "team7_founded", "wave_mission", "chunin_exam", "sasuke_retrieval",
+        "pre_shippuden", "shippuden_return", "gaara_rescue", "akatsuki_suppression",
+        "sasuke_itachi", "pain_invasion", "five_kage_summit", "pre_fourth_war",
+    }
+    assert expected <= labels
+    # each node has the essentials
+    for t in timelines:
+        assert t.get("id") and t.get("label") and t.get("description")
+        assert isinstance(t.get("must_follow", []), list)
+        assert isinstance(t.get("forbidden", []), list)
+

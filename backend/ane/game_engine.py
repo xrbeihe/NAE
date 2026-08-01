@@ -113,6 +113,32 @@ def _resolve_model_schema(worldview: str | None = None) -> dict:
     return _MODEL_TEMPLATE
 
 
+def _resolve_world_facts_for_timeline(world_facts: dict | None, timeline_id: str) -> dict | None:
+    """Pick a timeline variant of world_facts.json for the session's timeline.
+
+    world_facts.json may declare `timelines`: [{id, label, description,
+    must_follow[], forbidden[], characters[]}]. When the session chose a
+    timeline, its variant overrides the base must_follow/forbidden/characters
+    (base knowledge_mode / label remain). Without timelines, returns the base
+    dict unchanged — behavior is identical to before.
+    """
+    if not world_facts or not timeline_id:
+        return world_facts
+    timelines = world_facts.get("timelines") or []
+    variant = next((t for t in timelines if isinstance(t, dict) and t.get("id") == timeline_id), None)
+    if not variant:
+        return world_facts
+    merged = dict(world_facts)
+    for key in ("must_follow", "forbidden", "characters"):
+        if variant.get(key):
+            merged[key] = variant[key]
+    # Expose the chosen timeline's description so the block can state it.
+    if variant.get("description"):
+        merged["timeline_label"] = variant.get("label") or timeline_id
+        merged["timeline_description"] = variant["description"]
+    return merged
+
+
 @dataclass
 class TurnResult:
     """Result of a single player turn."""
@@ -188,14 +214,15 @@ class GameEngine:
     # ── Session lifecycle ──────────────────────────────────────
 
     async def create_session(self, db: AsyncSession, user_id: str, name: str = "未命名世界",
-                             worldview: str | None = None) -> dict:
+                             worldview: str | None = None, timeline: str | None = None) -> dict:
         """Create a new world session: DB record → world → player stub → NPCs."""
         from ane.modules.time_manager import TimeManager as _tm
         from ane.worldview import get as get_worldview, DEFAULT_WORLDVIEW_ID
         wv_id = worldview or DEFAULT_WORLDVIEW_ID
         wv = get_worldview(wv_id)  # validate id — falls back to default if invalid/missing
         wv_version = (wv.manifest or {}).get("version", "")
-        session = WorldSession(user_id=user_id, name=name, worldview=wv_id, worldview_version=wv_version)
+        session = WorldSession(user_id=user_id, name=name, worldview=wv_id, worldview_version=wv_version,
+                               timeline_id=(timeline or "").strip())
         session.time_epoch = 0
         session.world_time = _tm().format_world_time(0, worldview=wv_id)
         db.add(session)
@@ -385,7 +412,10 @@ class GameEngine:
 
         # Authoritative canon (IP worldviews) — injected from world_facts.json
         _wv_obj = get_worldview(worldview or DEFAULT_WORLDVIEW_ID)
-        ctx.world_facts = _wv_obj.world_facts
+        ctx.world_facts = _resolve_world_facts_for_timeline(
+            _wv_obj.world_facts,
+            getattr(session_row, "timeline_id", "") or "",
+        )
 
         # World context
         ctx.world = WorldContext(name="青云界")

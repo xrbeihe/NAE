@@ -232,7 +232,139 @@ def validate_pack(wv_id: str) -> dict:
     if pt and not pt.get("identities"):
         errors.append("player_templates.json 缺少 identities 字段")
 
+    # ── Structural rules: NPC name pools ──
+    nt = _read_json(pack_dir / _NPC_TEMPLATES)
+    if nt:
+        _check_name_pools(nt, errors, warnings)
+
+    # ── Structural rules: panel field sources vs player_templates ──
+    panel = _read_json(pack_dir / _PANEL)
+    if panel and pt:
+        _check_panel_sources(panel, pt, errors, warnings)
+
+    # ── Structural rules: world_facts timelines completeness ──
+    wf = _read_json(pack_dir / _WORLD_FACTS)
+    if wf:
+        _check_timelines(wf, errors, warnings)
+
     return {"ok": not errors, "errors": errors, "warnings": warnings}
+
+
+def _check_name_pools(nt: dict, errors: list, warnings: list) -> None:
+    """Validate NPC name pools: surnames are surnames, name pools sane & unique."""
+    surn = nt.get("surnames") or []
+    gm = nt.get("given_names_male") or []
+    gf = nt.get("given_names_female") or []
+
+    def _dups(arr, label):
+        seen = set(); dup = []
+        for x in arr:
+            if x in seen:
+                dup.append(x)
+            seen.add(x)
+        if dup:
+            warnings.append(f"npc_templates.{label} 有重复项: {'、'.join(dict.fromkeys(dup))}")
+
+    # No duplicates within each pool
+    _dups(surn, "surnames")
+    _dups(gm, "given_names_male")
+    _dups(gf, "given_names_female")
+
+    # Surnames should be 1-4 chars (clan/family names); flag anything longer
+    # or entries that look like full given names (e.g. "我爱罗" is a given name).
+    for s in surn:
+        if len(s) > 4:
+            warnings.append(f"姓氏「{s}」超过 4 字，疑似不是姓氏")
+
+    # Male/female given-name pools should not overlap
+    overlap = set(gm) & set(gf)
+    if overlap:
+        warnings.append(f"男名池与女名池重叠: {'、'.join(sorted(overlap))}")
+
+    # Given-name entries should not equal known clan surnames (they'd be full names)
+    surn_set = set(surn)
+    full_names = [n for n in gm + gf if n in surn_set and len(n) >= 2]
+    if full_names:
+        warnings.append(f"名池包含疑似完整姓名（与姓氏池重叠）: {'、'.join(sorted(set(full_names)))}")
+
+
+def _check_panel_sources(panel: dict, pt: dict, errors: list, warnings: list) -> None:
+    """Panel fields referencing attrs should exist in player_templates-derived data.
+
+    Recognizes golden_finger option_map mappings (e.g. {id→golden_finger_id,
+    name→golden_finger_name}) so panel fields backed by card-grid options don't
+    false-positive.
+    """
+    attrs_keys = set()
+    if isinstance(pt.get("identities"), dict):
+        for v in pt["identities"].values():
+            if isinstance(v, dict):
+                attrs_keys.update(v.keys())
+    elif isinstance(pt.get("identities"), list):
+        for v in pt["identities"]:
+            if isinstance(v, dict):
+                attrs_keys.update(v.keys())
+    if isinstance(pt.get("golden_fingers"), list):
+        for g in pt["golden_fingers"]:
+            if isinstance(g, dict):
+                attrs_keys.update(g.keys())
+    # Known user-supplied attrs (filled at character creation / freeform), not
+    # template-derived — don't warn when a panel references them.
+    _KNOWN_ATTRS = {
+        "age", "gender", "personality", "identity",
+        "special_constitution", "background_summary", "identity_desc",
+        "spiritual_root", "talent_note", "clothing", "monthly_income",
+        "appearance_brief", "appearance_summary", "moral_character",
+        "sexual_knowledge", "fertility", "lifestyle_summary",
+        "current_action", "current_pose", "visible_state",
+        "height", "weight", "savings", "location_hierarchy",
+    }
+    for f in panel.get("fields", []):
+        src = f.get("source")
+        if src == "attrs" and f.get("key"):
+            key = f["key"]
+            if key in ("_savings_amount", "_savings_unit", "_extensions"):
+                continue
+            if key in _KNOWN_ATTRS:
+                continue
+            if key in attrs_keys:
+                continue
+            # Accept keys that golden_fingers option_map produces (golden_finger_*)
+            if key.startswith("golden_finger_"):
+                continue
+            warnings.append(
+                f"panel 字段「{f.get('label', key)}」引用 attrs.{key}，但 player_templates 中未见该字段"
+            )
+
+
+def _check_timelines(wf: dict, errors: list, warnings: list) -> None:
+    """Validate world_facts.timelines: each node has required keys, ids unique."""
+    timelines = wf.get("timelines")
+    if not isinstance(timelines, list):
+        return
+    ids = []
+    for i, t in enumerate(timelines):
+        if not isinstance(t, dict):
+            warnings.append(f"timelines[{i}] 不是对象")
+            continue
+        t_id = t.get("id")
+        if not t_id:
+            errors.append(f"timelines[{i}] 缺少 id")
+        elif t_id in ids:
+            warnings.append(f"timelines 中 id 重复: {t_id}")
+        else:
+            ids.append(t_id)
+        for key in ("label", "description"):
+            if not t.get(key):
+                warnings.append(f"timeline「{t_id or i}」缺少 {key}")
+        if not isinstance(t.get("must_follow"), list):
+            warnings.append(f"timeline「{t_id or i}」缺少 must_follow 数组")
+        if not isinstance(t.get("forbidden"), list):
+            warnings.append(f"timeline「{t_id or i}」缺少 forbidden 数组")
+        if not isinstance(t.get("characters"), list):
+            warnings.append(f"timeline「{t_id or i}」缺少 characters 数组")
+    if len(timelines) > 1 and not ids:
+        errors.append("timelines 中所有节点都缺少 id")
 
 
 def read_form(wv_id: str) -> dict:

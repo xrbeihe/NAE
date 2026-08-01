@@ -5,6 +5,7 @@
     {"label": "姓名", "kind": "composite", "format": "{name} ｜ {gender} ｜ {age}岁",
      "source": {"name": "player.name", "gender": "attrs.gender", "age": "attrs.age"}},
     {"label": "忍者等级", "key": "cultivation", "source": "player"},
+    {"label": "血继限界/能力", "key": "golden_finger_name", "source": "attrs", "show_if": "truthy"},
     {"label": "性格", "key": "personality", "source": "attrs", "default": "未知"},
     {"label": "身份", "key": "identity", "source": "attrs", "default": "未知"},
     {"label": "位置", "key": "location", "source": "player", "default": "未知"},

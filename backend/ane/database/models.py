@@ -44,6 +44,7 @@ class WorldSession(Base):
     name        = Column(String, default="未命名世界")
     worldview   = Column(String, default="xianxia_v1")      # worldview pack id
     worldview_version = Column(String, default="")          # pack version pinned at creation
+    timeline_id = Column(String, default="")                # selected timeline node (world_facts.timelines[].id)
     world_time  = Column(String, default="第1年·1月·1日·春·清晨")  # human-readable time label
     time_epoch  = Column(Integer, default=0)               # internal tick counter
     created_at  = Column(DateTime, default=datetime.utcnow)

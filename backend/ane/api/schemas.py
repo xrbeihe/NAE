@@ -28,6 +28,7 @@ class AuthResponse(BaseModel):
 class CreateSessionRequest(BaseModel):
     name: str = Field(default="未命名世界", max_length=100)
     worldview: str = Field(default="xianxia_v1", max_length=48)
+    timeline: str = Field(default="", max_length=48)   # selected timeline node id (world_facts.timelines)
 
 
 class CreateSessionResponse(BaseModel):

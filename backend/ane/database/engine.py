@@ -55,4 +55,9 @@ async def init_db():
                         text("ALTER TABLE sessions ADD COLUMN worldview_version TEXT NOT NULL DEFAULT ''")
                     )
                     logger.info("Migration: added sessions.worldview_version (default '')")
+                if "timeline_id" not in col_names:
+                    await conn.execute(
+                        text("ALTER TABLE sessions ADD COLUMN timeline_id TEXT NOT NULL DEFAULT ''")
+                    )
+                    logger.info("Migration: added sessions.timeline_id (default '')")
         await conn.run_sync(Base.metadata.create_all)

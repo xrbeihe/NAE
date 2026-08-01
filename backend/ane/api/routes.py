@@ -208,7 +208,7 @@ async def create_session(
                 status_code=400,
                 detail=f"世界观 {req.worldview!r} 不存在。可用: {sorted(available) or '（无）'}",
             )
-    result = await game_engine.create_session(db, user_id=user.id, name=req.name, worldview=req.worldview)
+    result = await game_engine.create_session(db, user_id=user.id, name=req.name, worldview=req.worldview, timeline=req.timeline)
     return CreateSessionResponse(**result)
 
 
@@ -516,6 +516,7 @@ async def get_character_templates(
     result["world_templates"] = wv.world_templates or {}  # for has_sects visibility etc.
     result["npc_templates"] = wv.npc_templates or {}  # NPC modeling prompt-library data (name pools / archetypes / quick picks)
     result["modeler_schema"] = wv.modeler_schema or {}  # per-worldview NPC model field tree (edits the edit dialog)
+    result["world_facts"] = wv.world_facts or {}  # IP canon (incl. timelines[] for the start-time picker)
     return result
 
 

@@ -5,7 +5,7 @@
     {"name": "忍者学校", "type": "building", "description": "木叶培养未来忍者的学校，入学考试与毕业考核决定能否成为下忍。", "attributes": {"factions": []}},
     {"name": "演习场第七区", "type": "area", "description": "第七班训练的演习场，卡卡西的千年杀教学之地。", "attributes": {"factions": []}},
     {"name": "火影岩", "type": "landmark", "description": "刻着历代火影头像的巨大岩壁，俯瞰整个木叶村。", "attributes": {"factions": []}},
-    {"name": "沙隐村", "type": "city", "description": "风之国的忍者村，我爱罗的故乡，沙漠中的要塞。", "attributes": {"law_description": "沙漠法则：强者生存", "factions": ["风影"]}},
+    {"name": "砂隐村", "type": "city", "description": "风之国的忍者村，我爱罗的故乡，沙漠中的要塞。", "attributes": {"law_description": "沙漠法则：强者生存", "factions": ["风影"]}},
     {"name": "雾隐村", "type": "city", "description": "水之国的忍者村，被称为血雾之里。", "attributes": {"factions": ["水影"]}},
     {"name": "云隐村", "type": "city", "description": "雷之国的忍者村，以强大的体术与雷遁闻名。", "attributes": {"factions": ["雷影"]}},
     {"name": "岩隐村", "type": "city", "description": "土之国的忍者村，岩壁中的要塞。", "attributes": {"factions": ["土影"]}},
@@ -38,7 +38,7 @@
   ],
   "settlements": [
     {"name": "木叶隐村", "type": "city", "description": "火之国的忍者村，村门上刻着漩涡标志。"},
-    {"name": "沙隐村", "type": "city", "description": "风之国的忍者村，沙漠中的要塞。"},
+    {"name": "砂隐村", "type": "city", "description": "风之国的忍者村，沙漠中的要塞。"},
     {"name": "雾隐村", "type": "city", "description": "水之国的忍者村，被称为血雾之里。"},
     {"name": "云隐村", "type": "city", "description": "雷之国的忍者村。"},
     {"name": "岩隐村", "type": "city", "description": "土之国的忍者村，岩壁中的要塞。"}

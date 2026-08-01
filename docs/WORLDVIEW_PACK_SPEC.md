@@ -289,3 +289,24 @@ zip 结构：顶层 `manifest.json`（或单一顶层目录内含 manifest）。
 | `create_button` | — | 角色创建按钮文案 |
 
 生成器的 system_prompt 是**世界观外壳**——通用叙事内核由引擎 `shell+kernel` 自动拼接，作者无需写"叙事原则/输出格式/禁反问"等通用内容。生成后可手改任意文件细化，改完 `reload` 生效。
+
+## 包校验规则（`POST /worldviews/{id}/validate`）
+
+`validate_pack` 除检查文件齐全/JSON 合法外，还执行以下结构性规则。作者写包时提前知晓可避免 warnings：
+
+### NPC 姓名池（npc_templates.json）
+- `surnames` / `given_names_male` / `given_names_female` 各自**无重复**
+- 男名池与女名池**不重叠**
+- 名池**不含姓氏**（避免"宇智波"同时当姓和名 → 生成完整姓名撞车）
+- 姓氏超 4 字警示（通常是非姓氏混入，但真实西方复姓如 Fitzgerald 可忽略）
+
+### panel 字段来源对齐（panel.json vs player_templates.json）
+- panel 引用 `attrs.*` 的字段需在 player_templates（identities/golden_fingers）中找到，或属于已知通用 attrs（age/gender/special_constitution/background_summary 等）
+- `golden_finger_*` 字段由 card_grid option_map 生成，视为合法
+- 此规则防止"panel 显示某字段但角色创建从未写入该值"的断链
+
+### 时间线完整性（world_facts.json 的 timelines）
+- 每个 timeline 节点必须有 `id`（全包唯一）/ `label` / `description` / `must_follow[]` / `forbidden[]` / `characters[]`
+- id 重复、缺字段会告警
+
+> 结构性规则是**通用**的，不依赖具体世界观知识，作用于所有包。语义性正确性（如某角色该在何时死亡）仍需作者按原作把关。
