@@ -32,6 +32,7 @@ class User(Base):
 
     sessions = relationship("WorldSession", back_populates="user", cascade="all, delete-orphan")
     user_npcs = relationship("UserNPC", back_populates="user", cascade="all, delete-orphan")
+    user_cards = relationship("UserCard", back_populates="user", cascade="all, delete-orphan")
 
 
 # ── WorldSession ─────────────────────────────────────────────
@@ -191,12 +192,35 @@ class UserNPC(Base):
     name          = Column(String, nullable=False)
     model_data    = Column(JSON, default=dict)
     tags          = Column(JSON, default=list)
+    worldview     = Column(String, default="xianxia_v1")   # 建模时的世界观 schema（跨世界适配用）
     created_at    = Column(DateTime, default=datetime.utcnow)
     updated_at    = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="user_npcs")
 
     __table_args__ = (UniqueConstraint("user_id", "name", name="uq_user_npc_name"),)
+
+
+class UserCard(Base):
+    """用户专属角色卡 —— 与 UserNPC 建模档案彻底分离，恋爱向 1v1 卡片。
+
+    结构化表单制作（/card-editor），不依赖 LLM 建模链。
+    card_data 使用 card_schema.CARD_SCHEMA 定义的恋爱向字段树。
+    """
+    __tablename__ = "user_cards"
+
+    id                  = Column(String, primary_key=True, default=_new_id)
+    user_id             = Column(String, ForeignKey("users.id"), nullable=False)
+    name                = Column(String, nullable=False)
+    card_data           = Column(JSON, default=dict)     # 角色卡专属 schema（恋爱向）
+    tags                = Column(JSON, default=list)
+    source_user_npc_id  = Column(String, nullable=True)  # 从总库导入的来源（迁移用）
+    created_at          = Column(DateTime, default=datetime.utcnow)
+    updated_at          = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="user_cards")
+
+    __table_args__ = (UniqueConstraint("user_id", "name", name="uq_user_card_name"),)
 
 
 # ── Worldview Share (开源共享库) ─────────────────────────

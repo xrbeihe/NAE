@@ -279,6 +279,8 @@
   <div onclick="goHome()" style="width:36px;height:36px;border-radius:50%;background:var(--input-bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;flex-shrink:0" title="返回主页">🏠</div>
   <h1 onclick="goHome()">⚔ AI Narrative Engine</h1>
   <div style="margin-left:auto;display:flex;align-items:center;gap:6px;position:relative">
+    <button onclick="location.href='/chat'" style="background:var(--accent);color:var(--panel);border:none;border-radius:4px;padding:6px 12px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:bold;flex-shrink:0" title="1v1 陪伴对话">💬 1v1 对话</button>
+    <button onclick="location.href='/card-editor'" style="background:transparent;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:6px 12px;cursor:pointer;font-size:13px;font-family:inherit;flex-shrink:0" title="角色卡制作">🃏 角色卡</button>
     <div id="user-avatar" onclick="toggleUserMenu()" style="width:30px;height:30px;border-radius:50%;background:var(--accent);color:var(--panel);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;overflow:hidden;flex-shrink:0;border:1px solid var(--border)">🧑</div>
     <div id="user-menu" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:4px;min-width:140px;z-index:500;box-shadow:0 4px 12px rgba(0,0,0,0.4)">
       <button onclick="location.href='/settings'" style="display:block;width:100%;padding:8px 12px;background:none;border:none;color:var(--text);cursor:pointer;font-size:13px;text-align:left;border-radius:4px">⚙️ 用户设置</button>
@@ -1825,7 +1827,6 @@ async function homeNpcEdit(name) {
   // (xianxia default fallback); existing model values are overlaid on top.
   var md = npc.model_data || {};
   var schemaTpl = (charTemplates && charTemplates.modeler_schema) ? charTemplates.modeler_schema : null;
-  var tmpl = schemaTpl ? JSON.parse(JSON.stringify(schemaTpl)) : {"basic":{"name":"","race":"","gender":"","age":"","height":"","cultivation":"","identity":"","faction":"","position":""},"appearance":{"overall_impression":"","body_proportion":"","aura":"","face":{"shape":"","features":"","eyes":"","eyebrows":"","nose":"","lips":"","expression_habit":""},"skin":{"color":"","luster":"","fineness":""},"hair":{"length":"","style":"","color":"","ornament":""},"torso":"","chest":{"size":"","shape":"","fullness":""},"waist":{"muscle_line":"","slimness":"","softness":""},"buttocks":{"size":"","curve":""},"legs":{"length":"","muscle_tone":"","thighs":""},"feet":{"shape":"","size":"","barefoot":false},"hands":{"fingers":"","back":""}},"voice":{"timbre":"","speed":"","volume":""},"attire":{"clothing":"","jewelry":""},"equipment":[{"name":"","description":"","position":""}],"behavior":{"stance":"","sitting":"","gait":"","smile":"","mannerisms":""},"speech_style":{"word_habits":"","particles":"","speech_rhythm":"","catchphrase":"","battle_cry":"","address_player":"","address_others":"","when_angry":""},"combat_style":{"preference":"","weapon_usage":"","spirit_power_signature":""},"personality":{"core":"","values":"","principles":"","fears":"","likes":"","obsession":""},"background":{"history":"","major_events":"","faction_affiliation":"","family":""},"cultivation":{"spiritual_root":"","special_constitution":"","techniques":"","divine_powers":"","ring_storage":"","wealth":""},"knowledge_bounds":{"knows":[],"does_not_know":[],"suspicious_of":[]},"attitude_to_player":{"surface":"","true_feelings":"","relationship_trend":""},"relationships":{"father":"","mother":"","spouse":"","master":"","senior_brother":"","senior_sister":"","junior_brother":"","junior_sister":"","teacher":"","superior":"","subordinate":"","friends":[],"enemies":[],"lover":"","fiance":"","beloved":"","rival":"","pursuer":""},"nsfw":{"is_virgin":true,"fertility":"","desire_toward_target":"","rejection_toward_target":"","male_genital":"","female_genital":""}};
   // Note: schema nodes may carry {"label": "…", "type": …} wrappers. Unwrap to
   // the raw default value so renderFields can iterate it like before.
   function unwrapSchema(node) {
@@ -1840,21 +1841,32 @@ async function homeNpcEdit(name) {
     }
     return node;
   }
-  tmpl = unwrapSchema(tmpl);
-  // Ensure required sections exist even if schema omits them (deepMerge needs both sides dicts)
-  if (md.relationships && !tmpl.relationships) tmpl.relationships = {};
-  if (md.attitude_to_player && !tmpl.attitude_to_player) tmpl.attitude_to_player = {};
-  if (md.knowledge_bounds && !tmpl.knowledge_bounds) tmpl.knowledge_bounds = {};
-  // Merge: use template as base, overlay existing values
-  function deepMerge(t, d) {
-    for (var k in t) {
-      if (k in d) {
-        if (typeof t[k] === 'object' && t[k] !== null && !Array.isArray(t[k]) && typeof d[k] === 'object' && d[k] !== null) deepMerge(t[k], d[k]);
-        else t[k] = d[k];
+  var cleanedSchema = schemaTpl ? unwrapSchema(JSON.parse(JSON.stringify(schemaTpl))) : null;
+  // Build the field tree from the NPC's OWN model first, so fields created
+  // under a different worldview (its provenance schema) stay visible/editable.
+  // Then union in the current schema's fields the NPC lacks, so the form still
+  // offers blank inputs for sections the NPC hasn't got yet.
+  var tmpl = (md && typeof md === 'object' && Object.keys(md).length)
+    ? JSON.parse(JSON.stringify(md))
+    : null;
+  function addMissingFields(t, s) {
+    if (!s || typeof s !== 'object') return;
+    for (var k in s) {
+      if (k === 'model_version') continue;
+      if (!(k in t)) {
+        t[k] = JSON.parse(JSON.stringify(s[k]));
+      } else if (t[k] && typeof t[k] === 'object' && !Array.isArray(t[k]) &&
+                 s[k] && typeof s[k] === 'object' && !Array.isArray(s[k])) {
+        addMissingFields(t[k], s[k]);
       }
     }
   }
-  deepMerge(tmpl, md);
+  if (tmpl && cleanedSchema) addMissingFields(tmpl, cleanedSchema);
+  if (!tmpl) tmpl = cleanedSchema ? JSON.parse(JSON.stringify(cleanedSchema)) : {"basic":{"name":"","race":"","gender":"","age":"","height":"","cultivation":"","identity":"","faction":"","position":""},"appearance":{"overall_impression":"","body_proportion":"","aura":"","face":{"shape":"","features":"","eyes":"","eyebrows":"","nose":"","lips":"","expression_habit":""},"skin":{"color":"","luster":"","fineness":""},"hair":{"length":"","style":"","color":"","ornament":""},"torso":"","chest":{"size":"","shape":"","fullness":""},"waist":{"muscle_line":"","slimness":"","softness":""},"buttocks":{"size":"","curve":""},"legs":{"length":"","muscle_tone":"","thighs":""},"feet":{"shape":"","size":"","barefoot":false},"hands":{"fingers":"","back":""}},"voice":{"timbre":"","speed":"","volume":""},"attire":{"clothing":"","jewelry":""},"equipment":[{"name":"","description":"","position":""}],"behavior":{"stance":"","sitting":"","gait":"","smile":"","mannerisms":""},"speech_style":{"word_habits":"","particles":"","speech_rhythm":"","catchphrase":"","battle_cry":"","address_player":"","address_others":"","when_angry":""},"combat_style":{"preference":"","weapon_usage":"","spirit_power_signature":""},"personality":{"core":"","values":"","principles":"","fears":"","likes":"","obsession":""},"background":{"history":"","major_events":"","faction_affiliation":"","family":""},"cultivation":{"spiritual_root":"","special_constitution":"","techniques":"","divine_powers":"","ring_storage":"","wealth":""},"knowledge_bounds":{"knows":[],"does_not_know":[],"suspicious_of":[]},"attitude_to_player":{"surface":"","true_feelings":"","relationship_trend":""},"relationships":{"father":"","mother":"","spouse":"","master":"","senior_brother":"","senior_sister":"","junior_brother":"","junior_sister":"","teacher":"","superior":"","subordinate":"","friends":[],"enemies":[],"lover":"","fiance":"","beloved":"","rival":"","pursuer":""},"nsfw":{"is_virgin":true,"fertility":"","desire_toward_target":"","rejection_toward_target":"","male_genital":"","female_genital":""}};
+  // Ensure required sections exist even if schema omits them
+  if (md.relationships && !tmpl.relationships) tmpl.relationships = {};
+  if (md.attitude_to_player && !tmpl.attitude_to_player) tmpl.attitude_to_player = {};
+  if (md.knowledge_bounds && !tmpl.knowledge_bounds) tmpl.knowledge_bounds = {};
   // ── 旧字段 → 新字段 数据迁移 ──
   (function migrate(m) {
     var app = m.appearance || {};

@@ -60,4 +60,13 @@ async def init_db():
                         text("ALTER TABLE sessions ADD COLUMN timeline_id TEXT NOT NULL DEFAULT ''")
                     )
                     logger.info("Migration: added sessions.timeline_id (default '')")
+            # Non-destructive migration for user_npcs.worldview (library NPC
+            # provenance — used to render/edit with the correct schema).
+            lib_cols = await conn.execute(text("PRAGMA table_info(user_npcs)"))
+            lib_col_names = {row[1] for row in lib_cols.fetchall()}
+            if lib_col_names and "worldview" not in lib_col_names:
+                await conn.execute(
+                    text("ALTER TABLE user_npcs ADD COLUMN worldview TEXT NOT NULL DEFAULT 'xianxia_v1'")
+                )
+                logger.info("Migration: added user_npcs.worldview (default 'xianxia_v1')")
         await conn.run_sync(Base.metadata.create_all)

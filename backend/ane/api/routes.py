@@ -738,7 +738,10 @@ async def npc_modeling_confirm(
         )
         if model_data:
             game_engine._deep_merge(existing_model, model_data)
-            existing_model["model_version"] = "1.0"
+            # Preserve the model's current version — incremental updates never
+            # downgrade structure (a 1.1 model must stay 1.1, not become 1.0).
+            if not existing_model.get("model_version"):
+                existing_model["model_version"] = "1.1"
             lts["model"] = existing_model
             db_npc.long_term_state = lts
             basic = existing_model.get("basic", {})
@@ -1044,6 +1047,7 @@ async def list_npc_library(
             "name": n.name,
             "model_data": n.model_data if isinstance(n.model_data, dict) and n.model_data.get("model_version") else {},
             "tags": n.tags or [],
+            "worldview": getattr(n, "worldview", None) or "xianxia_v1",
         })
     logger.info(f"[npc-lib] LIST: user={user.id[:12]} count={len(npcs)}")
     return {"npcs": npcs}
@@ -1083,7 +1087,7 @@ async def create_npc_library(
     )
     player_name = "玩家"
 
-    # 4. Run full modeling
+    # 4. Run full modeling (worldview = the library NPC's provenance schema)
     model_data = await game_engine._run_npc_modeling(
         db, npc_name, req.input, temp_npc,
         session_id="", user_id=user.id,
@@ -1103,11 +1107,13 @@ async def create_npc_library(
         name=npc_name,
         model_data=final_model,
         tags=req.tags or [],
+        worldview=worldview or "xianxia_v1",
     )
     db.add(user_npc)
     await db.commit()
-    logger.info(f"[npc-lib] CREATE: user={user.id[:12]} name={npc_name}")
-    return {"name": npc_name, "model_data": model_data, "tags": req.tags or []}
+    logger.info(f"[npc-lib] CREATE: user={user.id[:12]} name={npc_name} worldview={worldview or 'xianxia_v1'}")
+    return {"name": npc_name, "model_data": model_data, "tags": req.tags or [],
+            "worldview": worldview or "xianxia_v1"}
 
 
 @_lib_router.put("/npcs/library/{name}")
@@ -1130,8 +1136,8 @@ async def update_npc_library(
         raise HTTPException(status_code=404, detail=f"NPC「{name}」不在总库中")
 
     if req.model_data is not None:
-        # Direct replace — from manual edit
-        req.model_data["model_version"] = "1.0"
+        # Direct replace — from manual edit (full structure from the editor)
+        req.model_data["model_version"] = "1.1"
         user_npc.model_data = req.model_data
         if req.tags is not None:
             user_npc.tags = req.tags
@@ -1146,15 +1152,19 @@ async def update_npc_library(
         raise HTTPException(status_code=400, detail="NPC没有建模数据，请先建模")
 
     # Run incremental update (AI merge)
-    # Library NPCs are cross-world; use the default (xianxia) schema as the
-    # structural reference — the existing model drives the actual merge.
+    # Library NPCs are cross-world; the provenance schema (stored at create
+    # time) drives the merge structure — the existing model still wins.
+    lib_wv = getattr(user_npc, "worldview", None) or "xianxia_v1"
     updates = await game_engine._llm_cover(
         name, req.input, existing_model,
         user_id=user.id, session_id="",
+        worldview=lib_wv,
     )
     if updates:
         game_engine._deep_merge(existing_model, updates)
-        existing_model["model_version"] = "1.0"
+        # Preserve current version — incremental updates never downgrade.
+        if not existing_model.get("model_version"):
+            existing_model["model_version"] = "1.1"
         user_npc.model_data = existing_model
 
         # Sync to all session NPCs that came from this library entry

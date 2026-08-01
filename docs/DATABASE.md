@@ -330,13 +330,15 @@ user_id       TEXT NOT NULL         -- FK → users.id
 name          TEXT NOT NULL         -- 角色名（同 user 下唯一）
 model_data    JSON DEFAULT {}       -- 结构化模型数据（同 npc_modeler schema）
 tags          JSON DEFAULT []       -- 用户自定义标签
+worldview     TEXT DEFAULT 'xianxia_v1' -- 建模时的世界观包 id（跨世界编辑/增量更新用）
 created_at    DATETIME
 updated_at    DATETIME
 
 UNIQUE(user_id, name)
 ```
 
-用于在**用户级别**跨世界共享 NPC 模型数据。一个用户创建的 NPC 模型可导入多个世界的 NPC 实例。导入后 `NPC.source_user_npc_id` 指向此条记录。
+- `worldview` 记录该总库 NPC 建模时的世界观包 id（v1.3 新增，启动时无损迁移加列）。编辑弹窗按此渲染字段树、AI 增量更新按此取 schema——总库是跨世界的，记录归属保证用正确的结构读写。
+- 用于在**用户级别**跨世界共享 NPC 模型数据。一个用户创建的 NPC 模型可导入多个世界的 NPC 实例。导入后 `NPC.source_user_npc_id` 指向此条记录。
 
 ## WorldviewShare 表（开源共享库，v1.2）
 
