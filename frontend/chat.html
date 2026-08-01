@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>1v1 陪伴对话</title>
+<style>
+  :root {
+    --bg: #1a1410; --panel: #231d16; --border: #3a3026; --text: #d4c8b8;
+    --accent: #c9a96e; --accent-dim: #6b5a3e; --danger: #8b4545; --input-bg: #2a2218;
+    --color-ai: #d4c8b8; --color-user: #e8dcc8;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: "Microsoft YaHei", "SimSun", serif;
+    background: var(--bg); color: var(--text);
+    height: 100vh; height: 100dvh;
+    display: flex; flex-direction: column;
+  }
+  #header {
+    background: var(--panel); border-bottom: 1px solid var(--border);
+    padding: 10px 20px; display: flex; align-items: center; gap: 16px; flex-shrink: 0;
+  }
+  #header h1 { font-size: 18px; color: var(--accent); white-space: nowrap; cursor: pointer; }
+  #header h1:hover { opacity: 0.85; }
+  .cmd-btn {
+    background: transparent; border: 1px solid var(--border); color: var(--accent-dim);
+    padding: 4px 10px; border-radius: 3px; cursor: pointer; font-size: 12px; font-family: inherit;
+  }
+  .cmd-btn:hover { border-color: var(--accent); color: var(--accent); }
+  #session-name { color: var(--text); font-size: 14px; flex: 1; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* ── 会话列表 ── */
+  #home-page { display: flex; flex-direction: column; flex: 1; overflow-y: auto; padding: 20px 32px; background: var(--bg); min-height: 0; }
+  #home-page h2 { color: var(--accent); margin-bottom: 8px; font-size: 16px; }
+  #home-page h3 { color: var(--accent-dim); margin: 16px 0 8px; font-size: 13px; }
+  .char-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .char-card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px; cursor: pointer; transition: border-color .15s;
+  }
+  .char-card:hover { border-color: var(--accent); }
+  .char-card .cname { font-size: 14px; color: var(--accent); font-weight: bold; }
+  .char-card .cmeta { font-size: 11px; color: var(--accent-dim); margin-top: 4px; }
+  .sess-list { display: flex; flex-direction: column; gap: 8px; }
+  .sess-item {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+    padding: 10px 14px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+  }
+  .sess-item:hover { border-color: var(--accent); }
+  .sess-item .sname { font-size: 14px; }
+  .sess-item .sdel { color: var(--danger); font-size: 12px; cursor: pointer; padding: 0 6px; }
+  .sess-item .sdel:hover { text-decoration: underline; }
+
+  /* ── 聊天 ── */
+  #chat-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  #chat {
+    flex: 1; min-height: 0; overflow-y: auto; padding: 16px 20px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  #chat::-webkit-scrollbar { width: 6px; }
+  #chat::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  .msg-wrapper { display: flex; flex-direction: row; align-items: flex-start; gap: 8px; max-width: 100%; }
+  .msg-wrapper.user { flex-direction: row-reverse; margin-left: auto; }
+  .msg-wrapper .msg { max-width: 85%; padding: 8px 12px; border-radius: 6px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; }
+  .msg-wrapper.user .msg { background: var(--accent-dim); color: var(--color-user); }
+  .msg-wrapper.ai .msg { background: var(--panel); border: 1px solid var(--border); color: var(--color-ai); }
+  .msg-avatar { width: 30px; height: 30px; border-radius: 50%; overflow: hidden; flex-shrink: 0; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 14px; background: var(--panel); color: var(--accent-dim); }
+  .msg-emotion { font-size: 10px; color: var(--accent-dim); margin-top: 2px; }
+
+  #input-area { flex-shrink: 0; display: flex; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--border); background: var(--bg); }
+  #input-area textarea {
+    flex: 1; resize: none; height: 48px; padding: 10px 12px;
+    background: var(--input-bg); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; font-family: inherit; font-size: 14px;
+  }
+  #input-area textarea:focus { outline: none; border-color: var(--accent); }
+  #send-btn {
+    padding: 0 20px; background: var(--accent); color: #1a1410; border: none;
+    border-radius: 6px; cursor: pointer; font-size: 14px; font-family: inherit; font-weight: bold;
+  }
+  #send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .empty-tip { color: var(--accent-dim); text-align: center; margin-top: 40%; font-size: 13px; }
+
+  /* ── 记忆弹窗 ── */
+  #mem-modal {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100;
+    display: none; align-items: center; justify-content: center;
+  }
+  #mem-modal.open { display: flex; }
+  #mem-modal .modal-box {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    width: min(520px, calc(100vw - 32px)); max-height: 70vh;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  #mem-modal .modal-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+  }
+  #mem-modal .modal-head h3 { color: var(--accent); font-size: 15px; }
+  #mem-modal .modal-close { cursor: pointer; color: var(--accent-dim); font-size: 16px; padding: 0 4px; }
+  #mem-modal .modal-close:hover { color: var(--accent); }
+  #mem-modal .modal-body { padding: 12px 16px; overflow-y: auto; flex: 1; }
+  #mem-modal .mem-item {
+    padding: 8px 0; border-bottom: 1px dashed var(--border);
+    font-size: 13px; line-height: 1.7;
+  }
+  #mem-modal .mem-item:last-child { border-bottom: none; }
+  #mem-modal .mem-item .mem-turn { color: var(--accent-dim); font-size: 11px; display: block; margin-bottom: 2px; }
+  #mem-modal .mem-empty { color: var(--accent-dim); text-align: center; padding: 24px 0; font-size: 13px; }
+  #mem-modal .mem-tip { color: var(--accent-dim); font-size: 11px; padding: 8px 16px; border-top: 1px solid var(--border); }
+
+  /* ── 主动搭话设置弹窗 ── */
+  #nudge-modal {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100;
+    display: none; align-items: center; justify-content: center;
+  }
+  #nudge-modal.open { display: flex; }
+  #nudge-modal .modal-box {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    width: min(420px, calc(100vw - 32px)); max-height: 70vh;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  #nudge-modal .modal-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+  }
+  #nudge-modal .modal-head h3 { color: var(--accent); font-size: 15px; }
+  #nudge-modal .modal-close { cursor: pointer; color: var(--accent-dim); font-size: 16px; padding: 0 4px; }
+  #nudge-modal .modal-close:hover { color: var(--accent); }
+  #nudge-modal .modal-body { padding: 16px; }
+  #nudge-modal .nudge-desc { color: var(--accent-dim); font-size: 12px; margin-bottom: 12px; line-height: 1.6; }
+  #nudge-modal .nudge-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  #nudge-modal .nudge-row label { font-size: 13px; color: var(--text); white-space: nowrap; }
+  #nudge-modal .nudge-row input[type=range] { flex: 1; accent-color: var(--accent); }
+  #nudge-modal .nudge-val { font-size: 13px; color: var(--accent); white-space: nowrap; min-width: 60px; text-align: right; }
+  #nudge-modal .nudge-presets { display: flex; gap: 8px; margin-top: 12px; }
+  #nudge-modal .nudge-presets button {
+    flex: 1; background: transparent; border: 1px solid var(--border); color: var(--accent-dim);
+    padding: 6px 0; border-radius: 4px; cursor: pointer; font-size: 12px; font-family: inherit;
+  }
+  #nudge-modal .nudge-presets button:hover { border-color: var(--accent); color: var(--accent); }
+  #nudge-modal .nudge-presets button.active { border-color: var(--accent); color: var(--accent); background: rgba(201,169,110,0.1); }
+
+  /* ── ≤768px：平板 / 大屏手机 ── */
+  @media (max-width: 768px) {
+    #header { padding: 8px 12px; gap: 8px; }
+    #header h1 { font-size: 15px; }
+    .cmd-btn { padding: 3px 8px; font-size: 11px; }
+    #session-name { font-size: 13px; }
+    #home-page { padding: 14px 16px; }
+    .char-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+    #chat { padding: 12px 12px; gap: 10px; }
+    #chat .msg { font-size: 12.5px; }
+    #input-area { padding: 10px 12px; gap: 6px; }
+    #input-area textarea { height: 44px; font-size: 13px; }
+    #send-btn { padding: 0 16px; font-size: 13px; }
+    .msg-avatar { width: 26px; height: 26px; font-size: 12px; }
+  }
+
+  /* ── ≤480px：小屏手机 ── */
+  @media (max-width: 480px) {
+    #header .cmd-btn { padding: 2px 6px; font-size: 10px; }
+    #session-name { max-width: 35vw; }
+    #home-page { padding: 10px 10px; }
+    #home-page h2 { font-size: 14px; }
+    #home-page h3 { font-size: 12px; }
+    .char-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .char-card { padding: 10px; }
+    .char-card .cname { font-size: 13px; }
+    .sess-item { padding: 8px 10px; }
+    #chat { padding: 10px 8px; gap: 8px; }
+    #chat .msg { font-size: 12px; }
+    .msg-wrapper .msg { max-width: 92%; }
+    .msg-emotion { font-size: 9px; }
+    #input-area { padding: 8px 8px; }
+    #send-btn { padding: 0 14px; }
+    .empty-tip { margin-top: 30%; }
+    /* 弹窗 */
+    #mem-modal .modal-box, #nudge-modal .modal-box { width: calc(100vw - 20px); }
+  }
+</style>
+</head>
+<body>
+
+<header id="header">
+  <h1 onclick="location.href='/'" title="返回首页">🏠</h1>
+  <span id="session-name"></span>
+  <button class="cmd-btn" onclick="showHome()">💬 会话</button>
+  <button class="cmd-btn" onclick="location.href='/card-editor'">🃏 角色卡</button>
+  <button class="cmd-btn" id="mem-btn" onclick="showMemories()" style="display:none;">💭 TA记得</button>
+  <button class="cmd-btn" id="nudge-btn" onclick="showNudgeSettings()" style="display:none;">⚙️ 主动</button>
+  <button class="cmd-btn" onclick="logout()">退出</button>
+</header>
+
+<!-- 会话列表页 -->
+<div id="home-page">
+  <h2>选择一个角色开始对话</h2>
+
+  <h3>✨ 我的角色卡</h3>
+  <div id="char-grid" class="char-grid"></div>
+
+  <h3>📁 历史对话</h3>
+  <div id="sess-list" class="sess-list"></div>
+</div>
+
+<!-- 聊天页 -->
+<div id="chat-panel" style="display:none;">
+  <div id="chat"></div>
+  <div id="input-area">
+    <textarea id="input" placeholder="说点什么…… (Enter 发送，Shift+Enter 换行)"></textarea>
+    <button id="send-btn" onclick="sendMsg()">发送</button>
+  </div>
+</div>
+
+<!-- TA 记得什么 弹窗 -->
+<div id="mem-modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>💭 TA 记得的事</h3>
+      <span class="modal-close" onclick="closeMemories()">✕</span>
+    </div>
+    <div class="modal-body" id="mem-body"></div>
+    <div class="mem-tip">这些是 TA 在相处中主动记住的瞬间——你们共同经历、TA 对你的印象。</div>
+  </div>
+</div>
+
+<!-- 主动搭话设置 弹窗 -->
+<div id="nudge-modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>⚙️ TA 多主动找你</h3>
+      <span class="modal-close" onclick="closeNudgeSettings()">✕</span>
+    </div>
+    <div class="modal-body" id="nudge-body"></div>
+  </div>
+</div>
+
+<script src="/public/common.js"></script>
+<script>
+const S = { currentSession: null, currentName: '', busy: false };
+
+function logout() { clearToken(); location.href = '/login'; }
+
+function showHome() {
+  S.currentSession = null;
+  stopNudgePolling();
+  document.getElementById('chat-panel').style.display = 'none';
+  document.getElementById('home-page').style.display = 'flex';
+  document.getElementById('mem-btn').style.display = 'none';
+  document.getElementById('nudge-btn').style.display = 'none';
+  closeMemories();
+  closeNudgeSettings();
+  loadHome();
+}
+function showChat(sid, name) {
+  S.currentSession = sid; S.currentName = name;
+  document.getElementById('home-page').style.display = 'none';
+  document.getElementById('chat-panel').style.display = 'flex';
+  document.getElementById('mem-btn').style.display = '';
+  document.getElementById('nudge-btn').style.display = '';
+  document.getElementById('session-name').textContent = name;
+  document.getElementById('input').value = '';
+  closeMemories();
+  closeNudgeSettings();
+  loadHistory(sid);
+  startNudgePolling();
+}
+
+function showMemories() {
+  const body = document.getElementById('mem-body');
+  body.innerHTML = '<div class="mem-empty">加载中…</div>';
+  document.getElementById('mem-modal').classList.add('open');
+  if (!S.currentSession) { body.innerHTML = '<div class="mem-empty">暂无记忆</div>'; return; }
+  apiFetch('/chat/sessions/' + S.currentSession + '/memories')
+    .then(r => r.json())
+    .then(d => {
+      const mems = d.memories || [];
+      if (!mems.length) { body.innerHTML = '<div class="mem-empty">TA 还没有记下什么特别的事。<br>多相处、多创造值得记住的瞬间，TA 会慢慢记住你。</div>'; return; }
+      body.innerHTML = mems.map(m =>
+        `<div class="mem-item"><span class="mem-turn">第 ${m.turn} 轮</span>${escHtml(m.content)}</div>`
+      ).join('');
+    })
+    .catch(() => { body.innerHTML = '<div class="mem-empty">加载失败，请重试</div>'; });
+}
+function closeMemories() { document.getElementById('mem-modal').classList.remove('open'); }
+
+// ── 主动搭话设置 ──
+const NUDGE_PRESETS = [
+  { label: '粘人', min: 1, max: 5, seconds: 10 * 60 },
+  { label: '适中', min: 6, max: 10, seconds: 30 * 60 },
+  { label: '含蓄', min: 11, max: 15, seconds: 60 * 60 },
+  { label: '高冷', min: 16, max: 20, seconds: 6 * 3600 },
+];
+function fmtDuration(sec) {
+  if (sec < 60) return Math.round(sec) + ' 秒';
+  if (sec < 3600) return Math.round(sec / 60) + ' 分钟';
+  return (sec / 3600).toFixed(1) + ' 小时';
+}
+async function showNudgeSettings() {
+  const body = document.getElementById('nudge-body');
+  document.getElementById('nudge-modal').classList.add('open');
+  body.innerHTML = '<div style="color:var(--accent-dim);text-align:center;padding:16px">加载中…</div>';
+  if (!S.currentSession) return;
+  try {
+    const res = await apiFetch('/chat/sessions/' + S.currentSession + '/nudge-settings');
+    const d = await res.json();
+    const cur = d.idle_seconds;
+    // 找当前档位
+    let activeIdx = -1;
+    NUDGE_PRESETS.forEach((p, i) => {
+      if (cur >= p.min * 60 && cur <= p.max * 60) activeIdx = i;
+    });
+    if (activeIdx === -1) { // 默认按最近档
+      activeIdx = NUDGE_PRESETS.findIndex(p => cur <= p.max * 60);
+      if (activeIdx === -1) activeIdx = NUDGE_PRESETS.length - 1;
+    }
+    body.innerHTML = `
+      <div class="nudge-desc">TA 隔多久会主动来找你。越粘人，TA 主动得越频繁。</div>
+      <div class="nudge-row"><label>主动频率</label>
+        <input type="range" id="nudge-range" min="1" max="20" value="${Math.round(cur / 60)}" oninput="updateNudgeLabel()">
+        <span class="nudge-val" id="nudge-val"></span>
+      </div>
+      <div class="nudge-presets">
+        ${NUDGE_PRESETS.map((p, i) => `<button class="${i === activeIdx ? 'active' : ''}" onclick="setNudgePreset(${i})">${p.label}</button>`).join('')}
+      </div>
+      <div class="nudge-desc" style="margin-top:12px;color:var(--accent-dim);font-size:11px">改动即时生效。最低档 = TA 几乎一直主动找你。</div>
+    `;
+    updateNudgeLabel();
+    // 滑块变化保存
+    document.getElementById('nudge-range').onchange = saveNudgeSetting;
+  } catch(e) { body.innerHTML = '<div class="mem-empty">加载失败</div>'; }
+}
+function updateNudgeLabel() {
+  const r = document.getElementById('nudge-range');
+  const v = document.getElementById('nudge-val');
+  v.textContent = fmtDuration(r.value * 60);
+}
+function setNudgePreset(i) {
+  const p = NUDGE_PRESETS[i];
+  document.querySelectorAll('#nudge-modal .nudge-presets button').forEach((b, bi) => b.classList.toggle('active', bi === i));
+  const r = document.getElementById('nudge-range');
+  r.value = Math.round(p.seconds / 60);
+  updateNudgeLabel();
+  saveNudgeSetting();
+}
+async function saveNudgeSetting() {
+  const r = document.getElementById('nudge-range');
+  const sec = r.value * 60;
+  try {
+    await apiFetch('/chat/sessions/' + S.currentSession + '/nudge-settings', {
+      method: 'PUT', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ idle_seconds: sec }),
+    });
+  } catch(e) { /* 静默 */ }
+}
+function closeNudgeSettings() { document.getElementById('nudge-modal').classList.remove('open'); }
+
+async function loadHome() {
+  const grid = document.getElementById('char-grid');
+  const list = document.getElementById('sess-list');
+  grid.innerHTML = ''; list.innerHTML = '';
+  try {
+    const [cs, ss] = await Promise.all([
+      apiFetch('/chat/characters').then(r => r.json()),
+      apiFetch('/chat/sessions').then(r => r.json()),
+    ]);
+    (cs.characters || []).forEach(c => {
+      const isCard = c.source === 'card';
+      const meta = [c.basic.gender, c.basic.identity, c.basic.cultivation].filter(Boolean).join(' · ');
+      const relBadge = c.initial_relationship ? `<div class="cmeta" style="color:var(--accent)">💞 ${escHtml(c.initial_relationship)}${c.clinginess ? ' · 主动' + escHtml(c.clinginess) : ''}</div>` : '';
+      const el = document.createElement('div');
+      el.className = 'char-card';
+      el.innerHTML = `<div class="cname">${isCard ? '🃏 ' : ''}${escHtml(c.name)}</div><div class="cmeta">${escHtml(meta || '—')}</div>${relBadge}`;
+      el.onclick = () => startChat(c.id, c.name, isCard);
+      grid.appendChild(el);
+    });
+    (ss.sessions || []).forEach(s => {
+      const el = document.createElement('div');
+      el.className = 'sess-item';
+      el.innerHTML = `<span class="sname">${escHtml(s.name)}</span><span class="sdel">✕</span>`;
+      el.querySelector('.sname').onclick = () => showChat(s.session_id, s.name);
+      el.querySelector('.sdel').onclick = async (e) => {
+        e.stopPropagation();
+        if (!confirm('删除这个对话？')) return;
+        await apiFetch('/chat/sessions/' + s.session_id, { method: 'DELETE' });
+        loadHome();
+      };
+      list.appendChild(el);
+    });
+    if (!(cs.characters || []).length) grid.innerHTML = '<div class="empty-tip">还没有角色卡，请先回主页面在 NPC 总库创建并建模一个角色</div>';
+  } catch(e) { console.error(e); }
+}
+
+async function startChat(id, name, isCard) {
+  const body = isCard ? { card_id: id, name: name + ' 的对话' } : { npc_id: id, name: name + ' 的对话' };
+  const res = await apiFetch('/chat/sessions', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) { alert('开启失败'); return; }
+  const d = await res.json();
+  showChat(d.session_id, d.name);
+}
+
+async function loadHistory(sid) {
+  const chat = document.getElementById('chat');
+  chat.innerHTML = '<div class="empty-tip">（开始你们的对话吧）</div>';
+  try {
+    const res = await apiFetch('/chat/sessions/' + sid);
+    const d = await res.json();
+    chat.innerHTML = '';
+    (d.history || []).forEach(m => appendMsg(m.role, m.content));
+    chat.scrollTop = chat.scrollHeight;
+  } catch(e) { console.error(e); }
+}
+
+function appendMsg(role, content) {
+  const chat = document.getElementById('chat');
+  const empty = chat.querySelector('.empty-tip');
+  if (empty) empty.remove();
+  const wrap = document.createElement('div');
+  wrap.className = 'msg-wrapper ' + (role === 'user' ? 'user' : 'ai');
+  const avatar = document.createElement('div');
+  avatar.className = 'msg-avatar';
+  avatar.textContent = role === 'user' ? '你' : (S.currentName || '她').charAt(0);
+  const bubble = document.createElement('div');
+  bubble.className = 'msg';
+  bubble.textContent = content;
+  wrap.appendChild(avatar);
+  wrap.appendChild(bubble);
+  chat.appendChild(wrap);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+// ── 主动搭话轮询 ──
+let nudgeTimer = null;
+function startNudgePolling() {
+  stopNudgePolling();
+  if (!S.currentSession) return;
+  nudgeTimer = setInterval(pollNudge, 30000);
+  // 打开会话时先查一次（新会话开场白）
+  setTimeout(pollNudge, 1500);
+}
+function stopNudgePolling() { if (nudgeTimer) { clearInterval(nudgeTimer); nudgeTimer = null; } }
+async function pollNudge() {
+  if (!S.currentSession || S.busy) return;
+  try {
+    const res = await apiFetch('/chat/sessions/' + S.currentSession + '/nudge');
+    if (!res.ok) return;
+    const d = await res.json();
+    if (d.nudge && d.nudge.reply) {
+      appendMsg('ai', d.nudge.reply);
+    }
+  } catch(e) { /* 轮询失败静默 */ }
+}
+
+async function sendMsg() {
+  if (S.busy || !S.currentSession) return;
+  const input = document.getElementById('input');
+  const text = input.value.trim();
+  if (!text) return;
+  S.busy = true;
+  document.getElementById('send-btn').disabled = true;
+  appendMsg('user', text);
+  input.value = '';
+
+  try {
+    const res = await apiFetch('/chat/sessions/' + S.currentSession + '/message', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ input: text }),
+    });
+    if (!res.ok) { appendMsg('ai', '（出错了，请重试）'); return; }
+    const d = await res.json();
+    const bubble = document.createElement('div');
+    bubble.className = 'msg-wrapper ai';
+    const avatar = document.createElement('div');
+    avatar.className = 'msg-avatar';
+    avatar.textContent = (S.currentName || '她').charAt(0);
+    const inner = document.createElement('div');
+    const msg = document.createElement('div');
+    msg.className = 'msg';
+    msg.textContent = d.reply;
+    inner.appendChild(msg);
+    if (d.emotion) {
+      const em = document.createElement('div');
+      em.className = 'msg-emotion';
+      em.textContent = '［' + d.emotion + '］';
+      inner.appendChild(em);
+    }
+    bubble.appendChild(avatar);
+    bubble.appendChild(inner);
+    document.getElementById('chat').appendChild(bubble);
+    document.getElementById('chat').scrollTop = document.getElementById('chat').scrollHeight;
+  } catch(e) {
+    appendMsg('ai', '（请求失败，请检查网络）');
+  } finally {
+    S.busy = false;
+    document.getElementById('send-btn').disabled = false;
+    input.focus();
+  }
+}
+
+document.getElementById('input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); }
+});
+
+// 启动
+if (!isLoggedIn()) location.href = '/login';
+loadHome();
+</script>
+</body>
+</html>

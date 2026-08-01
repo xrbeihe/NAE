@@ -341,6 +341,14 @@ app.include_router(auth_router)
 from ane.api.worldview_routes import router as worldview_router  # noqa: E402
 app.include_router(worldview_router)
 
+# 1v1 companion chat (independent subsystem, does not enter world pipeline)
+from ane.api.chat_routes import router as chat_router  # noqa: E402
+app.include_router(chat_router)
+
+# Character card maker (independent of NPC modeling chain)
+from ane.api.card_routes import router as card_router  # noqa: E402
+app.include_router(card_router)
+
 _static_dir = Path(__file__).parent.parent.parent / "frontend"
 
 # ── Multi-page routes ──
@@ -362,13 +370,13 @@ async def settings_page():
 async def designer_page():
     return FileResponse(str(_static_dir / "designer.html"))
 
-# chat.html was merged into app.html — redirect legacy paths for old bookmarks.
-from fastapi.responses import RedirectResponse
+@app.get("/chat", response_class=FileResponse)
+async def chat_page():
+    return FileResponse(str(_static_dir / "chat.html"))
 
-@app.get("/chat")
-@app.get("/chat.html")
-async def legacy_chat_redirect():
-    return RedirectResponse(url="/")
+@app.get("/card-editor", response_class=FileResponse)
+async def card_editor_page():
+    return FileResponse(str(_static_dir / "card_editor.html"))
 
 if _static_dir.exists():
     app.mount("/", StaticFiles(directory=str(_static_dir), html=False), name="static")

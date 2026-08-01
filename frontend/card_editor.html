@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>角色卡制作</title>
+<style>
+  :root {
+    --bg: #1a1410; --panel: #231d16; --border: #3a3026; --text: #d4c8b8;
+    --accent: #c9a96e; --accent-dim: #6b5a3e; --danger: #8b4545; --input-bg: #2a2218;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: "Microsoft YaHei", "SimSun", serif;
+    background: var(--bg); color: var(--text);
+    height: 100vh; height: 100dvh; display: flex; flex-direction: column;
+  }
+  #header {
+    background: var(--panel); border-bottom: 1px solid var(--border);
+    padding: 10px 20px; display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+  }
+  #header h1 { font-size: 17px; color: var(--accent); white-space: nowrap; cursor: pointer; }
+  .cmd-btn {
+    background: transparent; border: 1px solid var(--border); color: var(--accent-dim);
+    padding: 4px 10px; border-radius: 3px; cursor: pointer; font-size: 12px; font-family: inherit;
+  }
+  .cmd-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .cmd-btn.primary { background: var(--accent); color: var(--panel); border: none; font-weight: bold; }
+  .cmd-btn.primary:hover { opacity: 0.85; }
+
+  #layout { flex: 1; display: flex; overflow: hidden; min-height: 0; }
+  /* 左栏：卡片列表 */
+  #sidebar {
+    width: 260px; flex-shrink: 0; border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; overflow-y: auto; background: var(--bg);
+  }
+  #sidebar .sb-head { padding: 14px 14px 8px; display: flex; justify-content: space-between; align-items: center; }
+  #sidebar .sb-head h2 { font-size: 14px; color: var(--accent); }
+  .card-item {
+    padding: 10px 14px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background .1s;
+  }
+  .card-item:hover { background: var(--panel); }
+  .card-item.active { background: var(--panel); border-left: 3px solid var(--accent); }
+  .card-item .ci-name { font-size: 14px; color: var(--text); font-weight: bold; }
+  .card-item .ci-meta { font-size: 11px; color: var(--accent-dim); margin-top: 3px; }
+  .card-item .ci-tags { font-size: 10px; color: var(--accent-dim); margin-top: 3px; }
+  .ci-del { float: right; color: var(--danger); font-size: 12px; cursor: pointer; }
+
+  /* 右栏：编辑器 */
+  #editor { flex: 1; overflow-y: auto; padding: 18px 24px; min-width: 0; }
+  #editor .ed-head { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  #editor .ed-head input[type=text] {
+    flex: 0 0 200px; padding: 6px 10px; background: var(--input-bg); border: 1px solid var(--border);
+    border-radius: 4px; color: var(--text); font-size: 14px; font-family: inherit;
+  }
+  #editor .ed-head .name-label { color: var(--accent-dim); font-size: 13px; }
+  #editor .ed-head .spacer { flex: 1; }
+  #editor .ed-head .tags-input { flex: 0 0 220px; }
+  .field-row { display: flex; align-items: center; gap: 8px; margin: 3px 0; padding-left: 12px; min-height: 28px; }
+  .field-row label {
+    flex: 0 0 96px; color: var(--accent-dim); font-size: 12px; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+  }
+  .field-row input[type=text], .field-row select {
+    flex: 1; max-width: 560px; padding: 5px 8px; background: var(--input-bg);
+    border: 1px solid var(--border); border-radius: 3px; color: var(--text); font-size: 13px; font-family: inherit;
+  }
+  .field-row textarea {
+    flex: 1; max-width: 560px; padding: 5px 8px; background: var(--input-bg);
+    border: 1px solid var(--border); border-radius: 3px; color: var(--text); font-size: 13px; font-family: inherit; resize: vertical;
+  }
+  .field-row input:focus, .field-row select:focus, .field-row textarea:focus { outline: none; border-color: var(--accent); }
+  .section-title {
+    font-size: 13px; color: var(--accent); margin: 14px 0 6px; font-weight: bold;
+    border-bottom: 1px solid var(--border); padding-bottom: 3px;
+  }
+  .section-hint { font-size: 11px; color: var(--accent-dim); margin: 2px 0 8px; }
+  .empty-editor { color: var(--accent-dim); text-align: center; margin-top: 20%; font-size: 13px; }
+
+  /* 预览 */
+  #preview-box {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+    padding: 14px 16px; margin-top: 18px; white-space: pre-wrap; font-size: 12.5px; line-height: 1.7;
+  }
+  #preview-box .pv-title { color: var(--accent); font-size: 13px; margin-bottom: 8px; }
+
+  @media (max-width: 768px) {
+    #sidebar { width: 200px; }
+    #editor { padding: 12px 14px; }
+    #editor .ed-head { flex-wrap: wrap; }
+    #editor .ed-head input[type=text] { flex-basis: 100%; }
+    #editor .ed-head .tags-input { flex-basis: 100%; }
+  }
+  @media (max-width: 480px) {
+    #layout { flex-direction: column; }
+    #sidebar { width: 100%; max-height: 30vh; border-right: none; border-bottom: 1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+
+<header id="header">
+  <h1 onclick="location.href='/'" title="返回首页">🏠 ANE</h1>
+  <button class="cmd-btn" onclick="location.href='/chat'">💬 1v1 对话</button>
+  <button class="cmd-btn primary" onclick="location.href='/card-editor'">🃏 角色卡</button>
+  <span style="flex:1"></span>
+  <button class="cmd-btn" onclick="logout()">退出</button>
+</header>
+
+<div id="layout">
+  <!-- 左栏：卡片列表 -->
+  <div id="sidebar">
+    <div class="sb-head">
+      <h2>🃏 我的角色卡</h2>
+      <button class="cmd-btn primary" onclick="newCard()">＋ 新建</button>
+    </div>
+    <div id="card-list"></div>
+  </div>
+
+  <!-- 右栏：编辑器 -->
+  <div id="editor">
+    <div class="empty-editor" id="empty-hint">选择左侧角色卡编辑，或点「＋ 新建」开始制作</div>
+    <div id="editor-body" style="display:none">
+      <div class="ed-head">
+        <span class="name-label">名称</span>
+        <input type="text" id="card-name" placeholder="角色名称">
+        <span class="spacer"></span>
+        <span class="name-label">标签</span>
+        <input type="text" class="tags-input" id="card-tags" placeholder="逗号分隔，如: 温柔,古风">
+        <button class="cmd-btn primary" onclick="saveCard()">💾 保存</button>
+        <button class="cmd-btn" onclick="deleteCard()">🗑 删除</button>
+      </div>
+      <div id="form-fields"></div>
+      <button class="cmd-btn" id="preview-toggle" onclick="togglePreview()">👁 预览</button>
+      <div id="preview-box" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<script src="/public/common.js"></script>
+<script>
+const S = { cards: [], schema: null, labels: {}, selects: {}, currentId: null, cardData: {}, previewOn: false };
+
+function logout() { clearToken(); location.href = '/login'; }
+
+// ── 加载 schema + 卡片列表 ──
+async function init() {
+  if (!isLoggedIn()) { location.href = '/login'; return; }
+  try {
+    const [sRes, cRes] = await Promise.all([
+      apiFetch('/cards/schema').then(r => r.json()),
+      apiFetch('/cards').then(r => r.json()),
+    ]);
+    S.schema = sRes.schema;
+    S.labels = sRes.labels || {};
+    S.selects = sRes.selects || {};
+    S.cards = cRes.cards || [];
+    renderCardList();
+  } catch(e) { console.error(e); }
+}
+
+function renderCardList() {
+  const list = document.getElementById('card-list');
+  if (!S.cards.length) { list.innerHTML = '<div style="color:var(--accent-dim);font-size:12px;padding:14px">还没有角色卡</div>'; return; }
+  list.innerHTML = S.cards.map(c => `
+    <div class="card-item ${c.id === S.currentId ? 'active' : ''}" onclick="selectCard('${c.id}')">
+      <span class="ci-del" onclick="event.stopPropagation();confirmDelete('${c.id}')">✕</span>
+      <div class="ci-name">${escHtml(c.name)}</div>
+      <div class="ci-meta">${c.initial_relationship ? '💞 ' + escHtml(c.initial_relationship) : ''}${c.clinginess ? ' · 主动' + escHtml(c.clinginess) : ''}</div>
+      ${c.tags && c.tags.length ? '<div class="ci-tags">' + c.tags.map(t => '#' + escHtml(t)).join(' ') + '</div>' : ''}
+    </div>`).join('');
+}
+
+// ── 新建 / 选择 / 保存 / 删除 ──
+function newCard() {
+  S.currentId = null;
+  S.cardData = deepClone(S.schema);
+  document.getElementById('card-name').value = '';
+  document.getElementById('card-tags').value = '';
+  document.getElementById('empty-hint').style.display = 'none';
+  document.getElementById('editor-body').style.display = 'block';
+  renderForm();
+}
+
+async function selectCard(id) {
+  S.currentId = id;
+  try {
+    const d = await apiFetch('/cards/' + id).then(r => r.json());
+    S.cardData = deepMerge(deepClone(S.schema), d.card_data || {});
+    document.getElementById('card-name').value = d.name;
+    document.getElementById('card-tags').value = (d.tags || []).join(', ');
+    document.getElementById('empty-hint').style.display = 'none';
+    document.getElementById('editor-body').style.display = 'block';
+    renderForm();
+    renderCardList(); // 更新 active 高亮
+  } catch(e) { console.error(e); }
+}
+
+async function saveCard() {
+  const name = document.getElementById('card-name').value.trim();
+  if (!name) { alert('请填写角色名称'); return; }
+  collectForm();  // S.cardData 更新为表单值
+  const tags = document.getElementById('card-tags').value.split(',').map(s => s.trim()).filter(Boolean);
+  const body = JSON.stringify({ name: name, card_data: S.cardData, tags: tags });
+  try {
+    if (S.currentId) {
+      await apiFetch('/cards/' + S.currentId, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: body });
+    } else {
+      const r = await apiFetch('/cards', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: body });
+      const d = await r.json();
+      S.currentId = d.id;
+    }
+    await init();  // 刷新列表
+    alert('已保存');
+  } catch(e) { console.error(e); alert('保存失败'); }
+}
+
+async function deleteCard() {
+  if (!S.currentId) return;
+  if (!confirm('删除这张角色卡？')) return;
+  await apiFetch('/cards/' + S.currentId, { method: 'DELETE' });
+  S.currentId = null;
+  document.getElementById('editor-body').style.display = 'none';
+  document.getElementById('empty-hint').style.display = 'block';
+  await init();
+}
+function confirmDelete(id) { S.currentId = id; deleteCard(); }
+
+// ── 表单渲染（递归，复用 app.html 的 renderFields 机制 + select/字符串数组增强）──
+function renderForm() {
+  const body = document.getElementById('form-fields');
+  body.innerHTML = renderFields(S.cardData, 0, '');
+  renderPreview();
+}
+
+function renderFields(obj, depth, sectionName) {
+  let html = '';
+  for (const key in obj) {
+    const val = obj[key];
+    const label = S.labels[key] || key;
+    const path = sectionName ? sectionName + '.' + key : key;
+
+    if (Array.isArray(val)) {
+      // 字符串数组 → 逗号分隔 textarea
+      html += `<div style="margin:6px 0;padding-left:${depth * 12}px">
+        <div style="font-size:12px;color:var(--accent-dim);margin-bottom:2px">${label}（逗号分隔）</div>
+        <div class="field-row"><textarea data-path="${path}" rows="1" style="flex:1">${escHtml((val||[]).join(', '))}</textarea></div>
+      </div>`;
+      continue;
+    }
+    if (typeof val === 'object' && val !== null) {
+      if (depth === 0) {
+        html += `<div class="section-title">${label}</div>`;
+      } else if (depth === 1) {
+        html += `<div style="font-size:12px;color:var(--accent-dim);margin:8px 0 2px;padding-left:${depth * 12}px">${label}</div>`;
+      }
+      html += renderFields(val, depth + 1, path);
+      continue;
+    }
+    // 叶子
+    const displayVal = (val === '' || val === undefined || val === null) ? '' : String(val);
+    const isSelect = S.selects[path];
+    if (isSelect) {
+      html += `<div class="field-row" style="padding-left:${depth * 12}px">
+        <label>${label}</label><select data-path="${path}">
+          ${isSelect.map(opt => `<option value="${escAttr(opt)}" ${opt === displayVal ? 'selected' : ''}>${escHtml(opt)}</option>`).join('')}
+        </select></div>`;
+    } else if (displayVal.length > 60) {
+      html += `<div class="field-row" style="padding-left:${depth * 12}px">
+        <label>${label}</label><textarea data-path="${path}" rows="2">${escHtml(displayVal)}</textarea></div>`;
+    } else {
+      html += `<div class="field-row" style="padding-left:${depth * 12}px">
+        <label>${label}</label><input type="text" data-path="${path}" value="${escAttr(displayVal)}"></div>`;
+    }
+  }
+  return html;
+}
+
+// ── 收集表单值 → S.cardData ──
+function collectForm() {
+  // 文本/下拉
+  document.querySelectorAll('#form-fields input[data-path], #form-fields textarea[data-path], #form-fields select[data-path]').forEach(el => {
+    const path = el.getAttribute('data-path').split('.');
+    let target = S.cardData;
+    for (let i = 0; i < path.length - 1; i++) {
+      if (!target[path[i]] || typeof target[path[i]] !== 'object') target[path[i]] = {};
+      target = target[path[i]];
+    }
+    const key = path[path.length - 1];
+    if (Array.isArray(target[key])) {
+      // 字符串数组：逗号分隔还原
+      target[key] = (el.value || '').split(/[,，]/).map(s => s.trim()).filter(Boolean);
+    } else {
+      target[key] = el.value;
+    }
+  });
+}
+
+// ── 预览 ──
+function togglePreview() {
+  collectForm();
+  S.previewOn = !S.previewOn;
+  renderPreview();
+}
+function renderPreview() {
+  const box = document.getElementById('preview-box');
+  if (!S.previewOn) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  // 用 S.cardData 生成镜像 _render_companion_card 的文本（简版）
+  const d = S.cardData;
+  const id = d.identity || {}, rel = d.initial_relationship || {}, rb = d.relationship_behavior || {}, cl = d.clinginess || {}, op = d.opening || {}, pers = d.personality || {}, sp = d.speech_style || {}, appr = d.appearance || {};
+  const lines = [];
+  const idParts = [];
+  if (id.name) idParts.push('姓名: ' + id.name);
+  ['gender','age','occupation'].forEach(k => { if (id[k]) idParts.push(k + ': ' + id[k]); });
+  if (id.persona) idParts.push('人设: ' + id.persona);
+  if (idParts.length) lines.push('【身份】\n' + idParts.join('、'));
+  if (id.background) lines.push('【背景】\n' + id.background);
+  const apprLines = ['overall_impression','face','eyes','hair','build','dress_style'].map(k => appr[k]).filter(Boolean);
+  if (apprLines.length) lines.push('【外貌】\n' + apprLines.join('；'));
+  const persLines = [['核心',pers.core],['价值观',pers.values],['小怪癖',pers.quirks],['喜欢',pers.likes],['讨厌',pers.dislikes],['害怕',pers.fears]].filter(p => p[1]).map(p => p[0] + ': ' + p[1]);
+  if (persLines.length) lines.push('【性格】\n' + persLines.join('\n'));
+  const spLines = [['语气',sp.tone],['口头禅',sp.catchphrases],['语癖',sp.verbal_ticks],['对你的称呼',sp.address_you],['说话习惯',sp.speech_habit]].filter(p => p[1]).map(p => p[0] + ': ' + p[1]);
+  if (spLines.length) lines.push('【说话方式】\n' + spLines.join('\n'));
+  const relLines = ['关系类型: ' + (rel.type || '陌生人')];
+  if (rel.history) relLines.push('关系背景: ' + rel.history);
+  if (rel.current_mood) relLines.push('开场态度: ' + rel.current_mood);
+  lines.push('【你们的关系·开场基调】\n' + relLines.join('\n'));
+  const rbLines = [['表达爱意',rb.expressing_affection],['吃醋',rb.jealousy],['生气',rb.anger_behavior],['雷区',rb.boundaries]].filter(p => p[1]).map(p => p[0] + ': ' + p[1]);
+  if (rb.intimate_terms && rb.intimate_terms.length) rbLines.push('亲密称呼: ' + rb.intimate_terms.join('、'));
+  if (rbLines.length) lines.push('【关系中的行为】\n' + rbLines.join('\n'));
+  lines.push('【主动程度】\n主动程度: ' + (cl.level || '适中') + (cl.notes ? '（' + cl.notes + '）' : ''));
+  if (op.greeting) {
+    let opLine = '开场白: ' + op.greeting;
+    if (op.follow_up) opLine += ' → ' + op.follow_up;
+    lines.push('【开场白】\n' + opLine);
+  }
+  box.innerHTML = '<div class="pv-title">👁 预览（进入对话的角色设定）</div>' + escHtml(lines.join('\n\n'));
+}
+
+// ── 工具 ──
+function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
+function deepMerge(base, over) {
+  const out = JSON.parse(JSON.stringify(base));
+  for (const k in over) {
+    if (out[k] && typeof out[k] === 'object' && !Array.isArray(out[k]) && typeof over[k] === 'object' && !Array.isArray(over[k])) {
+      out[k] = deepMerge(out[k], over[k]);
+    } else { out[k] = JSON.parse(JSON.stringify(over[k])); }
+  }
+  return out;
+}
+
+init();
+</script>
+</body>
+</html>
