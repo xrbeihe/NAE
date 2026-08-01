@@ -287,13 +287,25 @@ async function loadWorldviewList() {
     if (!r.ok) { listEl.innerHTML = '加载失败'; return; }
     var d = await r.json();
     _worldviews = d.worldviews || [];
+    // Load which packs I have open-sourced (so the card can offer 下架 instead of 开源).
+    var sharedIds = {};
+    try {
+      var sr = await apiFetch('/worldviews/shared');
+      if (sr.ok) {
+        var sd = await sr.json();
+        (sd.worldviews || []).forEach(function(w) {
+          if (w.mine) sharedIds[w.worldview_id] = w;
+        });
+      }
+    } catch(e) {}
     if (!_worldviews.length) { listEl.innerHTML = '<div style="color:var(--accent-dim);font-size:12px">（无已安装世界观）</div>'; return; }
     listEl.innerHTML = _worldviews.map(function(w) {
       var isDefault = (w.id === 'xianxia_v1');
+      var shared = sharedIds[w.id];
       return '<div style="border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-bottom:8px">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">' +
           '<div style="min-width:0">' +
-            '<div style="font-size:13px;color:var(--text)">' + _esc(w.name) + (isDefault ? ' <span style="color:var(--accent-dim);font-size:11px">(默认)</span>' : '') + '</div>' +
+            '<div style="font-size:13px;color:var(--text)">' + _esc(w.name) + (isDefault ? ' <span style="color:var(--accent-dim);font-size:11px">(默认)</span>' : '') + (shared ? ' <span style="color:var(--accent);font-size:11px">(已开源)</span>' : '') + '</div>' +
             '<div style="font-size:11px;color:var(--accent-dim);margin-top:2px">' + _esc(w.id) + ' · v' + _esc(w.version || '?') + '</div>' +
             '<div style="font-size:11px;color:var(--accent-dim);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _esc(w.description || '') + '</div>' +
           '</div>' +
@@ -302,7 +314,9 @@ async function loadWorldviewList() {
             '<button onclick="openRecEditor(\'' + _esc(w.id) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">💬 文案</button>' +
             '<button onclick="openOptEditor(\'' + _esc(w.id) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">📋 选项</button>' +
             '<button onclick="openFactsEditor(\'' + _esc(w.id) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">📖 设定</button>' +
-            '<button onclick="openShareModal(\'' + _esc(w.id) + '\', \'' + _esc(w.name) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">📤 开源</button>' +
+            (shared
+              ? '<button onclick="unshareWorldview(\'' + _esc(w.id) + '\', \'' + _esc(shared.title || w.name) + '\')" style="background:none;border:1px solid var(--danger,#8a3a3a);color:#b06060;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">🚫 下架</button>'
+              : '<button onclick="openShareModal(\'' + _esc(w.id) + '\', \'' + _esc(w.name) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">📤 开源</button>') +
             '<button onclick="validateWorldview(\'' + _esc(w.id) + '\')" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">校验</button>' +
             '<button onclick="reloadWorldview(\'' + _esc(w.id) + '\')" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">重载</button>' +
             (isDefault ? '' : '<button onclick="deleteWorldview(\'' + _esc(w.id) + '\')" style="background:none;border:1px solid var(--danger,#8a3a3a);color:#b06060;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">删除</button>') +
@@ -406,11 +420,30 @@ async function submitShare() {
     if (r.ok) {
       msgEl.textContent = '✅ 已开源推送「' + d.title + '」！所有用户现在可以在主页面「开源世界观广场」看到它。';
       closeShareModal();
+      loadWorldviewList();
     } else {
       msgEl.textContent = '推送失败: ' + (d.detail || '未知错误');
     }
   } catch(e) {
     msgEl.textContent = '推送失败: ' + e.message;
+  }
+}
+
+async function unshareWorldview(wvId, title) {
+  if (!confirm('确定要下架世界观「' + (title || wvId) + '」吗？它将从「开源世界观广场」移除，其他用户不再可见。')) return;
+  var resultEl = document.getElementById('worldview-result');
+  try {
+    var r = await apiFetch('/worldviews/share?worldview_id=' + encodeURIComponent(wvId), { method: 'DELETE' });
+    var d = await r.json();
+    if (r.ok) {
+      resultEl.textContent = '🚫 已下架「' + wvId + '」，不再公开展示。';
+      loadWorldviewList();
+    } else {
+      resultEl.textContent = '下架失败: ' + (d.detail || '未知错误');
+    }
+  } catch(e) {
+    frontendLog('ERROR', 'Unshare failed: ' + e.message);
+    resultEl.textContent = '下架失败: ' + e.message;
   }
 }
 

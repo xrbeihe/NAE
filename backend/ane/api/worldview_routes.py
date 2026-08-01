@@ -271,6 +271,37 @@ async def put_worldview_data(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.delete("/share")
+async def unshare_worldview(
+    worldview_id: str = "",
+    db: AsyncSession = Depends(get_db),
+    user = Depends(get_optional_user),
+):
+    """Remove a worldview from the shared library (author only).
+
+    Registered before `DELETE /{worldview_id}` so `/share` isn't captured by
+    the dynamic path param.
+    """
+    from sqlalchemy import select
+    from ane.database.models import WorldviewShare
+    if not user:
+        raise HTTPException(status_code=401, detail="请先登录")
+    wv_id = worldview_id.strip()
+    if not wv_id:
+        raise HTTPException(status_code=400, detail="缺少 worldview_id")
+    existing = await db.execute(
+        select(WorldviewShare).where(WorldviewShare.worldview_id == wv_id)
+    )
+    share = existing.scalar_one_or_none()
+    if not share:
+        raise HTTPException(status_code=404, detail=f"世界观 {wv_id} 不在共享库")
+    if share.user_id != user.id:
+        raise HTTPException(status_code=403, detail="只能撤销自己推送的世界观")
+    await db.delete(share)
+    await db.commit()
+    return {"unshared": wv_id}
+
+
 @router.delete("/{worldview_id}")
 async def delete_worldview(
     worldview_id: str,
@@ -353,33 +384,6 @@ async def share_worldview(
         db.add(share)
     await db.commit()
     return {"shared": wv_id, "title": title, "tags": tags}
-
-
-@router.delete("/share")
-async def unshare_worldview(
-    worldview_id: str = "",
-    db: AsyncSession = Depends(get_db),
-    user = Depends(get_optional_user),
-):
-    """Remove a worldview from the shared library (author only)."""
-    from sqlalchemy import select
-    from ane.database.models import WorldviewShare
-    if not user:
-        raise HTTPException(status_code=401, detail="请先登录")
-    wv_id = worldview_id.strip()
-    if not wv_id:
-        raise HTTPException(status_code=400, detail="缺少 worldview_id")
-    existing = await db.execute(
-        select(WorldviewShare).where(WorldviewShare.worldview_id == wv_id)
-    )
-    share = existing.scalar_one_or_none()
-    if not share:
-        raise HTTPException(status_code=404, detail=f"世界观 {wv_id} 不在共享库")
-    if share.user_id != user.id:
-        raise HTTPException(status_code=403, detail="只能撤销自己推送的世界观")
-    await db.delete(share)
-    await db.commit()
-    return {"unshared": wv_id}
 
 
 @router.get("/shared")
