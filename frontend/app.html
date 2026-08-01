@@ -819,10 +819,18 @@ function onTimelineChange() {
 }
 
 function randomName() {
-  var surnames = ["林","苏","柳","沈","慕容","萧","叶","云","白","墨","韩","楚","卫","顾","陆","谢","秦","洛","温","裴","唐","姜","薛","岳","段","钟","任","花","风","龙","上官","欧阳","司徒","夏侯","东方","西门","南宫","诸葛"];
-  var givenM = ["寒渊","无极","辰逸","子墨","昊天","云霆","凌霄","长风","星河","千帆","青玄","夜澜","玄策","无垢","剑心","逸尘","少游","道玄","惊鸿","玉衡","苍梧","归云","渡寒","怀瑾","孤城","鹤鸣","松溪","月白"];
-  var givenF = ["雨凝","如烟","清漪","若雪","霜华","月瑶","灵素","含烟","锦瑟","素衣","揽月","画屏","清霜","流萤","紫苏","雪见","兰因","碧落"];
-  document.getElementById('char-name').value = surnames[Math.floor(Math.random() * surnames.length)] + [...givenM, ...givenF][Math.floor(Math.random() * [...givenM, ...givenF].length)];
+  // 优先用当前世界观的姓名池（charTemplates.npc_templates），缺省回退修仙池
+  var nt = (charTemplates && charTemplates.npc_templates) || {};
+  var surnames = (nt.surnames && nt.surnames.length) ? nt.surnames :
+    ["林","苏","柳","沈","慕容","萧","叶","云","白","墨","韩","楚","卫","顾","陆","谢","秦","洛","温","裴","唐","姜","薛","岳","段","钟","任","花","风","龙","上官","欧阳","司徒","夏侯","东方","西门","南宫","诸葛"];
+  var givenM = (nt.given_names_male && nt.given_names_male.length) ? nt.given_names_male :
+    ["寒渊","无极","辰逸","子墨","昊天","云霆","凌霄","长风","星河","千帆","青玄","夜澜","玄策","无垢","剑心","逸尘","少游","道玄","惊鸿","玉衡","苍梧","归云","渡寒","怀瑾","孤城","鹤鸣","松溪","月白"];
+  var givenF = (nt.given_names_female && nt.given_names_female.length) ? nt.given_names_female :
+    ["雨凝","如烟","清漪","若雪","霜华","月瑶","灵素","含烟","锦瑟","素衣","揽月","画屏","清霜","流萤","紫苏","雪见","兰因","碧落"];
+  // form.json 渲染的姓名框 id 是 field-name，legacy 渲染是 char-name
+  var el = document.getElementById('field-name') || document.getElementById('char-name');
+  if (!el) return;
+  el.value = surnames[Math.floor(Math.random() * surnames.length)] + [...givenM, ...givenF][Math.floor(Math.random() * [...givenM, ...givenF].length)];
 }
 
 function selectGoldenFinger(id) {
