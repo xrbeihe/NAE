@@ -104,13 +104,26 @@ def test_path_traversal_falls_back():
 # ── Golden snapshots (R1 quality guard) ─────────────────────
 
 def test_assemble_system_matches_legacy_verbatim():
-    """assemble_system('xianxia_v1') must be byte-identical to the legacy prompt."""
+    """xianxia now uses shell+kernel. Its system prompt = worldview shell + generic kernel."""
     new = assemble_system("xianxia_v1")
-    assert new == _EFFECTIVE_SYSTEM_PROMPT
+    # Worldview-specific shell content present
+    assert "东方玄幻修仙世界" in new
+    assert "不要让角色表现出超出其修为的能力" in new
+    assert "cultivation_change" in new          # xianxia state_change type
+    assert "藏经阁" in new                       # xianxia sect recommendation
+    # Generic kernel content present (engine-owned, now shared)
+    assert "严禁向玩家反问" in new
+    assert "state_changes 用于记录数据库需要持久化的状态变更" in new
+    # The worldview shell itself is much slimmer than the old full prompt
+    from ane.worldview import get as get_worldview
+    shell = get_worldview("xianxia_v1").system_prompt or ""
+    assert len(shell) < 2500
 
 
 def test_default_assemble_matches_legacy():
-    assert assemble_system() == _EFFECTIVE_SYSTEM_PROMPT
+    # Default (no pack / xianxia) still resolves to a valid system prompt
+    assert assemble_system()
+    assert "东方玄幻修仙世界" in assemble_system()
 
 
 # ── Intent classification via pack keywords ──────────────────

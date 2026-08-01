@@ -80,6 +80,18 @@ watch_backup.bat
 
 ## 功能变更记录
 
+### ⚡ Prompt 内核去重 + NSFW 安全规则常态化
+- `NARRATIVE_KERNEL_PROMPT` 去重：合并"禁止反问"3 处重复表达与"推进感"重复强调，精简 73 字符
+- 「禁止用拼音/字母/谐音替代敏感词」从 NSFW 块提升为**全局常态规则**（进 kernel，所有 shell+kernel 包每轮生效，不依赖 HO）
+- NSFW 块精简：删除与 kernel 重复的拼音规避说明，保留质量强化（极致细节/Type1/Type2）
+
+### ⚙️ xianxia 迁移到 shell+kernel（四包架构统一）
+- xianxia_v1 的 `assembly` 从 `full` 改为 `shell+kernel`，`system_prompt.txt` 从完整 legacy 主 prompt 瘦身为纯世界观壳（1981 字符，只含修仙独有内容：世界观/宗门规则/state_changes 类型/修仙推荐）
+- 好处：四包架构统一、xianxia 自动获得 kernel 全部更新（拼音规避常态化/禁反问精炼）、每轮完整系统 prompt 略减（5509 vs 5523）
+- 收益评估（修正）：本体层面 shell+kernel 比 legacy 小 14 字符；真正价值是架构统一 + 安全规则生效，非 token 节省
+- golden 测试更新：不再断言"xianxia 逐字等于 legacy"，改为验证 shell 独有内容 + kernel 通用内容并存
+- 运行时确认：game_engine turn 用 `assemble_system(worldview)` 覆盖 `PromptContext.system` 默认值，迁移对实际 turn 生效
+
 ### 🛡️ 世界观包校验器增强（validate_pack 结构性规则）
 - 姓名池规则：各池内无重复、男/女名池不重叠、名池不含姓氏（疑似完整姓名）、姓氏超 4 字警示
 - panel 字段来源对齐：panel 引用 attrs 字段需能在 player_templates（identities/golden_fingers）找到，识别 golden_finger option_map 映射（golden_finger_*）
@@ -154,7 +166,7 @@ watch_backup.bat
 - 世界观包 = 纯 JSON/文本目录（`backend/ane/worldviews/<id>/`），作者无需改代码即可创建新世界观
 - 首个参考包 `xianxia_v1`（修仙，从 content/ 与代码常量抽出）+ 验证包 `modern_city`（现代都市，无宗门/无金手指/无 cultivate）
 - `worldview.py` loader：扫目录注册 + 逐工件降级链（包 → xianxia → 引擎常量）+ 路径注入防护（`^[a-z0-9_]{1,48}$`）
-- System Prompt 双模式：`shell+kernel`（世界观外壳 + 通用叙事内核）/ `full`（包内完整文本，xianxia 用此保持逐字一致，golden 测试锁定）
+- System Prompt 双模式：`shell+kernel`（世界观外壳 + 通用叙事内核，四包均用此）/ `full`（包内完整文本，保留兼容；无包时兜底用引擎内建 legacy）
 - `sessions.worldview` 列 + 无损迁移（`ALTER TABLE ... ADD COLUMN ... DEFAULT 'xianxia_v1'`，启动时自动执行）
 - 意图关键词 / 叙事约束 / 玩家面板（`panel.json` 渲染器）/ 角色建模 prompt / 事件白名单 / 前端文案（`ui.json`）全部世界观化
 - 事件白名单改为 `CORE ∪ 包.extra_event_types`，并修复 `economy_change` 被白名单静默丢弃的 bug

@@ -55,8 +55,8 @@ worldviews/<worldview_id>/
 
 ### assembly 字段
 
-- `"shell+kernel"`（默认）：`system_prompt.txt` 作为世界观外壳，引擎自动在其后拼接通用叙事内核（叙事原则/输出 JSON 格式/禁用反问句）。
-- `"full"`：`system_prompt.txt` 就是完整 System Prompt，引擎原样使用。参考 xianxia_v1（包内是完整原始提示词）。
+- `"shell+kernel"`（默认）：`system_prompt.txt` 作为世界观外壳，引擎自动在其后拼接通用叙事内核（叙事原则/输出 JSON 格式/禁用反问句）。四个内置包均用此模式。
+- `"full"`：`system_prompt.txt` 就是完整 System Prompt，引擎原样使用（作者完全掌控全文）。保留兼容旧包，无包时兜底用引擎内建 legacy 修仙提示词。
 
 ### player_defaults
 

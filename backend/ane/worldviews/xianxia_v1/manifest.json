@@ -7,7 +7,7 @@
   "base_map": "cultivation",
   "maturity_rating": "adult",
   "tags": ["xianxia", "cultivation", "chinese-fantasy"],
-  "assembly": "full",
+  "assembly": "shell+kernel",
   "player_defaults": {
     "name": "无名修士",
     "cultivation": "凡人",
