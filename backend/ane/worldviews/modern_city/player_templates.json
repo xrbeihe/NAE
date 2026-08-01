@@ -1,25 +1,87 @@
 {
   "genders": [
-    { "value": "男", "label": "男" },
-    { "value": "女", "label": "女" }
+    {
+      "value": "男",
+      "label": "男"
+    },
+    {
+      "value": "女",
+      "label": "女"
+    }
   ],
   "cultivations": [
-    { "value": "无业", "label": "无业", "desc": "待业在家，时间自由但收入不稳定。" },
-    { "value": "学生", "label": "学生", "desc": "在校学生，生活费来自家庭或兼职。" },
-    { "value": "白领", "label": "白领职员", "desc": "写字楼上班族，朝九晚五。" },
-    { "value": "程序员", "label": "程序员", "desc": "代码写手，加班是常态。" },
-    { "value": "店主", "label": "个体店主", "desc": "经营自己的小店，盈亏自负。" },
-    { "value": "自由职业", "label": "自由职业者", "desc": "时间灵活，收入看行情。" },
-    { "value": "公务员", "label": "公务员", "desc": "体制内工作，稳定有保障。" }
+    {
+      "value": "无业",
+      "label": "无业",
+      "desc": "待业在家，时间自由但收入不稳定。"
+    },
+    {
+      "value": "学生",
+      "label": "学生",
+      "desc": "在校学生，生活费来自家庭或兼职。"
+    },
+    {
+      "value": "白领",
+      "label": "白领职员",
+      "desc": "写字楼上班族，朝九晚五。"
+    },
+    {
+      "value": "程序员",
+      "label": "程序员",
+      "desc": "代码写手，加班是常态。"
+    },
+    {
+      "value": "店主",
+      "label": "个体店主",
+      "desc": "经营自己的小店，盈亏自负。"
+    },
+    {
+      "value": "自由职业",
+      "label": "自由职业者",
+      "desc": "时间灵活，收入看行情。"
+    },
+    {
+      "value": "公务员",
+      "label": "公务员",
+      "desc": "体制内工作，稳定有保障。"
+    }
   ],
   "personalities": [
-    { "value": "随和", "label": "随和", "desc": "好相处，情绪稳定。" },
-    { "value": "外向", "label": "外向开朗", "desc": "爱交朋友，自来熟。" },
-    { "value": "内向", "label": "内向沉静", "desc": "话不多，慢热。" },
-    { "value": "务实", "label": "务实理性", "desc": "看重实际，不爱画饼。" },
-    { "value": "理想主义", "label": "理想主义", "desc": "相信努力能改变世界。" },
-    { "value": "谨慎", "label": "谨慎多虑", "desc": "凡事留三分。" },
-    { "value": "佛系", "label": "佛系随缘", "desc": "看淡得失，顺其自然。" }
+    {
+      "value": "随和",
+      "label": "随和",
+      "desc": "好相处，情绪稳定。"
+    },
+    {
+      "value": "外向",
+      "label": "外向开朗",
+      "desc": "爱交朋友，自来熟。"
+    },
+    {
+      "value": "内向",
+      "label": "内向沉静",
+      "desc": "话不多，慢热。"
+    },
+    {
+      "value": "务实",
+      "label": "务实理性",
+      "desc": "看重实际，不爱画饼。"
+    },
+    {
+      "value": "理想主义",
+      "label": "理想主义",
+      "desc": "相信努力能改变世界。"
+    },
+    {
+      "value": "谨慎",
+      "label": "谨慎多虑",
+      "desc": "凡事留三分。"
+    },
+    {
+      "value": "佛系",
+      "label": "佛系随缘",
+      "desc": "看淡得失，顺其自然。"
+    }
   ],
   "backgrounds": [
     {
@@ -28,7 +90,8 @@
       "desc": "父母双职工，从小在城市长大，按部就班地读书毕业工作。",
       "initial_resource": "存款几千块，一辆二手电动车。",
       "personality_tendency": "踏实、孝顺，有时略显保守。",
-      "typical_sect_path": "普通本科毕业，进入一家中小公司。"
+      "typical_sect_path": "普通本科毕业，进入一家中小公司。",
+      "background_summary": "父母双职工，从小在城市长大，按部就班地读书毕业工作。"
     },
     {
       "value": "小镇青年",
@@ -36,7 +99,8 @@
       "desc": "从小镇考到大城市，背井离乡，独自租房生活。",
       "initial_resource": "一张银行卡，几件换洗衣物。",
       "personality_tendency": "独立、坚韧，对城市生活既向往又疏离。",
-      "typical_sect_path": "合租或独租，朝九晚五。"
+      "typical_sect_path": "合租或独租，朝九晚五。",
+      "background_summary": "从小镇考到大城市，背井离乡，独自租房生活。"
     },
     {
       "value": "富二代",
@@ -44,7 +108,8 @@
       "desc": "父母经商或从政，衣食无忧，人脉广泛。",
       "initial_resource": "充足的生活费，一辆代步车。",
       "personality_tendency": "自信、松弛，偶尔不食人间烟火。",
-      "typical_sect_path": "自家公司或家里安排的工作。"
+      "typical_sect_path": "自家公司或家里安排的工作。",
+      "background_summary": "父母经商或从政，衣食无忧，人脉广泛。"
     },
     {
       "value": "孤儿",
@@ -52,16 +117,132 @@
       "desc": "从小在福利院长大，无依无靠，全靠自己。",
       "initial_resource": "仅有的积蓄和一身孤勇。",
       "personality_tendency": "早熟、多疑、重情义。",
-      "typical_sect_path": "零工起步，一步步往上爬。"
+      "typical_sect_path": "零工起步，一步步往上爬。",
+      "background_summary": "从小在福利院长大，无依无靠，全靠自己。"
+    },
+    {
+      "value": "单亲家庭",
+      "label": "单亲家庭（跟着母亲长大）",
+      "desc": "母亲一人把你拉扯大，日子清苦但从不缺爱，你也比同龄人更早懂事。",
+      "initial_resource": "母亲给的几千块应急钱。",
+      "personality_tendency": "懂事、坚韧，对亲情看得极重。",
+      "typical_sect_path": "靠助学贷款读完大学，早早出来工作。",
+      "background_summary": "母亲一人把你拉扯大，日子清苦但从不缺爱，你也比同龄人更早懂事。"
+    },
+    {
+      "value": "农村出身",
+      "label": "农村出身（父母务农）",
+      "desc": "老家在农村，父母靠几亩地和打零工过活，你是全家第一个考上大学的。",
+      "initial_resource": "父母东拼西凑的一笔路费。",
+      "personality_tendency": "吃苦耐劳，骨子里带着朴素的要强。",
+      "typical_sect_path": "大学毕业后留在大城市打拼。",
+      "background_summary": "老家在农村，父母靠几亩地和打零工过活，你是全家第一个考上大学的。"
+    },
+    {
+      "value": "海归背景",
+      "label": "海归（海外留学归来）",
+      "desc": "家里条件不错，送你去海外读了几年书，刚回国正想大展拳脚。",
+      "initial_resource": "国外攒下的一笔存款和一部好车。",
+      "personality_tendency": "视野开阔，习惯西式思维，回国后有点水土不服。",
+      "typical_sect_path": "进外企或自己创业。",
+      "background_summary": "家里条件不错，送你去海外读了几年书，刚回国正想大展拳脚。"
+    },
+    {
+      "value": "退伍军人",
+      "label": "退伍军人",
+      "desc": "服役几年后退伍回到社会，身体素质过硬，但职场经验为零。",
+      "initial_resource": "一笔退伍安置费和过硬的体魄。",
+      "personality_tendency": "纪律性强，认死理，讲义气。",
+      "typical_sect_path": "从保安或安保行业起步。",
+      "background_summary": "服役几年后退伍回到社会，身体素质过硬，但职场经验为零。"
     }
   ],
   "identities": {
-    "职员": {"label": "普通职员", "desc": "朝九晚五的上班族", "clothing": "衬衫+牛仔裤", "monthly_income": "8000元", "background": ""},
-    "码农": {"label": "程序员", "desc": "格子衫专业户", "clothing": "T恤+休闲裤", "monthly_income": "15000元", "background": ""},
-    "学生": {"label": "大学生", "desc": "在校生，课业与社团", "clothing": "卫衣+运动鞋", "monthly_income": "2000元", "background": ""},
-    "个体户": {"label": "个体店主", "desc": "自己的店自己做主", "clothing": "休闲装", "monthly_income": "9000元", "background": ""},
-    "公务员": {"label": "体制内", "desc": "稳定压倒一切", "clothing": "正装", "monthly_income": "9000元", "background": ""},
-    "自由职业": {"label": "自由职业者", "desc": "时间自由，收入看天", "clothing": "家居服", "monthly_income": "6000元", "background": ""}
+    "职员": {
+      "label": "普通职员",
+      "desc": "朝九晚五的上班族",
+      "clothing": "衬衫+牛仔裤",
+      "monthly_income": "8000元",
+      "background": "",
+      "identity_desc": "朝九晚五的上班族"
+    },
+    "码农": {
+      "label": "程序员",
+      "desc": "格子衫专业户",
+      "clothing": "T恤+休闲裤",
+      "monthly_income": "15000元",
+      "background": "",
+      "identity_desc": "格子衫专业户"
+    },
+    "学生": {
+      "label": "大学生",
+      "desc": "在校生，课业与社团",
+      "clothing": "卫衣+运动鞋",
+      "monthly_income": "2000元",
+      "background": "",
+      "identity_desc": "在校生，课业与社团"
+    },
+    "个体户": {
+      "label": "个体店主",
+      "desc": "自己的店自己做主",
+      "clothing": "休闲装",
+      "monthly_income": "9000元",
+      "background": "",
+      "identity_desc": "自己的店自己做主"
+    },
+    "公务员": {
+      "label": "体制内",
+      "desc": "稳定压倒一切",
+      "clothing": "正装",
+      "monthly_income": "9000元",
+      "background": "",
+      "identity_desc": "稳定压倒一切"
+    },
+    "自由职业": {
+      "label": "自由职业者",
+      "desc": "时间自由，收入看天",
+      "clothing": "家居服",
+      "monthly_income": "6000元",
+      "background": "",
+      "identity_desc": "时间自由，收入看天"
+    }
   },
-  "golden_fingers": []
+  "golden_fingers": [
+    {
+      "id": "future_vision",
+      "name": "预知未来",
+      "tagline": "能看到明天的新闻和股市",
+      "desc": "每晚入睡时会梦见次日发生在身边的关键事件，准确度约八成。"
+    },
+    {
+      "id": "system_panel",
+      "name": "系统面板",
+      "tagline": "眼前浮现属性面板",
+      "desc": "睁开眼能看到自己和他人头顶的『能力值』面板，能通过完成任务提升属性。"
+    },
+    {
+      "id": "mind_reading",
+      "name": "读心术",
+      "tagline": "能听到他人心声",
+      "desc": "触碰到对方时能听到其内心真实想法，但一次只能维持片刻。"
+    },
+    {
+      "id": "photographic_memory",
+      "name": "过目不忘",
+      "tagline": "记忆力超群",
+      "desc": "看过的书、听过的谈话、走过的路都能精确记住，永不遗忘。"
+    },
+    {
+      "id": "luck_halo",
+      "name": "幸运光环",
+      "tagline": "总是走运",
+      "desc": "抽奖必中、面试顺利、遇险逢凶，但好运有额度，消耗后会有一阵子的霉运。"
+    },
+    {
+      "id": "rebirth",
+      "name": "重生归来",
+      "tagline": "带着记忆重新来过",
+      "desc": "意外身亡后重生到十年前，带着前世的记忆，知道哪些坑该避开、哪些机会该抓住。"
+    }
+  ]
 }

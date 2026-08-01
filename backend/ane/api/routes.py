@@ -114,17 +114,10 @@ async def list_sects_detail(worldview: str | None = None):
         if _is_reject_by_keywords(name, e, _sect_filters(data)):
             continue
         desc = e.get("description", "")
-        attrs = e.get("attributes", {})
-        # Collect key details: spiritual_rules, law_description, atmosphere
-        extra = []
-        for k in ["spiritual_rules", "law_description", "atmosphere"]:
-            v = attrs.get(k, "")
-            if v and len(v) > 5:
-                extra.append(v)
         result.append({
             "name": name,
             "description": desc[:200] if desc else "",
-            "details": extra[:3],
+            "details": [],
         })
     return {"sects": result}
 
@@ -521,6 +514,8 @@ async def get_character_templates(
     result["player_defaults"] = wv.player_defaults or {}
     result["form"] = wv.form  # may be None → frontend falls back to legacy form
     result["world_templates"] = wv.world_templates or {}  # for has_sects visibility etc.
+    result["npc_templates"] = wv.npc_templates or {}  # NPC modeling prompt-library data (name pools / archetypes / quick picks)
+    result["modeler_schema"] = wv.modeler_schema or {}  # per-worldview NPC model field tree (edits the edit dialog)
     return result
 
 
@@ -738,6 +733,7 @@ async def npc_modeling_confirm(
         model_data = await game_engine._llm_cover(
             req.name, req.input, existing_model,
             user_id=user.id, session_id=session_id,
+            worldview=getattr(session, "worldview", None),
         )
         if model_data:
             game_engine._deep_merge(existing_model, model_data)
@@ -745,8 +741,10 @@ async def npc_modeling_confirm(
             lts["model"] = existing_model
             db_npc.long_term_state = lts
             basic = existing_model.get("basic", {})
-            if basic.get("identity"): db_npc.identity = basic["identity"]
-            if basic.get("cultivation"): db_npc.cultivation = basic["cultivation"]
+            if basic.get("identity") or basic.get("title") or basic.get("occupation"):
+                db_npc.identity = basic.get("identity") or basic.get("title") or basic.get("occupation")
+            if basic.get("cultivation") or basic.get("level") or basic.get("rank"):
+                db_npc.cultivation = basic.get("cultivation") or basic.get("level") or basic.get("rank")
             if basic.get("gender"): db_npc.gender = basic["gender"]
             if basic.get("age"): db_npc.age = int(basic["age"])
             pers_core = existing_model.get("personality", {}).get("core", "")
@@ -754,7 +752,7 @@ async def npc_modeling_confirm(
             model_rels = existing_model.get("relationships", {})
             if model_rels and isinstance(model_rels, dict):
                 db_npc.relations = {
-                    "entries": GameEngine._model_rels_to_entries(model_rels),
+                    "entries": game_engine._model_rels_to_entries(model_rels),
                 }
             await db.commit()
             logger.info(f"llm_cover updated for {req.name}")
@@ -922,6 +920,41 @@ async def get_relationship_graph(
             "description": rel.description,
             "affinity": rel.affinity,
         })
+    # ── Merge model-declared relationships (NPC.relations from modeling/import) ──
+    # Worldview-generic: each NPC's model relationships surface in the graph
+    # immediately, without waiting for the background llm_relationshipprocess.
+    npc_result2 = await db.execute(
+        select(_NPC.name, _NPC.relations).where(_NPC.session_id == session_id)
+    )
+    existing_edges = {(e["source"], e["target"], e["type"]) for e in edges}
+    for row in npc_result2.fetchall():
+        npc_name, rel_json = row
+        entries = []
+        if isinstance(rel_json, dict):
+            entries = rel_json.get("entries", []) or []
+        elif isinstance(rel_json, list):
+            entries = rel_json
+        for ent in entries:
+            if not isinstance(ent, dict):
+                continue
+            target = ent.get("target") or ""
+            rel_type = ent.get("type") or ""
+            if not target:
+                continue
+            if (npc_name, target, rel_type) in existing_edges:
+                continue
+            # Model-declared relationships are explicit author intent — show
+            # them even if the target isn't a DB NPC yet.
+            if npc_name not in known_names:
+                continue
+            existing_edges.add((npc_name, target, rel_type))
+            edges.append({
+                "source": npc_name,
+                "target": target,
+                "type": rel_type,
+                "description": ent.get("description", "") or ent.get("nature", ""),
+                "affinity": ent.get("affinity", 0),
+            })
     return {"session_id": session_id, "edges": edges, "player_name": player_name or ""}
 
 
@@ -978,11 +1011,12 @@ async def get_important_npcs(
     for n in result.scalars().all():
         lts = dict(n.long_term_state or {}) if isinstance(n.long_term_state, dict) else {}
         model_data = lts.get("model", {})
+        _b = model_data.get("basic", {}) if isinstance(model_data, dict) else {}
         npcs.append({
             "name": n.name,
-            "gender": n.gender or (model_data.get("basic", {}).get("gender", "") if isinstance(model_data, dict) else ""),
-            "identity": n.identity or (model_data.get("basic", {}).get("identity", "") if isinstance(model_data, dict) else ""),
-            "cultivation": n.cultivation or (model_data.get("basic", {}).get("cultivation", "") if isinstance(model_data, dict) else ""),
+            "gender": n.gender or _b.get("gender", ""),
+            "identity": n.identity or _b.get("identity", "") or _b.get("title", "") or _b.get("occupation", ""),
+            "cultivation": n.cultivation or _b.get("cultivation", "") or _b.get("level", "") or _b.get("rank", ""),
             "model_data": model_data if isinstance(model_data, dict) and model_data.get("model_version") else {},
         })
     return {"session_id": session_id, "npcs": npcs}
@@ -1019,6 +1053,7 @@ async def create_npc_library(
     req: NpcLibraryCreateRequest,
     db: AsyncSession = Depends(get_db),
     user = Depends(get_current_user),
+    worldview: str | None = None,
 ):
     """Create a new NPC in the user's library with full modeling."""
     from ane.database.models import UserNPC, NPC as NPCModel
@@ -1053,6 +1088,7 @@ async def create_npc_library(
         session_id="", user_id=user.id,
         player_name=player_name, player_location="",
         is_new_npc=True,
+        worldview=worldview,
     )
 
     # 5. Save to user_npcs table
@@ -1109,6 +1145,8 @@ async def update_npc_library(
         raise HTTPException(status_code=400, detail="NPC没有建模数据，请先建模")
 
     # Run incremental update (AI merge)
+    # Library NPCs are cross-world; use the default (xianxia) schema as the
+    # structural reference — the existing model drives the actual merge.
     updates = await game_engine._llm_cover(
         name, req.input, existing_model,
         user_id=user.id, session_id="",
@@ -1131,10 +1169,10 @@ async def update_npc_library(
             session_npc.long_term_state = session_lts
             # Sync top-level columns
             basic = existing_model.get("basic", {})
-            if basic.get("identity"):
-                session_npc.identity = basic["identity"]
-            if basic.get("cultivation"):
-                session_npc.cultivation = basic["cultivation"]
+            if basic.get("identity") or basic.get("title") or basic.get("occupation"):
+                session_npc.identity = basic.get("identity") or basic.get("title") or basic.get("occupation")
+            if basic.get("cultivation") or basic.get("level") or basic.get("rank"):
+                session_npc.cultivation = basic.get("cultivation") or basic.get("level") or basic.get("rank")
             if basic.get("gender"):
                 session_npc.gender = basic["gender"]
             if basic.get("age"):
@@ -1244,13 +1282,19 @@ async def import_npc_to_session(
 
     # 4. Copy library model_data into NPC
     model_data = dict(user_npc.model_data or {})
+    _basic = model_data.get("basic", {}) if isinstance(model_data, dict) else {}
+    # Worldview-generic: xianxia schema uses basic.identity/cultivation/gender/age;
+    # other schemas (fantasy → title/rank, etc.) fall back to the raw value.
+    _identity = _basic.get("identity") or _basic.get("title") or _basic.get("occupation") or ""
+    _gender = _basic.get("gender") or ""
+    _age = _basic.get("age")
     npc = NPCModel(
         session_id=session_id,
         name=name,
-        identity=model_data.get("basic", {}).get("identity", ""),
-        cultivation=model_data.get("basic", {}).get("cultivation", ""),
-        gender=model_data.get("basic", {}).get("gender", ""),
-        age=int(model_data.get("basic", {}).get("age", 0)) if model_data.get("basic", {}).get("age") else None,
+        identity=_identity,
+        cultivation=_basic.get("cultivation") or _basic.get("level") or _basic.get("rank") or "",
+        gender=_gender,
+        age=int(_age) if _age else None,
         location=player_loc,
         npc_type="named",
         is_important=True,
@@ -1261,6 +1305,11 @@ async def import_npc_to_session(
     lts["model"] = model_data
     lts["pending_debut"] = True
     npc.long_term_state = lts
+    # Sync relationships from model → NPC.relations (generic parser handles
+    # any schema's relationship keys)
+    model_rels = model_data.get("relationships") if isinstance(model_data, dict) else None
+    if model_rels and isinstance(model_rels, dict):
+        npc.relations = {"entries": game_engine._model_rels_to_entries(model_rels)}
     db.add(npc)
     await db.commit()
     logger.info(f"[npc-lib] IMPORT: user={user.id[:12]} session={session_id[:12]} name={name}")

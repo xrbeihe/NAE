@@ -224,6 +224,7 @@ async def upload_worldview(
 
 
 # Whitelisted pack data files editable via the generic artifact endpoints.
+# `modeler/schema.json` lives in a subdir — write_artifact whitelists it explicitly.
 _EDITABLE_ARTIFACTS = {
     "player_templates.json",
     "world_templates.json",
@@ -233,6 +234,7 @@ _EDITABLE_ARTIFACTS = {
     "events.json",
     "panel.json",
     "world_facts.json",
+    "modeler/schema.json",
 }
 
 

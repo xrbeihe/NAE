@@ -1447,12 +1447,16 @@ async function npcLibToggle(name, checked) {
   try { if (checked) await apiFetch('/sessions/' + sessionId + '/npcs/import/' + encodeURIComponent(name), {method: 'POST'}); else await apiFetch('/sessions/' + sessionId + '/npcs/import/' + encodeURIComponent(name), {method: 'DELETE'}); } catch(e) { npcLibLoad(); showNpcLibraryPopup(); }
 }
 
-async function npcLibCreate(inputText, tags) {
+async function npcLibCreate(inputText, tags, wvId) {
   var btn = document.getElementById('npc-lib-create-btn'); if (btn) { btn.disabled = true; btn.textContent = '···'; }
-  try { var r = await apiFetch('/npcs/library', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({input: inputText.trim(), tags: tags || ['新建']}) }); if (!r.ok) throw new Error((await r.json()).detail || '创建失败'); var d = await r.json(); closeCreateNpcModal(); if (document.getElementById('home-page').style.display !== 'none') renderNpcTable(); addMsg('system', '✅ NPC「' + d.name + '」已添加至总库'); await npcLibLoad(); } catch(e) { frontendLog('ERROR', 'NPC create: ' + e.message); addMsg('system', '❌ 创建NPC失败: ' + e.message); }
+  var qs = wvId ? '?worldview=' + encodeURIComponent(wvId) : '';
+  try { var r = await apiFetch('/npcs/library' + qs, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({input: inputText.trim(), tags: tags || ['新建']}) }); if (!r.ok) throw new Error((await r.json()).detail || '创建失败'); var d = await r.json(); closeCreateNpcModal(); if (document.getElementById('home-page').style.display !== 'none') renderNpcTable(); addMsg('system', '✅ NPC「' + d.name + '」已添加至总库'); await npcLibLoad(); } catch(e) { frontendLog('ERROR', 'NPC create: ' + e.message); addMsg('system', '❌ 创建NPC失败: ' + e.message); }
   if (btn) { btn.disabled = false; btn.textContent = '+ 新建建模NPC'; }
 }
 // ── 提示库数据 ──
+// 缺省提示库 = 修仙世界观（无 pack npc_templates 时兜底）。
+// 加载世界观后，_promptLib() 优先读 pack 的 npc_templates（作者可编辑），
+// 与现有 UI 一样，字段缺失时回退到这些硬编码缺省值。
 var _promptSurnames = ['林','苏','柳','沈','慕容','萧','叶','云','白','墨','韩','楚','卫','顾','陆','谢','秦','洛','温','裴','唐','姜','薛','岳','段','钟','任','花','风','龙','上官','欧阳','司徒','夏侯','东方','西门','南宫','诸葛'];
 var _promptGivenMale = ['寒渊','无极','辰逸','子墨','昊天','云霆','凌霄','长风','星河','千帆','青玄','玄策','剑心','逸尘','少游','道玄','惊鸿','玉衡','苍梧','归云','渡寒','月白'];
 var _promptGivenFemale = ['雨凝','如烟','清漪','若雪','霜华','月瑶','灵素','芷柔','璃歌','云裳','秋水','冰岚','思弦','雾绡','瑶光','含烟','锦瑟','素衣','揽月','流萤','紫苏','雪见','碧落'];
@@ -1473,26 +1477,57 @@ var _promptArchetypes = [
 ];
 var _promptRolledNames = [];
 
+// 缺省 quick-pick 区块（作者可在 npc_templates.json 的 quick_pick_sections
+// 里自定义：每个 {label, key} 指一个数组字段，如 {label:'🧬 灵根', key:'spiritual_roots'}）。
+var _DEFAULT_QUICK_PICKS = [
+  {title:'🧬 灵根', key:'spiritual_roots', data:_promptSpiritualRoots},
+  {title:'💪 体质', key:'constitutions', data:_promptConstitutions},
+  {title:'⚡ 修为', key:'realms', data:_promptCultivations},
+  {title:'🧠 性格', key:'personalities', data:_promptPersonalities},
+  {title:'🏃 体型', key:'body_types', data:_promptBodyTypes},
+  {title:'👘 衣着', key:'attires', data:_promptAttires},
+];
+
+// 读取当前世界观包的提示库数据（charTemplates.npc_templates）。
+// 包内字段为数组时直接用（空数组 = 作者明确"无此项"，前端隐藏区块）；
+// 字段缺失/非数组时才回退到硬编码缺省值。
+function _promptLib(key, fallback) {
+  var nt = (charTemplates && charTemplates.npc_templates) || null;
+  var val = (nt && typeof nt[key] === 'object' && Array.isArray(nt[key])) ? nt[key] : null;
+  if (val !== null) return val;
+  return fallback;
+}
+
 function renderPromptSections() {
   var c = document.getElementById('prompt-sections'); if (!c) return;
   var h = '';
-  // archetypes
+  // 角色模板：优先 pack 的 core_archetypes，缺省时用修仙兜底
+  var archetypes = _promptLib('core_archetypes', _promptArchetypes);
   h += '<div style="margin-bottom:10px"><div style="font-size:11px;color:var(--accent-dim);margin-bottom:4px;font-weight:bold">🎭 角色模板</div>';
-  _promptArchetypes.forEach(function(a, i) {
+  archetypes.forEach(function(a, i) {
+    var name = a.name || a.identity || ('模板' + (i + 1));
+    var desc = a.desc || (a.identity ? (a.identity + (a.personality ? '，' + a.personality : '')) : '');
+    if (!desc && a.personality) desc = a.personality;
+    if (!desc && a.behavior_note) desc = a.behavior_note;
     h += '<div onclick="applyPromptArchetype(' + i + ')" style="padding:5px 6px;margin-bottom:3px;background:var(--panel);border:1px solid var(--border);border-radius:4px;cursor:pointer;font-size:11px;color:var(--text);line-height:1.4">'
-      + '<span style="color:var(--accent)">' + escHtml(a.name) + '</span> — ' + escHtml(a.desc) + '</div>';
+      + '<span style="color:var(--accent)">' + escHtml(name) + '</span> — ' + escHtml(desc) + '</div>';
   });
   h += '</div>';
-  // quick picks
-  var quickItems = [
-    {title:'🧬 灵根', data:_promptSpiritualRoots},
-    {title:'💪 体质', data:_promptConstitutions},
-    {title:'⚡ 修为', data:_promptCultivations},
-    {title:'🧠 性格', data:_promptPersonalities},
-    {title:'🏃 体型', data:_promptBodyTypes},
-    {title:'👘 衣着', data:_promptAttires},
-  ];
+  // quick picks：pack 的 quick_pick_sections 可自定义区块，缺省用修仙 6 块
+  var nt = (charTemplates && charTemplates.npc_templates) || null;
+  var customSections = (nt && Array.isArray(nt.quick_pick_sections)) ? nt.quick_pick_sections : null;
+  var quickItems = [];
+  if (customSections && customSections.length) {
+    quickItems = customSections.map(function(s) {
+      return {title: s.label || s.title || '选项', data: _promptLib(s.key, [])};
+    });
+  } else {
+    quickItems = _DEFAULT_QUICK_PICKS.map(function(q) {
+      return {title: q.title, data: _promptLib(q.key, q.data)};
+    });
+  }
   quickItems.forEach(function(q) {
+    if (!q.data || !q.data.length) return;
     h += '<div style="margin-bottom:8px"><div style="font-size:11px;color:var(--accent-dim);margin-bottom:3px">' + q.title + '</div><div style="display:flex;gap:3px;flex-wrap:wrap">';
     q.data.forEach(function(v) {
       h += '<span onclick="applyPromptText(\'' + escAttr(v) + '\')" style="padding:2px 6px;background:var(--panel);border:1px solid var(--border);border-radius:3px;cursor:pointer;font-size:10px;color:var(--accent-dim);line-height:1.8">' + escHtml(v) + '</span>';
@@ -1535,20 +1570,25 @@ document.getElementById('create-npc-custom-tag').addEventListener('keydown', fun
 });
 
 function randomRollNpc() {
-  var surnames = _promptSurnames, givenF = _promptGivenFemale, givenM = _promptGivenMale;
+  var surnames = _promptLib('surnames', _promptSurnames);
+  var givenF = _promptLib('given_names_female', _promptGivenFemale);
+  var givenM = _promptLib('given_names_male', _promptGivenMale);
   var surname = surnames[Math.floor(Math.random() * surnames.length)];
   var given = (Math.random() > 0.4 ? givenF : givenM)[Math.floor(Math.random() * (Math.random() > 0.4 ? givenF.length : givenM.length))];
   var name = surname + given;
-  var cult = _promptCultivations[Math.floor(Math.random() * _promptCultivations.length)];
+  var cult = _promptLib('realms', _promptCultivations);
+  var cultText = (cult && cult.length) ? cult[Math.floor(Math.random() * cult.length)] : '';
   _promptRolledNames = [name];
   var chipArea = document.getElementById('roll-name-chips');
   chipArea.innerHTML = '<span onclick="applyPromptText(\'' + escAttr(name) + '\')" style="padding:2px 7px;background:var(--panel);border:1px solid var(--border);border-radius:3px;cursor:pointer;font-size:11px;color:var(--accent);white-space:nowrap">' + escHtml(name) + '</span>';
 }
 
 function applyPromptArchetype(i) {
-  var a = _promptArchetypes[i];
+  var archetypes = _promptLib('core_archetypes', _promptArchetypes);
+  var a = archetypes[i];
   if (!a) return;
-  applyPromptText(a.desc);
+  var text = a.desc || (a.identity ? (a.identity + (a.personality ? '，' + a.personality : '')) : '') || (a.personality || '');
+  applyPromptText(text);
 }
 
 function applyPromptText(text) {
@@ -1577,7 +1617,13 @@ function showCreateNpcModal() {
   document.getElementById('custom-tags-display').innerHTML = '';
   // 重置勾选框（保留重要人物默认勾选）
   document.querySelectorAll('#create-npc-tags input[type=checkbox]').forEach(function(cb) { cb.checked = cb.value === '重要人物'; });
-  renderPromptSections();
+  // 提示库跟随当前世界观：若 charTemplates 来自旧世界观，则按当前世界观重新拉取。
+  var needFetch = !charTemplates || !charTemplates.npc_templates || charTemplates._wvId !== getCurrentWorldviewId();
+  if (needFetch) {
+    apiFetch('/sessions/__any__/templates?worldview=' + encodeURIComponent(getCurrentWorldviewId())).then(function(r){ return r.json(); }).then(function(d){ charTemplates = d; charTemplates._wvId = getCurrentWorldviewId(); renderPromptSections(); }).catch(function(){ renderPromptSections(); });
+  } else {
+    renderPromptSections();
+  }
   document.getElementById('create-npc-modal').style.display = 'flex';
   setTimeout(function() { document.getElementById('create-npc-input').focus(); }, 100);
 }
@@ -1587,7 +1633,7 @@ function submitCreateNpc() {
   var cbs = document.querySelectorAll('#create-npc-tags input[type=checkbox]:checked'); var tags = Array.from(cbs).map(function(cb) { return cb.value; });
   if (_customTags && _customTags.length) tags = tags.concat(_customTags);
   var btn = document.getElementById('create-npc-submit-btn'); btn.disabled = true; btn.textContent = '⏳ 建模中...';
-  npcLibCreate(input, tags.length ? tags : null).finally(function() { btn.disabled = false; btn.textContent = '✨ 开始建模'; });
+  npcLibCreate(input, tags.length ? tags : null, getCurrentWorldviewId()).finally(function() { btn.disabled = false; btn.textContent = '✨ 开始建模'; });
 }
 async function npcLibRefresh() { await npcLibLoad(); if (document.getElementById('home-page').style.display !== 'none') renderNpcTable(); }
 
@@ -1599,8 +1645,9 @@ async function renderNpcTable() {
   var h = '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="border-bottom:1px solid var(--border);color:var(--accent-dim);font-size:12px"><th style="padding:8px 12px;text-align:left">名称</th><th style="padding:8px 12px;text-align:left">身份</th><th style="padding:8px 12px;text-align:left">修为</th><th style="padding:8px 12px;text-align:left;min-width:100px">标签</th><th style="padding:8px 12px;text-align:center">操作</th></tr></thead><tbody>';
   for (var i = 0; i < _npcLibData.length; i++) {
     var n = _npcLibData[i];
-    var identity = (n.model_data && n.model_data.basic && n.model_data.basic.identity) || '未知';
-    var cult = (n.model_data && n.model_data.basic && n.model_data.basic.cultivation) || '未知';
+    var nb = (n.model_data && n.model_data.basic) || {};
+    var identity = nb.identity || nb.title || nb.occupation || '未知';
+    var cult = nb.cultivation || nb.level || nb.rank || '未知';
     var tags = (n.tags && n.tags.length) ? n.tags.join(', ') : '—';
     h += '<tr style="border-bottom:1px solid var(--border)"><td style="padding:8px 12px"><b>' + escHtml(n.name) + '</b></td><td style="padding:8px 12px;color:var(--accent-dim)">' + escHtml(identity) + '</td><td style="padding:8px 12px;color:var(--accent-dim)">' + escHtml(cult) + '</td><td style="padding:8px 12px;color:var(--accent-dim);font-size:11px">' + escHtml(tags) + '</td><td style="padding:8px 12px;text-align:center"><button onclick="homeNpcEdit(\'' + n.name.replace(/'/g, "\\'") + '\')" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:2px 8px;border-radius:3px;cursor:pointer;font-size:11px">查看/编辑</button> <button onclick="homeNpcDelete(\'' + n.name.replace(/'/g, "\\'") + '\')" style="background:none;border:1px solid var(--danger);color:var(--danger);padding:2px 8px;border-radius:3px;cursor:pointer;font-size:11px">删除</button></td></tr>';
   }
@@ -1612,12 +1659,43 @@ async function homeNpcToggle(name, checked) {
   try { if (checked) await apiFetch('/sessions/' + sessionId + '/npcs/import/' + encodeURIComponent(name), {method: 'POST'}); else await apiFetch('/sessions/' + sessionId + '/npcs/import/' + encodeURIComponent(name), {method: 'DELETE'}); } catch(e) { await npcLibLoad(); renderNpcTable(); }
 }
 async function homeNpcEdit(name) {
+  // Ensure charTemplates reflects the current worldview's modeler_schema
+  // so the edit dialog shows the right field tree.
+  var needSchema = !charTemplates || !charTemplates.modeler_schema || charTemplates._wvId !== getCurrentWorldviewId();
+  if (needSchema) {
+    try {
+      var tres = await apiFetch('/sessions/__any__/templates?worldview=' + encodeURIComponent(getCurrentWorldviewId()));
+      if (tres.ok) { charTemplates = await tres.json(); charTemplates._wvId = getCurrentWorldviewId(); }
+    } catch(e) { frontendLog('WARN', 'Edit schema fetch: ' + e.message); }
+  }
   var npc = null;
   for (var i = 0; i < _npcLibData.length; i++) { if (_npcLibData[i].name === name) { npc = _npcLibData[i]; break; } }
   if (!npc) { alert('找不到NPC'); return; }
-  // Load the template structure to show ALL fields
+  // Load the template structure to show ALL fields.
+  // Template base comes from the current worldview's modeler/schema.json
+  // (xianxia default fallback); existing model values are overlaid on top.
   var md = npc.model_data || {};
-  var tmpl = {"basic":{"name":"","race":"","gender":"","age":"","height":"","cultivation":"","identity":"","faction":"","position":""},"appearance":{"overall_impression":"","body_proportion":"","aura":"","face":{"shape":"","features":"","eyes":"","eyebrows":"","nose":"","lips":"","expression_habit":""},"skin":{"color":"","luster":"","fineness":""},"hair":{"length":"","style":"","color":"","ornament":""},"torso":"","chest":{"size":"","shape":"","fullness":""},"waist":{"muscle_line":"","slimness":"","softness":""},"buttocks":{"size":"","curve":""},"legs":{"length":"","muscle_tone":"","thighs":""},"feet":{"shape":"","size":"","barefoot":false},"hands":{"fingers":"","back":""}},"voice":{"timbre":"","speed":"","volume":""},"attire":{"clothing":"","jewelry":""},"equipment":[{"name":"","description":"","position":""}],"behavior":{"stance":"","sitting":"","gait":"","smile":"","mannerisms":""},"speech_style":{"word_habits":"","particles":"","speech_rhythm":"","catchphrase":"","battle_cry":"","address_player":"","address_others":"","when_angry":""},"combat_style":{"preference":"","weapon_usage":"","spirit_power_signature":""},"personality":{"core":"","values":"","principles":"","fears":"","likes":"","obsession":""},"background":{"history":"","major_events":"","faction_affiliation":"","family":""},"cultivation":{"spiritual_root":"","special_constitution":"","techniques":"","divine_powers":"","ring_storage":"","wealth":""},"knowledge_bounds":{"knows":[],"does_not_know":[],"suspicious_of":[]},"attitude_to_player":{"surface":"","true_feelings":"","relationship_trend":""},"relationships":{"father":"","mother":"","spouse":"","master":"","senior_brother":"","senior_sister":"","junior_brother":"","junior_sister":"","teacher":"","superior":"","subordinate":"","friends":[],"enemies":[],"lover":"","fiance":"","beloved":"","rival":"","pursuer":""},"nsfw":{"is_virgin":true,"fertility":"","desire_toward_target":"","rejection_toward_target":"","male_genital":"","female_genital":""}};
+  var schemaTpl = (charTemplates && charTemplates.modeler_schema) ? charTemplates.modeler_schema : null;
+  var tmpl = schemaTpl ? JSON.parse(JSON.stringify(schemaTpl)) : {"basic":{"name":"","race":"","gender":"","age":"","height":"","cultivation":"","identity":"","faction":"","position":""},"appearance":{"overall_impression":"","body_proportion":"","aura":"","face":{"shape":"","features":"","eyes":"","eyebrows":"","nose":"","lips":"","expression_habit":""},"skin":{"color":"","luster":"","fineness":""},"hair":{"length":"","style":"","color":"","ornament":""},"torso":"","chest":{"size":"","shape":"","fullness":""},"waist":{"muscle_line":"","slimness":"","softness":""},"buttocks":{"size":"","curve":""},"legs":{"length":"","muscle_tone":"","thighs":""},"feet":{"shape":"","size":"","barefoot":false},"hands":{"fingers":"","back":""}},"voice":{"timbre":"","speed":"","volume":""},"attire":{"clothing":"","jewelry":""},"equipment":[{"name":"","description":"","position":""}],"behavior":{"stance":"","sitting":"","gait":"","smile":"","mannerisms":""},"speech_style":{"word_habits":"","particles":"","speech_rhythm":"","catchphrase":"","battle_cry":"","address_player":"","address_others":"","when_angry":""},"combat_style":{"preference":"","weapon_usage":"","spirit_power_signature":""},"personality":{"core":"","values":"","principles":"","fears":"","likes":"","obsession":""},"background":{"history":"","major_events":"","faction_affiliation":"","family":""},"cultivation":{"spiritual_root":"","special_constitution":"","techniques":"","divine_powers":"","ring_storage":"","wealth":""},"knowledge_bounds":{"knows":[],"does_not_know":[],"suspicious_of":[]},"attitude_to_player":{"surface":"","true_feelings":"","relationship_trend":""},"relationships":{"father":"","mother":"","spouse":"","master":"","senior_brother":"","senior_sister":"","junior_brother":"","junior_sister":"","teacher":"","superior":"","subordinate":"","friends":[],"enemies":[],"lover":"","fiance":"","beloved":"","rival":"","pursuer":""},"nsfw":{"is_virgin":true,"fertility":"","desire_toward_target":"","rejection_toward_target":"","male_genital":"","female_genital":""}};
+  // Note: schema nodes may carry {"label": "…", "type": …} wrappers. Unwrap to
+  // the raw default value so renderFields can iterate it like before.
+  function unwrapSchema(node) {
+    if (node && typeof node === 'object' && !Array.isArray(node) && ('label' in node || 'type' in node) && !('children' in node)) {
+      return ''; // metadata leaf → empty string default
+    }
+    if (Array.isArray(node)) return node.map(unwrapSchema);
+    if (node && typeof node === 'object') {
+      var out = {};
+      for (var k in node) out[k] = unwrapSchema(node[k]);
+      return out;
+    }
+    return node;
+  }
+  tmpl = unwrapSchema(tmpl);
+  // Ensure required sections exist even if schema omits them (deepMerge needs both sides dicts)
+  if (md.relationships && !tmpl.relationships) tmpl.relationships = {};
+  if (md.attitude_to_player && !tmpl.attitude_to_player) tmpl.attitude_to_player = {};
+  if (md.knowledge_bounds && !tmpl.knowledge_bounds) tmpl.knowledge_bounds = {};
   // Merge: use template as base, overlay existing values
   function deepMerge(t, d) {
     for (var k in t) {

@@ -8,6 +8,12 @@
   "idle_probability": 0.2,
   "idle_events": [
     {"type": "magic_progress", "description": "听闻{npc_name}近日魔法修为略有精进。"},
-    {"type": "random_encounter", "description": "{npc_name}似乎经历了一些事，但详情不明。"}
+    {"type": "random_encounter", "description": "{npc_name}似乎经历了一些事，但详情不明。"},
+    {"type": "random_encounter", "description": "{npc_name}接了一个新委托，去了北境的废墟。"},
+    {"type": "random_encounter", "description": "酒馆里流传着{npc_name}在比武大会上大出风头的传闻。"},
+    {"type": "random_encounter", "description": "听说{npc_name}从古墓地下城带回来一件战利品，神秘得很。"},
+    {"type": "random_encounter", "description": "{npc_name}最近常往白塔跑，像是在研习什么高阶魔法。"},
+    {"type": "random_encounter", "description": "有人在国王大道上看到{npc_name}与一队商人同行。"},
+    {"type": "random_encounter", "description": "{npc_name}似乎在招募人手，说要组队去猎杀一头危险的魔兽。"}
   ]
 }

@@ -269,8 +269,17 @@ def validate(user_input: str, mark_important_npc: bool = False, is_adult: bool =
 
     # 4. Intent classification (supports both plain keywords and regex patterns)
     #    Order matters: more specific patterns first, general/cultivate last.
+    #    Worldview-specific intents take precedence over the generic CORE
+    #    patterns except the strongest ones (nsfw/ntr/time_skip/use_item), so a
+    #    pack's work/shopping/training intent isn't shadowed by broad CORE
+    #    travel/trade/dialogue patterns (e.g. "我要去上班"→work not travel).
     intent = "dialogue"  # default
-    patterns = CORE_INTENT_PATTERNS + _worldview_intent_patterns(worldview)
+    core = list(CORE_INTENT_PATTERNS)
+    wv_patterns = _worldview_intent_patterns(worldview)
+    # Insert pack intents right before the CORE trade pattern (after the strong
+    # nsfw/ntr/time_skip/use_item patterns, before broad travel/trade/etc).
+    trade_idx = next((i for i, (_, t) in enumerate(core) if t == "trade"), len(core))
+    patterns = core[:trade_idx] + wv_patterns + core[trade_idx:]
     for keywords, intent_type in patterns:
         matched = False
         for kw in keywords:

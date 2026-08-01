@@ -8,6 +8,12 @@
   "idle_probability": 0.2,
   "idle_events": [
     {"type": "routine_progress", "description": "听闻{npc_name}最近生活照旧，没什么特别的事。"},
-    {"type": "random_encounter", "description": "{npc_name}似乎经历了一些事，但详情不明。"}
+    {"type": "random_encounter", "description": "{npc_name}似乎经历了一些事，但详情不明。"},
+    {"type": "random_encounter", "description": "{npc_name}最近加班很晚，听说公司接了个大项目。"},
+    {"type": "random_encounter", "description": "邻居说{npc_name}换了一台新手机，好像涨工资了。"},
+    {"type": "random_encounter", "description": "{npc_name}周末出去旅游了几天，刚回来。"},
+    {"type": "random_encounter", "description": "听说{npc_name}在跟一个对象来往，挺神秘的。"},
+    {"type": "random_encounter", "description": "{npc_name}最近在健身，看起来精神了不少。"},
+    {"type": "random_encounter", "description": "{npc_name}家里似乎出了点事，这几天心情不太好。"}
   ]
 }

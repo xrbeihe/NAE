@@ -16,6 +16,70 @@ logger = logging.getLogger(__name__)
 
 NPC_MODEL_VERSION = "1.1"  # v1.1: merged fields (face, torso, attire, personality, speech_style)
 
+# Field-name → Chinese label map used by the generic renderer. Covers the
+# xianxia default schema (90+ fields); per-worldview schemas may supply their
+# own labels via {"label": "…"} nodes, which take precedence over this map.
+_FIELD_LABELS = {
+    # basic
+    "name": "姓名", "race": "种族", "gender": "性别", "age": "年龄", "height": "身高",
+    "cultivation": "修为", "identity": "身份", "faction": "势力", "position": "职位",
+    # appearance
+    "appearance": "外貌", "overall_impression": "整体印象", "body_proportion": "身材比例",
+    "aura": "气质", "face": "脸部", "shape": "脸型", "features": "面部特征", "eyes": "眼睛",
+    "eyebrows": "眉毛", "nose": "鼻子", "lips": "嘴唇", "expression_habit": "表情习惯",
+    "skin": "皮肤", "color": "肤色", "luster": "光泽", "fineness": "细腻程度",
+    "hair": "头发", "length": "长度", "style": "发型", "ornament": "发饰",
+    "torso": "躯干", "chest": "胸部", "size": "大小", "fullness": "饱满度",
+    "waist": "腰部", "muscle_line": "肌肉线条", "slimness": "纤细度", "softness": "柔软度",
+    "belly": "腹部", "buttocks": "臀部", "curve": "曲线",
+    "legs": "腿部", "muscle_tone": "肌肉线条", "thighs": "大腿",
+    "feet": "脚部", "barefoot": "赤足", "hands": "手部", "fingers": "手指", "back": "手背",
+    # voice
+    "voice": "声音", "timbre": "音色", "speed": "语速", "volume": "音量",
+    # attire
+    "attire": "穿着", "clothing": "服饰", "jewelry": "首饰",
+    # equipment
+    "equipment": "装备", "description": "描述", "position": "部位",
+    # behavior
+    "behavior": "行为特征", "stance": "站姿", "sitting": "坐姿", "gait": "走路",
+    "smile": "笑容", "mannerisms": "小动作",
+    # speech_style
+    "speech_style": "说话风格", "word_habits": "用语习惯", "particles": "语气词",
+    "speech_rhythm": "说话节奏", "catchphrase": "口头禅", "battle_cry": "战吼",
+    "address_player": "对主角称呼", "address_others": "对他人的称呼", "when_angry": "生气时的表现",
+    # combat_style
+    "combat_style": "出手风格", "preference": "战斗偏好", "weapon_usage": "法器使用习惯",
+    "spirit_power_signature": "灵力特征",
+    # personality
+    "personality": "性格", "core": "核心性格", "values": "价值观", "principles": "原则",
+    "fears": "害怕", "likes": "喜欢", "obsession": "执念",
+    # background
+    "background": "背景", "history": "过往经历", "major_events": "重大事件",
+    "faction_affiliation": "势力所属", "family": "家族",
+    # knowledge_bounds
+    "knowledge_bounds": "信息边界", "knows": "知道", "does_not_know": "不知道",
+    "suspicious_of": "正在怀疑",
+    # attitude_to_player
+    "attitude_to_player": "对玩家的态度", "surface": "表层态度", "true_feelings": "真实想法",
+    "relationship_trend": "关系变化倾向",
+    # relationships
+    "relationships": "关系网", "father": "父亲", "mother": "母亲", "spouse": "配偶",
+    "master": "师父", "senior_brother": "师兄", "senior_sister": "师姐",
+    "junior_brother": "师弟", "junior_sister": "师妹", "teacher": "师尊",
+    "superior": "上级", "subordinate": "下属", "lover": "恋人", "fiance": "婚约对象",
+    "beloved": "爱人", "rival": "竞争者", "pursuer": "追求者", "friends": "朋友", "enemies": "敌人",
+    "family": "家人", "allies": "盟友", "liege_lord": "领主", "crush": "暗恋对象",
+    "exes": "前任", "colleagues": "同事", "friends_and_foes": "亦敌亦友",
+    "relation_to_player": "与主角关系", "debtors": "欠债者", "benefactors": "恩人",
+    # cultivation
+    "cultivation_details": "修炼详情", "spiritual_root": "灵根", "special_constitution": "特殊体质",
+    "techniques": "功法", "divine_powers": "神通", "ring_storage": "储物戒", "wealth": "家产",
+    # nsfw
+    "nsfw": "身体特征", "is_virgin": "是否处子", "fertility": "生育情况",
+    "desire_toward_target": "对互动目标性渴望程度", "rejection_toward_target": "对互动目标性拒绝程度",
+    "male_genital": "♂", "female_genital": "♀",
+}
+
 def migrate_model_v1_0(data: dict) -> dict:
     """Migrate v1.0 model data to v1.1 (merged field structure).
 
@@ -152,292 +216,102 @@ def parse_modeling_response(raw: str) -> dict[str, Any] | None:
     return data
 
 
-def render_model_for_prompt(model: dict, include_nsfw: bool = False) -> str:
+def render_model_for_prompt(model: dict, include_nsfw: bool = False, schema: dict | None = None) -> str:
     """Render a stored NPC model into formatted text for llm_main's prompt.
 
     This is the block injected into [重要人物] or [当前交互角色] sections.
     When include_nsfw=False, the nsfw block is omitted entirely.
 
-    Automatically migrates v1.0 data on load.
+    Worldview-generic: iterates the model dict itself (not a hardcoded field
+    set), so per-worldview schemas (modeler/schema.json) render naturally.
+    Chinese labels come from a keymap, then from the schema's `label` nodes,
+    then fall back to the raw field name. Automatically migrates v1.0 data.
     """
     model = migrate_model_v1_0(model)
     lines = []
-    basic = model.get("basic", {})
+    labels = _FIELD_LABELS
 
-    # ── Basic identity ──
-    if basic.get("name"):
-        identity_parts = []
-        for k in ("race", "gender", "age", "height", "cultivation", "identity", "faction", "position"):
-            v = basic.get(k)
-            if v and str(v) != "0":
-                identity_parts.append(str(v))
+    def _label(key: str, node=None) -> str:
+        """Resolve a human-readable label for a field key."""
+        if isinstance(node, dict) and node.get("label"):
+            return str(node["label"])
+        return labels.get(key, key)
+
+    def _fmt(value) -> str:
+        if isinstance(value, bool):
+            return "是" if value else "否"
+        if value is None:
+            return ""
+        s = str(value)
+        return s if len(s) <= 200 else s[:200] + "…"
+
+    def _render_dict(d: dict, out: list, depth: int = 1) -> None:
+        """Render a nested dict into labelled lines."""
+        for k, v in d.items():
+            if k == "model_version" or k == "model_version":
+                continue
+            if isinstance(v, dict):
+                # sub-object → grouped lines
+                sub = []
+                _render_dict(v, sub, depth + 1)
+                if sub:
+                    out.append("  " * depth + f"{_label(k)}：")
+                    out.extend(sub)
+            elif isinstance(v, list):
+                if not v:
+                    continue
+                out.append("  " * depth + f"{_label(k)}：")
+                for item in v[:8]:
+                    if isinstance(item, dict):
+                        item_lines = []
+                        _render_dict(item, item_lines, depth + 1)
+                        out.extend(item_lines)
+                    else:
+                        out.append("  " * (depth + 1) + "· " + _fmt(item))
+            else:
+                if v is None or v == "":
+                    continue
+                if isinstance(v, bool):
+                    out.append("  " * depth + f"{_label(k)}：{'是' if v else '否'}")
+                else:
+                    out.append("  " * depth + f"{_label(k)}：{_fmt(v)}")
+
+    # ── Basic identity (single line) ──
+    basic = model.get("basic") or {}
+    basic_parts = []
+    for k, v in basic.items():
+        if v is None or str(v) in ("", "0", "0.0"):
+            continue
+        if isinstance(v, (dict, list)):
+            continue
+        basic_parts.append(f"{_label(k)} {v}")
+    if basic_parts:
         lines.append("—— 基础身份 ——")
-        lines.append(" | ".join(identity_parts))
+        lines.append(" | ".join(basic_parts))
 
-    # ── Appearance ──
-    app = model.get("appearance", {})
-    if app.get("overall_impression") or app.get("aura"):
-        lines.append("—— 外貌（整体） ——")
-        if app.get("overall_impression"):
-            lines.append(f"整体印象：{app['overall_impression']}")
-        if app.get("body_proportion"):
-            lines.append(f"身材比例：{app['body_proportion']}")
-        if app.get("aura"):
-            lines.append(f"气质：{app['aura']}")
-
-    # Face details
-    face = app.get("face", {})
-    face_parts = []
-    for k, label in [("shape", "脸型"), ("features", "面部特征"), ("eyes", "眼睛"),
-                     ("eyebrows", "眉毛"), ("nose", "鼻子"),
-                     ("lips", "嘴唇"), ("expression_habit", "表情习惯")]:
-        v = face.get(k)
-        if v:
-            face_parts.append(f"{label}：{v}")
-    if face_parts:
-        lines.append("—— 脸部 ——")
-        lines.extend(face_parts)
-
-    # Skin, hair
-    skin = app.get("skin", {})
-    skin_parts = []
-    for k, label in [("color", "肤色"), ("luster", "光泽"), ("fineness", "细腻程度")]:
-        v = skin.get(k)
-        if v:
-            skin_parts.append(f"{label}：{v}")
-    if skin_parts:
-        lines.append("—— 皮肤 ——")
-        lines.extend(skin_parts)
-
-    hair = app.get("hair", {})
-    hair_parts = []
-    for k, label in [("length", "长度"), ("style", "发型"), ("color", "发色"), ("ornament", "发饰")]:
-        v = hair.get(k)
-        if v:
-            hair_parts.append(f"{label}：{v}")
-    if hair_parts:
-        lines.append("—— 头发 ——")
-        lines.extend(hair_parts)
-
-    # Body parts (non-NSFW level) — consolidated into torso
-    if app.get("torso"):
-        lines.append(f"躯干：{app['torso']}")
-    # chest, waist, buttocks still independent sub-objects
-    chest = app.get("chest", {})
-    if chest.get("size") or chest.get("shape") or chest.get("fullness"):
-        chest_parts = [f"{k}：{v}" for k, v in [("size", "大小"), ("shape", "形状"), ("fullness", "饱满度")] if chest.get(v, k) is not chest.get]
-        # simpler approach
-        chest_str = "、".join(f"{l}：{chest[k]}" for k, l in [("size","大小"),("shape","形状"),("fullness","饱满度")] if chest.get(k))
-        if chest_str:
-            lines.append(f"胸部：{chest_str}")
-    waist = app.get("waist", {})
-    waist_str = "、".join(f"{l}：{waist[k]}" for k, l in [("muscle_line","肌肉线条"),("slimness","纤细度"),("softness","柔软度")] if waist.get(k))
-    if waist_str:
-        lines.append(f"腰部：{waist_str}")
-    if app.get("belly"):
-        lines.append(f"腹部：{app['belly']}")
-    buttocks = app.get("buttocks", {})
-    butt_str = "、".join(f"{l}：{buttocks[k]}" for k, l in [("size","大小"),("curve","曲线")] if buttocks.get(k))
-    if butt_str:
-        lines.append(f"臀部：{butt_str}")
-
-    # Legs, feet, hands
-    legs = app.get("legs", {})
-    legs_parts = []
-    for k, label in [("length", "长度"), ("muscle_tone", "肌肉线条"), ("thighs", "大腿")]:
-        v = legs.get(k)
-        if v:
-            legs_parts.append(f"{label}：{v}")
-    if legs_parts:
-        lines.append("—— 腿部 ——")
-        lines.extend(legs_parts)
-
-    feet = app.get("feet", {})
-    if feet.get("shape") or feet.get("size"):
-        lines.append(f"脚部：{feet.get('shape', '')}" + (f" | {feet['size']}" if feet.get('size') else ""))
-
-    hands = app.get("hands", {})
-    hands_parts = []
-    for k, label in [("fingers", "手指"), ("back", "手背")]:
-        v = hands.get(k)
-        if v:
-            hands_parts.append(f"{label}：{v}")
-    if hands_parts:
-        lines.append("—— 手部 ——")
-        lines.extend(hands_parts)
-
-    # ── Voice ──
-    voice = model.get("voice", {})
-    voice_parts = []
-    for k, label in [("timbre", "音色"), ("speed", "语速"), ("volume", "音量")]:
-        v = voice.get(k)
-        if v:
-            voice_parts.append(f"{label}：{v}")
-    if voice_parts:
-        lines.append("—— 声音 ——")
-        lines.extend(voice_parts)
-
-    # ── Attire ──
-    attire = model.get("attire", {})
-    if attire.get("clothing"):
-        lines.append("—— 穿着 ——")
-        lines.append(attire["clothing"])
-    if attire.get("jewelry"):
-        lines.append("—— 首饰 ——")
-        lines.append(attire["jewelry"])
-
-    # ── Equipment ──
-    equip_list = model.get("equipment", [])
-    if equip_list and isinstance(equip_list, list):
-        lines.append("—— 法宝/武器 ——")
-        for eq in equip_list[:5]:
-            eq_name = eq.get("name", "")
-            eq_desc = eq.get("description", "")
-            eq_pos = eq.get("position", "")
-            if eq_name:
-                parts = [eq_name]
-                if eq_pos:
-                    parts.append(f"({eq_pos})")
-                if eq_desc:
-                    parts.append(f"：{eq_desc}")
-                lines.append("  " + " ".join(parts))
-
-    # ── Behavior ──
-    beh = model.get("behavior", {})
-    beh_parts = []
-    for k, label in [("stance", "站姿"), ("sitting", "坐姿"), ("gait", "走路"),
-                     ("smile", "笑容"), ("mannerisms", "小动作")]:
-        v = beh.get(k)
-        if v:
-            beh_parts.append(f"{label}：{v}")
-    if beh_parts:
-        lines.append("—— 行为特征 ——")
-        lines.extend(beh_parts)
-
-    # ── Speech style ──
-    speech = model.get("speech_style", {})
-    speech_parts = []
-    for k, label in [("word_habits", "用语习惯"), ("particles", "语气词"),
-                     ("speech_rhythm", "说话节奏"), ("catchphrase", "口头禅"), ("battle_cry", "战吼"),
-                     ("address_player", "对主角称呼"), ("address_others", "对他人的称呼"),
-                     ("when_angry", "生气时的表现")]:
-        v = speech.get(k)
-        if v:
-            speech_parts.append(f"{label}：{v}")
-    if speech_parts:
-        lines.append("—— 说话风格 ——")
-        lines.extend(speech_parts)
-
-    # ── Combat style ──
-    combat = model.get("combat_style", {})
-    combat_parts = []
-    for k, label in [("preference", "战斗偏好"), ("weapon_usage", "法器使用习惯"),
-                     ("spirit_power_signature", "灵力特征")]:
-        v = combat.get(k)
-        if v:
-            combat_parts.append(f"{label}：{v}")
-    if combat_parts:
-        lines.append("—— 出手风格 ——")
-        lines.extend(combat_parts)
-
-    # ── Personality ──
-    pers = model.get("personality", {})
-    pers_parts = []
-    for k, label in [("core", "核心性格"), ("values", "价值观"), ("principles", "原则"),
-                     ("fears", "害怕"),
-                     ("likes", "喜欢"), ("obsession", "执念")]:
-        v = pers.get(k)
-        if v:
-            pers_parts.append(f"{label}：{v}")
-    if pers_parts:
-        lines.append("—— 性格 ——")
-        lines.extend(pers_parts)
-
-    # ── Background ──
-    bg = model.get("background", {})
-    bg_parts = []
-    for k, label in [("history", "过往经历"), ("major_events", "重大事件"),
-                     ("faction_affiliation", "势力所属"), ("family", "家族")]:
-        v = bg.get(k)
-        if v:
-            bg_parts.append(f"{label}：{v}")
-    if bg_parts:
-        lines.append("—— 背景 ——")
-        lines.extend(bg_parts)
-
-    # ── Knowledge bounds ──
-    kb = model.get("knowledge_bounds", {})
-    if kb.get("knows") or kb.get("does_not_know") or kb.get("suspicious_of"):
-        lines.append("—— 信息边界 ——")
-        if kb.get("knows"):
-            lines.append("  知道：")
-            if isinstance(kb["knows"], list):
-                for item in kb["knows"][:5]:
-                    lines.append(f"    · {item}")
-            else:
-                lines.append(f"    {kb['knows']}")
-        if kb.get("does_not_know"):
-            lines.append("  不知道：")
-            if isinstance(kb["does_not_know"], list):
-                for item in kb["does_not_know"][:5]:
-                    lines.append(f"    · {item}")
-            else:
-                lines.append(f"    {kb['does_not_know']}")
-        if kb.get("suspicious_of"):
-            lines.append("  正在怀疑：")
-            if isinstance(kb["suspicious_of"], list):
-                for item in kb["suspicious_of"][:5]:
-                    lines.append(f"    · {item}")
-            else:
-                lines.append(f"    {kb['suspicious_of']}")
-
-    # ── Attitude to player ──
-    att = model.get("attitude_to_player", {})
-    att_parts = []
-    for k, label in [("surface", "表层态度"), ("true_feelings", "真实想法"),
-                     ("relationship_trend", "关系变化倾向")]:
-        v = att.get(k)
-        if v:
-            att_parts.append(f"{label}：{v}")
-    if att_parts:
-        lines.append("—— 对玩家的态度 ——")
-        lines.extend(att_parts)
-
-    # ── Relationships ──
-    rel = model.get("relationships", {})
-    rel_lines = []
-    for k, label in [("father", "父亲"), ("mother", "母亲"), ("spouse", "配偶"),
-                     ("master", "师父"),
-                     ("senior_brother", "师兄"), ("senior_sister", "师姐"),
-                     ("junior_brother", "师弟"), ("junior_sister", "师妹"),
-                     ("teacher", "师尊"), ("superior", "上级"),
-                     ("subordinate", "下属"), ("lover", "恋人"),
-                     ("fiance", "婚约对象"), ("beloved", "爱人"),
-                     ("rival", "竞争者"), ("pursuer", "追求者")]:
-        v = rel.get(k)
-        if v:
-            rel_lines.append(f"  {label}：{v}")
-    for k, label in [("friends", "朋友"), ("enemies", "敌人")]:
-        v = rel.get(k)
-        if isinstance(v, list) and v:
-            rel_lines.append(f"  {label}：" + "、".join(v[:5]))
-    if rel_lines:
-        lines.append("—— 关系网 ——")
-        lines.extend(rel_lines)
+    # ── Everything else, grouped by top-level section ──
+    for section, data in model.items():
+        if section in ("basic", "model_version", "nsfw"):
+            continue
+        if not isinstance(data, dict):
+            continue
+        if not any(v not in (None, "", [], {}) for v in data.values()):
+            continue
+        # nsfw handled separately below
+        lines.append(f"—— {_label(section)} ——")
+        _render_dict(data, lines)
 
     # ── NSFW (only when include_nsfw=True) ──
     if include_nsfw:
-        nsfw_data = model.get("nsfw", {})
-        nsfw_parts = []
-        for k, label in [("is_virgin", "是否处子"), ("fertility", "生育情况"),
-                         ("desire_toward_target", "对互动目标性渴望程度"),
-                         ("rejection_toward_target", "对互动目标性拒绝程度"),
-                         ("male_genital", "♂"), ("female_genital", "♀")]:
-            v = nsfw_data.get(k)
-            if v is not None and v != "":
-                nsfw_parts.append(f"{label}：{v}")
-        if nsfw_parts:
-            lines.append("—— 身体特征 ——")
-            lines.extend(nsfw_parts)
+        nsfw_data = model.get("nsfw")
+        if isinstance(nsfw_data, dict):
+            nsfw_parts = []
+            for k, v in nsfw_data.items():
+                if v is None or v == "":
+                    continue
+                nsfw_parts.append(f"{_label(k)}：{_fmt(v)}")
+            if nsfw_parts:
+                lines.append("—— 身体特征 ——")
+                lines.extend(nsfw_parts)
 
     return "\n".join(lines)

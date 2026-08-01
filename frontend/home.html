@@ -462,8 +462,9 @@ async function renderNpcTable() {
   for (var i = 0; i < _npcLibData.length; i++) {
     var n = _npcLibData[i];
     var imported = _npcImportedData[n.name] || false;
-    var identity = (n.model_data && n.model_data.basic && n.model_data.basic.identity) || '未知';
-    var cult = (n.model_data && n.model_data.basic && n.model_data.basic.cultivation) || '未知';
+    var nb = (n.model_data && n.model_data.basic) || {};
+    var identity = nb.identity || nb.title || nb.occupation || '未知';
+    var cult = nb.cultivation || nb.level || nb.rank || '未知';
     var tags = (n.tags && n.tags.length) ? n.tags.join(', ') : '—';
     h += '<tr style="border-bottom:1px solid var(--border)">' +
       '<td style="padding:8px 12px"><b>' + escHtml(n.name) + '</b></td>' +

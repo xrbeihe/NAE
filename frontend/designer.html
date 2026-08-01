@@ -671,8 +671,17 @@ var _OPT_TABS = {
   identities:   { file: 'player_templates.json', label: '身份', cols: [['label','显示名'],['desc','说明'],['clothing','衣物'],['monthly_income','月入']] },
   golden_fingers:{file: 'player_templates.json', label: '特殊能力', cols: [['id','ID'],['name','名称'],['tagline','一句话'],['desc','详细说明'],['icon','图标']] },
   places:       { file: 'world_templates.json', label: '地点', cols: [['name','名称'],['type','类型'],['description','描述']] },
-  place_attrs:  { file: 'world_templates.json', label: '地点氛围', cols: [['name','名称'],['atmosphere','氛围'],['era_description','时代描述'],['law_description','规则'],['factions','势力']] },
-  npc_identities:{file: 'npc_templates.json', label: 'NPC身份池', cols: [['identity','身份']] }
+  npc_identities:{file: 'npc_templates.json', label: 'NPC身份池', cols: [['identity','身份']], kind: 'str_list', list_key: 'identities' },
+  // ── NPC 随机生成池（npc_templates.json）──
+  npc_surnames:   { file: 'npc_templates.json', label: '姓氏池', cols: [['name','姓氏']], kind: 'str_list', list_key: 'surnames' },
+  npc_male_names: { file: 'npc_templates.json', label: '男名池', cols: [['name','男名']], kind: 'str_list', list_key: 'given_names_male' },
+  npc_female_names:{file: 'npc_templates.json', label: '女名池', cols: [['name','女名']], kind: 'str_list', list_key: 'given_names_female' },
+  npc_personalities:{file: 'npc_templates.json', label: 'NPC性格池', cols: [['name','性格']], kind: 'str_list', list_key: 'personalities' },
+  npc_realms:    { file: 'npc_templates.json', label: '修为/级别池', cols: [['name','修为']], kind: 'str_list', list_key: 'realms' },
+  npc_body_types:{ file: 'npc_templates.json', label: '体型池', cols: [['name','体型']], kind: 'str_list', list_key: 'body_types' },
+  npc_attires:   { file: 'npc_templates.json', label: '衣着池', cols: [['name','衣着']], kind: 'str_list', list_key: 'attires' },
+  npc_constitutions:{file: 'npc_templates.json', label: '体质/天赋池', cols: [['name','体质']], kind: 'str_list', list_key: 'constitutions' },
+  npc_archetypes:{ file: 'npc_templates.json', label: 'NPC原型', list_key: 'core_archetypes', cols: [['identity','身份'],['personality','性格'],['cultivation','修为'],['behavior_note','行为特征']] }
 };
 
 function openOptEditor(wvId) {
@@ -723,34 +732,14 @@ function optSwitchTab(k) {
 function _optRows() {
   var tab = _OPT_TABS[_optEditor.tab];
   var data = _optEditor.data;
-  var key = (_optEditor.tab === 'places' || _optEditor.tab === 'place_attrs') ? 'regions' : _optEditor.tab;
+  var key = tab.list_key || ((_optEditor.tab === 'places') ? 'regions' : _optEditor.tab);
   var rows = data[key];
-  if (_optEditor.tab === 'npc_identities') {
-    // npc_templates.identities is a plain string array
-    var arr = data['identities'];
+  if (tab.kind === 'str_list') {
+    // Plain string array (e.g. surnames, given_names, personalities pool).
+    // data key = tab.list_key (or the tab name itself when absent).
+    var arr = data[tab.list_key || _optEditor.tab];
     if (!Array.isArray(arr)) arr = [];
-    return arr.map(function(s) { return { identity: s }; });
-  }
-  if (_optEditor.tab === 'place_attrs') {
-    // world_templates.regions (or sects+settlements for xianxia-style) with attributes
-    var regions = [];
-    if (Array.isArray(rows)) regions = rows;
-    else {
-      // fall back to sects + settlements when the pack uses xianxia-style geography
-      var sects = Array.isArray(data['sects']) ? data['sects'] : [];
-      var settlements = Array.isArray(data['settlements']) ? data['settlements'] : [];
-      regions = sects.concat(settlements);
-    }
-    return regions.map(function(r) {
-      var attrs = r.attributes || {};
-      return {
-        name: r.name || '',
-        atmosphere: attrs.atmosphere || '',
-        era_description: attrs.era_description || '',
-        law_description: attrs.law_description || '',
-        factions: (attrs.factions || []).join('、')
-      };
-    });
+    return arr.map(function(s) { return { name: s }; });
   }
   if (Array.isArray(rows)) return rows;
   if (typeof rows === 'object' && rows !== null) { // identities: {label: {...}}
@@ -789,11 +778,12 @@ function optAddRow() {
   if (_optEditor.tab === 'identities') {
     // identities is dict-of-dicts — keep as object; add handled specially on save
     _optEditor.data.identities['new_' + Date.now()] = {};
-  } else if (_optEditor.tab === 'npc_identities') {
-    var arr = _optEditor.data['identities'];
+  } else if (tab.kind === 'str_list') {
+    var listKey = tab.list_key || _optEditor.tab;
+    var arr = _optEditor.data[listKey];
     if (!Array.isArray(arr)) arr = [];
     arr.push('');
-    _optEditor.data['identities'] = arr;
+    _optEditor.data[listKey] = arr;
   } else {
     rows.push(newRow);
   }
@@ -803,11 +793,12 @@ function optAddRow() {
 
 function optDelRow(i) {
   var tab = _OPT_TABS[_optEditor.tab];
-  var key = (_optEditor.tab === 'places' || _optEditor.tab === 'place_attrs') ? 'regions' : _optEditor.tab;
+  var key = tab.list_key || ((_optEditor.tab === 'places') ? 'regions' : _optEditor.tab);
   var rows = _optRows();
-  if (_optEditor.tab === 'npc_identities') {
+  if (tab.kind === 'str_list') {
     // string array — remove the i-th entry
-    var arr = _optEditor.data['identities'];
+    var listKey = tab.list_key || _optEditor.tab;
+    var arr = _optEditor.data[listKey];
     if (Array.isArray(arr)) arr.splice(i, 1);
   } else if (typeof rows === 'object' && rows !== null && !Array.isArray(rows)) {
     // identities — delete by the key of the i-th entry
@@ -823,35 +814,17 @@ function optDelRow(i) {
 function saveOptEditor() {
   var tab = _OPT_TABS[_optEditor.tab];
   var data = _optEditor.data;
-  var key = (_optEditor.tab === 'places' || _optEditor.tab === 'place_attrs') ? 'regions' : _optEditor.tab;
+  var key = tab.list_key || ((_optEditor.tab === 'places') ? 'regions' : _optEditor.tab);
 
-  if (_optEditor.tab === 'npc_identities') {
+  if (tab.kind === 'str_list') {
     // rebuild string array from rows
-    var idArr = [];
+    var listKey = tab.list_key || _optEditor.tab;
+    var strArr = [];
     document.querySelectorAll('#opt-editor-body tr').forEach(function(tr, i) {
-      var inp = tr.querySelector('input[data-col="identity"]');
-      if (inp && inp.value.trim()) idArr.push(inp.value.trim());
+      var inp = tr.querySelector('input');
+      if (inp && inp.value.trim()) strArr.push(inp.value.trim());
     });
-    data['identities'] = idArr;
-  } else if (_optEditor.tab === 'place_attrs') {
-    // merge attribute columns back into regions[i].attributes
-    var regions = Array.isArray(data['regions']) ? data['regions'] : [];
-    document.querySelectorAll('#opt-editor-body tr').forEach(function(tr, i) {
-      if (!regions[i]) return;
-      var attrs = regions[i].attributes || {};
-      tr.querySelectorAll('input').forEach(function(inp) {
-        if (inp.dataset.row !== String(i)) return;
-        var col = inp.dataset.col;
-        var v = inp.value.trim();
-        if (col === 'name') { regions[i].name = v; }
-        else if (col === 'atmosphere') attrs['atmosphere'] = v;
-        else if (col === 'era_description') attrs['era_description'] = v;
-        else if (col === 'law_description') attrs['law_description'] = v;
-        else if (col === 'factions') attrs['factions'] = v ? v.split(/[、,，;；]/).map(function(s){return s.trim();}).filter(Boolean) : [];
-      });
-      if (Object.keys(attrs).length) regions[i].attributes = attrs;
-    });
-    data['regions'] = regions;
+    data[listKey] = strArr;
   } else if (_optEditor.tab === 'identities') {
     // rebuild dict from rows (value column = key)
     var rebuilt = {};
@@ -866,12 +839,15 @@ function saveOptEditor() {
   } else {
     var rows = _optRows();
     var idxMap = {};
-    document.querySelectorAll('#opt-editor-body tr').forEach(function(tr, i) {
+    // Skip the header row (tr[0] has no inputs); map by data-row so the
+    // index aligns with the rows array regardless of header presence.
+    document.querySelectorAll('#opt-editor-body tr').forEach(function(tr) {
+      var firstInput = tr.querySelector('input');
+      if (!firstInput) return; // header row
+      var ridx = parseInt(firstInput.dataset.row, 10);
       tr.querySelectorAll('input').forEach(function(inp) {
-        if (inp.dataset.row === String(i)) {
-          if (!idxMap[i]) idxMap[i] = {};
-          idxMap[i][inp.dataset.col] = inp.value.trim();
-        }
+        if (!idxMap[ridx]) idxMap[ridx] = {};
+        idxMap[ridx][inp.dataset.col] = inp.value.trim();
       });
     });
     var rebuiltRows = [];

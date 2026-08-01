@@ -37,6 +37,7 @@ _PANEL = "panel.json"
 _UI = "ui.json"
 _MODELER_ROLE = "modeler/role.txt"
 _MODELER_AGE_RULES = "modeler/age_rules.txt"
+_MODELER_SCHEMA = "modeler/schema.json"
 _EVENTS = "events.json"
 _FORM = "form.json"
 _WORLD_FACTS = "world_facts.json"
@@ -61,6 +62,7 @@ class Worldview:
     ui: dict = field(default_factory=dict)
     modeler_role: str | None = None
     modeler_age_rules: str | None = None
+    modeler_schema: dict = field(default_factory=dict)  # modeler/schema.json — per-worldview NPC model field tree
     events: dict = field(default_factory=dict)
     form: dict | None = None  # form.json — declarative character-creation form
     world_facts: dict | None = None  # world_facts.json — authoritative canon for IP worldviews
@@ -142,6 +144,7 @@ def _load_pack(wv_id: str, pack_dir: Path) -> Worldview:
         ui=_read_json(pack_dir / _UI),
         modeler_role=_read_text(pack_dir / _MODELER_ROLE),
         modeler_age_rules=_read_text(pack_dir / _MODELER_AGE_RULES),
+        modeler_schema=_read_json(pack_dir / _MODELER_SCHEMA),
         events=_read_json(pack_dir / _EVENTS),
         form=_read_json(pack_dir / _FORM) or None,
         world_facts=_read_json(pack_dir / _WORLD_FACTS) or None,
@@ -205,7 +208,7 @@ def validate_pack(wv_id: str) -> dict:
 
     for name in [
         _INTENT_KEYWORDS, _CONSTRAINTS, _NPC_TEMPLATES,
-        _PANEL, _UI, _MODELER_ROLE, _MODELER_AGE_RULES,
+        _PANEL, _UI, _MODELER_ROLE, _MODELER_AGE_RULES, _MODELER_SCHEMA,
     ]:
         path = pack_dir / name
         if not path.exists():
@@ -253,18 +256,25 @@ def read_artifact(wv_id: str, filename: str) -> dict:
 def write_artifact(wv_id: str, filename: str, data: dict) -> dict:
     """Write a pack JSON artifact and refresh the loader cache.
 
-    `filename` must be a bare JSON filename inside the pack (no path traversal).
+    `filename` must be a bare JSON filename inside the pack (no path traversal),
+    or the whitelisted sub-path `modeler/schema.json`.
     """
     if not _is_valid_id(wv_id):
         raise ValueError(f"无效的世界观 ID: {wv_id!r}")
-    if not filename.endswith(".json") or "/" in filename or "\\" in filename or ".." in filename:
-        raise ValueError(f"非法文件名: {filename!r}")
+    _ALLOWED_SUB = "modeler/schema.json"
+    if filename == _ALLOWED_SUB:
+        rel = Path(filename)
+    else:
+        if not filename.endswith(".json") or "/" in filename or "\\" in filename or ".." in filename:
+            raise ValueError(f"非法文件名: {filename!r}")
+        rel = Path(filename)
     pack_dir = WORLDVIEWS_DIR / wv_id
     if not pack_dir.is_dir():
         raise FileNotFoundError(f"世界观 {wv_id} 不存在")
     if not isinstance(data, dict):
         raise ValueError("数据必须是 JSON 对象")
-    path = pack_dir / filename
+    path = pack_dir / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     reload(wv_id)
     return {"saved": wv_id, "file": filename}

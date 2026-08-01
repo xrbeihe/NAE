@@ -392,6 +392,34 @@ _AGE_RULES = (
 )
 
 
+def _build_modeler_schema(author: dict) -> dict:
+    """Build a worldview-neutral NPC model field tree for the generated pack.
+
+    Generic across genres: identity + appearance + inner self. Genres with a
+    power system get an extra power_details section; authors can extend freely.
+    """
+    power_label = (author.get("power_system") or "").strip() or "能力"
+    schema = {
+        "basic": {"name": "", "race": "", "gender": "", "age": 0, "identity": "", "position": ""},
+        "appearance": {
+            "overall_impression": "", "body_proportion": "", "aura": "",
+            "hair": {"length": "", "style": "", "color": ""},
+        },
+        "personality": {"core": "", "values": "", "fears": "", "likes": ""},
+        "background": {"history": "", "major_events": ""},
+        "relationships": {"friends": [], "enemies": [], "lover": ""},
+        "attitude_to_player": {"surface": "", "true_feelings": ""},
+        "knowledge_bounds": {"knows": [], "does_not_know": []},
+    }
+    if power_label:
+        schema["power_details"] = {
+            "system": power_label,
+            "level": "",
+            "abilities": [],
+        }
+    return schema
+
+
 def _build_form(author: dict) -> dict:
     """Build a declarative form.json for the generated pack."""
     fields = _field_names(author)
@@ -546,6 +574,7 @@ def build_pack(author: dict) -> dict:
         "form.json": _build_form(author),
         "modeler/role.txt": _build_modeler(author),
         "modeler/age_rules.txt": _AGE_RULES,
+        "modeler/schema.json": _build_modeler_schema(author),
     }
     # IP-based worldviews also ship a world_facts.json (authoritative canon)
     wf = _build_world_facts(author)

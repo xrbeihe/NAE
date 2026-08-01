@@ -1,0 +1,32 @@
+{
+  "basic": {"name": "", "gender": "", "age": 0, "rank": "", "village": "", "team": "", "ninja_id": ""},
+  "appearance": {
+    "overall_impression": "", "stature": "", "build": "",
+    "hair": {"length": "", "style": "", "color": ""},
+    "eyes": {"color": "", "detail": ""},
+    "face": {"shape": "", "features": "", "markings": ""},
+    "headband": {"position": "", "mark": ""},
+    "distinguishing_feature": ""
+  },
+  "attire": {"clothing": "", "armor": "", "accessories": "", "signature_item": ""},
+  "equipment": [{"name": "", "description": "", "position": ""}],
+  "voice": {"timbre": "", "catchphrase": "", "manner_of_speech": ""},
+  "behavior": {"stance": "", "gait": "", "mannerisms": "", "tick": ""},
+  "personality": {"core": "", "values": "", "will_of_fire": "", "fears": "", "likes": "", "ninja_way": ""},
+  "background": {"history": "", "family": "", "academy_record": "", "major_events": "", "graduation_rank": ""},
+  "ninja_ability": {
+    "chakra_nature": "",
+    "element": "",
+    "bloodline_limit": "",
+    "jutsu_types": [],
+    "signature_jutsu": "",
+    "taijutsu_level": "",
+    "genjutsu_level": "",
+    "summoning_contract": ""
+  },
+  "knowledge_bounds": {"knows": [], "does_not_know": [], "suspicious_of": []},
+  "attitude_to_player": {"surface": "", "true_feelings": "", "relationship_trend": ""},
+  "relationships": {"sensei": "", "teammates": [], "family": [], "friends": [], "enemies": [], "rivals": [], "lover": ""},
+  "nsfw": {"is_virgin": true, "fertility": "",
+           "desire_toward_target": "", "rejection_toward_target": ""}
+}

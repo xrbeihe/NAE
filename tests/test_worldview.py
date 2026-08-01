@@ -38,6 +38,48 @@ def test_get_xianxia_pack_loaded():
     assert wv.panel_spec.get("fields")
     assert wv.ui.get("labels")
     assert wv.modeler_role
+    assert wv.modeler_schema  # modeler/schema.json loaded
+    assert wv.modeler_schema.get("basic")
+
+
+def test_packs_ship_their_own_modeler_schema():
+    # Each pack's modeler schema differs from the xianxia default
+    fk = get_worldview("fantasy_kingdom")
+    mc = get_worldview("modern_city")
+    assert "knighthood" in fk.modeler_schema          # western-fantasy specific
+    assert "magic" in fk.modeler_schema
+    assert "lifestyle" in mc.modeler_schema           # modern-life specific
+    assert "wardrobe" in mc.modeler_schema
+    # Generic renderer surfaces these custom fields without hardcoded knowledge
+    from ane.modules.npc_modeler import render_model_for_prompt
+    md = {
+        "basic": {"name": "Sir Aldric", "rank": "勋爵"},
+        "magic": {"school": "火焰术", "level": "学徒"},
+        "knighthood": {"liege": "亚瑟王"},
+        "model_version": "1.1",
+    }
+    rendered = render_model_for_prompt(md, include_nsfw=False)
+    assert "火焰术" in rendered      # custom field rendered
+    assert "亚瑟王" in rendered      # nested custom field rendered
+    assert "Sir Aldric" in rendered
+
+
+def test_model_relationships_parse_generically():
+    """Relationship parsing must not hardcode xianxia keys."""
+    from ane.game_engine import GameEngine
+    # fantasy-style relationships
+    fk = GameEngine._model_rels_to_entries(
+        {"liege_lord": "亚瑟王", "family": ["凯尔", "艾琳娜"], "enemies": ["黑骑士莫甘"]}
+    )
+    types = {e["target"]: e["type"] for e in fk}
+    assert types["亚瑟王"] == "领主"
+    assert types["凯尔"] == "家人"
+    assert types["黑骑士莫甘"] == "敌人"
+    # xianxia-style relationships still map to Chinese labels
+    xi = GameEngine._model_rels_to_entries({"master": "玄真道人", "friends": ["林晚"]})
+    xi_types = {e["target"]: e["type"] for e in xi}
+    assert xi_types["玄真道人"] == "师父"
+    assert xi_types["林晚"] == "朋友"
 
 
 def test_invalid_id_rejected():

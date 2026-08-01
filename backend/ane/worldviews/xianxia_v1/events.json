@@ -8,6 +8,12 @@
   "idle_probability": 0.2,
   "idle_events": [
     {"type": "cultivation_progress", "description": "听闻{npc_name}近日修为略有精进。"},
-    {"type": "random_encounter", "description": "{npc_name}似乎经历了一些事，但详情不明。"}
+    {"type": "random_encounter", "description": "{npc_name}似乎经历了一些事，但详情不明。"},
+    {"type": "random_encounter", "description": "有消息说{npc_name}去了一趟坊市，出手阔绰，买了些珍稀灵材。"},
+    {"type": "random_encounter", "description": "{npc_name}与人发生了争执，据说是因为一件法宝的归属。"},
+    {"type": "random_encounter", "description": "近来{npc_name}常在后山出没，像是在找什么东西。"},
+    {"type": "random_encounter", "description": "听说{npc_name}收了一个记名弟子，在宗门里传开了。"},
+    {"type": "random_encounter", "description": "{npc_name}请了几天假，说是要下山处理一件私事。"},
+    {"type": "random_encounter", "description": "有人在深夜看到{npc_name}的洞府亮起异样的光芒。"}
   ]
 }

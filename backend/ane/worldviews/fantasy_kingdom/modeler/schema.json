@@ -1,0 +1,24 @@
+{
+  "basic": {"name": "", "race": "", "gender": "", "age": 0, "title": "", "rank": "", "kingdom": "", "estate": ""},
+  "appearance": {
+    "overall_impression": "", "stature": "", "build": "",
+    "hair": {"length": "", "style": "", "color": ""},
+    "eyes": {"color": "", "detail": ""},
+    "face": {"shape": "", "features": "", "beard": ""},
+    "scarring": ""
+  },
+  "attire": {"clothing": "", "armor": "", "jewelry": "", "heraldry": ""},
+  "equipment": [{"name": "", "description": "", "position": ""}],
+  "voice": {"timbre": "", "accent": "", "manner_of_speech": ""},
+  "behavior": {"stance": "", "gait": "", "mannerisms": "", "table_manners": ""},
+  "personality": {"core": "", "values": "", "principles": "", "vices": "", "fears": "", "desires": ""},
+  "background": {"history": "", "family": "", "birthright": "", "major_events": "", "allegiances": ""},
+  "knighthood": {"sworn_oath": "", "liege": "", "deeds": [], "code": ""},
+  "magic": {"school": "", "level": "", "spells": [], "mana_signature": ""},
+  "wealth": {"silver": "", "gold": "", "holdings": ""},
+  "knowledge_bounds": {"knows": [], "does_not_know": [], "suspicious_of": []},
+  "attitude_to_player": {"surface": "", "true_feelings": "", "relationship_trend": ""},
+  "relationships": {"liege_lord": "", "family": [], "friends": [], "enemies": [], "allies": [], "lover": ""},
+  "nsfw": {"is_virgin": true, "fertility": "",
+           "desire_toward_target": "", "rejection_toward_target": ""}
+}

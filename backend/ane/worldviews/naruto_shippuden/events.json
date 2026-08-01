@@ -8,6 +8,12 @@
   "idle_probability": 0.2,
   "idle_events": [
     {"type": "ninja_mission", "description": "听闻{npc_name}接了一个新的任务委托。"},
-    {"type": "random_encounter", "description": "{npc_name}似乎经历了一些事，但详情不明。"}
+    {"type": "random_encounter", "description": "{npc_name}似乎经历了一些事，但详情不明。"},
+    {"type": "random_encounter", "description": "{npc_name}最近在练习场上训练到很晚，像是准备什么考试。"},
+    {"type": "random_encounter", "description": "听说{npc_name}完成了一次C级任务，获得了上忍的表扬。"},
+    {"type": "random_encounter", "description": "{npc_name}去了趟一乐拉面，胃口出奇地好。"},
+    {"type": "random_encounter", "description": "村子里在传{npc_name}可能要参加下一届中忍考试。"},
+    {"type": "random_encounter", "description": "{npc_name}和队友切磋了一场，结果传得沸沸扬扬。"},
+    {"type": "random_encounter", "description": "{npc_name}被派去执行一个机密任务，具体内容没人知道。"}
   ]
 }

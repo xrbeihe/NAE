@@ -160,486 +160,134 @@
       "identity": "神秘前辈",
       "personality": "深不可测，从不多言，但偶尔对后辈点出关键。",
       "cultivation": "化神期",
-      "behavior_note": "独来独往，看似漫无目的地在各处游荡，实则似乎在寻找什么。",
-      "portrait": {
-        "age": 45,
-        "height": 178,
-        "weight": 68,
-        "appearance_summary": "面容清瘦，鬓角微白，一双眼眸深不见底，仿佛看尽千年沧桑。",
-        "background_summary": "修为深不可测，来历成谜。从不谈及自身过往，但举手投足间透出一股久居上位的气度。",
-        "spiritual_root": "未知",
-        "talent_note": "",
-        "monthly_income": "不明",
-        "savings": "不明",
-        "special_constitution": "",
-        "moral_character": "行事自由，不拘正邪，但自有底线。",
-        "sexual_knowledge": "阅历丰富",
-        "fertility": "正常",
-        "lifestyle_summary": "居无定所，从不在一处停留超过三个月。偶尔在茶摊上指点一两个看得顺眼的后辈。",
-        "upper_garment": "灰白色素面长袍",
-        "upper_inner": "麻布中衣",
-        "lower_garment": "同色宽松长裤",
-        "footwear": "黑色布靴",
-        "equipment": [
-          {
-            "name": "无名铁剑",
-            "position": "背于身后",
-            "description": "一柄锈迹斑斑的旧剑，但偶尔在月光下会泛起微光。"
-          }
-        ],
-        "abilities": [
-          {
-            "name": "敛息术",
-            "description": "可随意压制自身修为气息，外人无法探知真实境界。",
-            "power_level": "化神级"
-          }
-        ]
-      }
+      "behavior_note": "独来独往，看似漫无目的地在各处游荡，实则似乎在寻找什么。"
     },
     {
       "identity": "同门挚友",
       "personality": "忠诚可靠，性格直爽，偶尔拌嘴但从不记仇。",
       "cultivation": "筑基期",
-      "behavior_note": "勤奋修炼，经常主动帮同门分担杂务，人缘极好。",
-      "portrait": {
-        "age": 22,
-        "height": 175,
-        "weight": 68,
-        "appearance_summary": "浓眉大眼，肤色偏黑，笑起来露出一口白牙，憨厚中带着几分英气。",
-        "background_summary": "青云宗外门弟子出身，靠自身努力在宗门大比中脱颖而出，被破格收入内门。",
-        "spiritual_root": "三灵根",
-        "talent_note": "天赋平平但极为勤奋，以勤补拙的典范。",
-        "monthly_income": "30块下品灵石",
-        "savings": "200块下品灵石",
-        "special_constitution": "",
-        "moral_character": "正直仗义，重情重义。",
-        "sexual_knowledge": "粗浅",
-        "fertility": "正常",
-        "lifestyle_summary": "每日卯时即起修炼，风雨无阻。为人随和，在各峰弟子中都有朋友。",
-        "upper_garment": "青色内门弟子制式长袍",
-        "upper_inner": "白色中衣",
-        "lower_garment": "同色长裤",
-        "footwear": "黑色布靴",
-        "equipment": [
-          {
-            "name": "青锋剑",
-            "position": "腰间",
-            "description": "青云宗内门弟子标配佩剑，剑身狭长，出鞘时泛青光。"
-          }
-        ],
-        "abilities": [
-          {
-            "name": "青云剑法",
-            "description": "青云宗入门剑法，讲究快准狠三字诀，适合近身缠斗。",
-            "power_level": "筑基级"
-          }
-        ]
-      }
+      "behavior_note": "勤奋修炼，经常主动帮同门分担杂务，人缘极好。"
     },
     {
       "identity": "敌对修士",
       "personality": "骄横跋扈，目中无人，对修为低于自己的同门尤其刻薄。",
       "cultivation": "筑基期",
-      "behavior_note": "经常在宗门各处巡视，喜欢找外门弟子的麻烦立威。",
-      "portrait": {
-        "age": 24,
-        "height": 182,
-        "weight": 75,
-        "appearance_summary": "身材高大，面容冷峻，眉宇间带着一股挥之不去的戾气，嘴角总噙着一丝冷笑。",
-        "background_summary": "出身修仙世家，从小被家族倾力培养，一帆风顺，从未经历过挫折，养成了目中无人的性格。",
-        "spiritual_root": "双灵根",
-        "talent_note": "天赋出众，但性格桀骜不驯，门派长老多次训诫无果。",
-        "monthly_income": "100块下品灵石",
-        "savings": "3000块下品灵石",
-        "special_constitution": "",
-        "moral_character": "恃强凌弱，但在真正的高手面前极懂审时度势。",
-        "sexual_knowledge": "寻常",
-        "fertility": "正常",
-        "lifestyle_summary": "修炼之余喜好在宗门各处闲逛，以打压弱者为乐。家族每月送来额外修炼资源。",
-        "upper_garment": "白色锦缎金丝道袍",
-        "upper_inner": "月白丝绸中衣",
-        "lower_garment": "同色锦缎长裤",
-        "footwear": "云纹锦靴",
-        "equipment": [
-          {
-            "name": "玄铁重剑",
-            "position": "腰间",
-            "description": "家族祖传法器，剑身漆黑，重达三十斤，一剑劈下势大力沉。"
-          }
-        ],
-        "abilities": [
-          {
-            "name": "裂石剑诀",
-            "description": "爆发力极强的剑招，一剑可劈开三尺青石。但消耗灵力较大。",
-            "power_level": "筑基级"
-          }
-        ]
-      }
+      "behavior_note": "经常在宗门各处巡视，喜欢找外门弟子的麻烦立威。"
     },
     {
       "identity": "师尊",
       "personality": "严厉中藏着关怀，对弟子期望极高，但从不轻易表露赞许。",
       "cultivation": "元婴期",
-      "behavior_note": "每日在洞府中打坐修炼或研读功法，偶尔去藏经阁查阅典籍。",
-      "portrait": {
-        "age": 58,
-        "height": 172,
-        "weight": 60,
-        "appearance_summary": "白发如雪，面容清癯，一袭素袍不染纤尘。双目炯炯有神，不怒自威。",
-        "background_summary": "青云宗长老，二百年前以散修身份入宗，靠惊人的毅力一步步修至元婴。对弟子要求严苛，但门下弟子成材率极高。",
-        "spiritual_root": "单灵根",
-        "talent_note": "天赋卓绝，但更令人敬畏的是那份数百年如一日的苦修意志。",
-        "monthly_income": "500块中品灵石",
-        "savings": "数万中品灵石",
-        "special_constitution": "",
-        "moral_character": "德高望重，处事公正，宗门上下无不敬服。",
-        "sexual_knowledge": "寡淡",
-        "fertility": "衰退",
-        "lifestyle_summary": "生活极简，大部分时间都在闭关修炼或批阅弟子的修炼心得。从不过问俗务。",
-        "upper_garment": "月白色长老制式长袍",
-        "upper_inner": "灰色素面中衣",
-        "lower_garment": "同色长裤",
-        "footwear": "青色布靴",
-        "equipment": [
-          {
-            "name": "寒玉拂尘",
-            "position": "持于手中",
-            "description": "以千年寒玉为柄、冰蚕丝为须的拂尘，挥动间寒气四溢，可冻结对手经脉。"
-          }
-        ],
-        "abilities": [
-          {
-            "name": "太虚剑诀",
-            "description": "青云宗镇宗功法之一，剑出无声，意到剑到，元婴期修士亦不敢硬接。",
-            "power_level": "元婴级"
-          }
-        ]
-      }
+      "behavior_note": "每日在洞府中打坐修炼或研读功法，偶尔去藏经阁查阅典籍。"
     },
     {
       "identity": "坊市商人",
       "personality": "精明世故，见多识广，消息灵通但真假参半。",
       "cultivation": "炼气期",
-      "behavior_note": "整日在坊市里打理铺面，与各色修士打交道，消息极为灵通。",
-      "portrait": {
-        "age": 35,
-        "height": 170,
-        "weight": 68,
-        "appearance_summary": "略显发福的中年人，满面油光，一笑起来眼睛眯成一条缝，手指上戴着三四个储物戒指。",
-        "background_summary": "原本是个小宗门的外门弟子，修炼无望后在坊市开了一间杂货铺，靠倒卖修士物品发了家。",
-        "spiritual_root": "四灵根",
-        "talent_note": "修炼天赋平平，但经商头脑一流。",
-        "monthly_income": "200块下品灵石",
-        "savings": "5000块下品灵石",
-        "special_constitution": "",
-        "moral_character": "商人本色，重利轻义，但也有自己的底线。",
-        "sexual_knowledge": "寻常",
-        "fertility": "正常",
-        "lifestyle_summary": "每天卯时开门营业，酉时关门算账。喜欢约人在聚仙楼喝茶谈生意。",
-        "upper_garment": "棕色绸缎长袍",
-        "upper_inner": "棉布中衣",
-        "lower_garment": "深棕色长裤",
-        "footwear": "黑色布靴",
-        "equipment": [
-          {
-            "name": "储物戒指",
-            "position": "右手食指",
-            "description": "低阶储物法器，内含三尺见方的空间。"
-          }
-        ],
-        "abilities": [
-          {
-            "name": "察言观色",
-            "description": "多年的经商历练让他能从客人的衣着谈吐中迅速判断对方的购买力和意图。",
-            "power_level": "无"
-          }
-        ]
-      }
+      "behavior_note": "整日在坊市里打理铺面，与各色修士打交道，消息极为灵通。"
     },
     {
       "identity": "青梅竹马",
       "personality": "温柔体贴中藏着一股倔强，外表柔弱但内心坚强。",
       "cultivation": "炼气期",
-      "behavior_note": "每日除了修炼就是在后山采药或帮杂役房缝补衣物换灵石。",
-      "portrait": {
-        "age": 18,
-        "height": 163,
-        "weight": 48,
-        "appearance_summary": "身材纤细，瓜子脸，肤色白皙，一头乌黑的及腰长发随意束在身后。穿着洗得发白的布裙，朴素却干净。",
-        "background_summary": "出身贫寒的农家，父母早亡，靠给宗门做杂活维持生计。修炼资质平平但从未放弃。",
-        "spiritual_root": "五灵根",
-        "talent_note": "资质平庸，吐纳速度很慢，但体术天赋意外地好。",
-        "monthly_income": "5块下品灵石",
-        "savings": "30块下品灵石",
-        "special_constitution": "",
-        "moral_character": "善良纯真，但对外人有天然的戒心。认定的事会坚持到底。",
-        "sexual_knowledge": "几乎为零",
-        "fertility": "正常",
-        "lifestyle_summary": "天不亮就起来去后山采药，傍晚在油灯下缝补衣物。省吃俭用只为多买一枚聚灵丹。",
-        "upper_garment": "浅青色粗布衣裙",
-        "upper_inner": "白色棉布肚兜",
-        "lower_garment": "同色粗布裙",
-        "footwear": "旧麻鞋",
-        "equipment": [
-          {
-            "name": "药锄",
-            "position": "腰间布袋",
-            "description": "专门用来采摘灵草的短柄小锄，锄刃已磨得锃亮。"
-          }
-        ],
-        "abilities": [
-          {
-            "name": "草灵辨识",
-            "description": "从小在后山采药练出的眼力，能辨认近百种低级灵草及其药性。",
-            "power_level": "无"
-          }
-        ]
-      }
+      "behavior_note": "每日除了修炼就是在后山采药或帮杂役房缝补衣物换灵石。"
     },
     {
       "identity": "宗门长老",
       "personality": "德高望重，处事公正，对宗门事务一丝不苟。",
       "cultivation": "元婴期",
-      "behavior_note": "大部分时间在长老殿处理宗门事务，偶尔在演武场巡视弟子修炼。",
-      "portrait": {
-        "age": 65,
-        "height": 176,
-        "weight": 65,
-        "appearance_summary": "须发花白但身形挺拔，眉宇间带着一股久居上位者的威严。说话不疾不徐，但每个字都掷地有声。",
-        "background_summary": "青云宗建宗时的弟子之一，三百年来从外门弟子一步步走到长老之位。见证了宗门的兴衰浮沉。",
-        "spiritual_root": "双灵根",
-        "talent_note": "虽非天灵根，但胜在道心坚定，没有任何事能动摇其修炼意志。",
-        "monthly_income": "600块中品灵石",
-        "savings": "丰厚",
-        "special_constitution": "",
-        "moral_character": "公正廉明，从不徇私，是宗门低阶弟子心目中的守护者。",
-        "sexual_knowledge": "寡淡",
-        "fertility": "衰退",
-        "lifestyle_summary": "每日卯时在长老殿批阅公务，酉时在洞府打坐。生活规律到近乎刻板。",
-        "upper_garment": "深青色长老制式锦袍",
-        "upper_inner": "灰色丝绸中衣",
-        "lower_garment": "同色锦缎长裤",
-        "footwear": "黑色云纹靴",
-        "equipment": [
-          {
-            "name": "太玄尺",
-            "position": "袖中",
-            "description": "一柄通体墨绿的玉尺，是宗门长老信物，亦是元婴级法器。"
-          }
-        ],
-        "abilities": [
-          {
-            "name": "青云印",
-            "description": "以掌力凝聚灵气化为一枚大印轰击，可镇压金丹期以下一切修士。",
-            "power_level": "元婴级"
-          }
-        ]
-      }
+      "behavior_note": "大部分时间在长老殿处理宗门事务，偶尔在演武场巡视弟子修炼。"
     },
     {
       "identity": "江湖游医",
       "personality": "古怪刁钻，喜怒无常，但医术确实高明。",
       "cultivation": "筑基期",
-      "behavior_note": "背着药篓在山中各处采集药草，偶尔在坊市摆摊义诊。",
-      "portrait": {
-        "age": 42,
-        "height": 169,
-        "weight": 55,
-        "appearance_summary": "瘦削的中年人，左脸上有一道被毒草腐蚀留下的疤痕，眼神总带着几分不耐烦。手指修长，指尖常年被药汁染成褐色。",
-        "background_summary": "曾是某宗门的炼丹弟子，因偷尝禁药被逐出师门，此后浪迹江湖，却意外练就一手以毒攻毒的独特医术。",
-        "spiritual_root": "三灵根",
-        "talent_note": "炼丹天赋极高，但为人古怪，不愿意接受任何宗门的约束。",
-        "monthly_income": "不定，看诊缘分",
-        "savings": "500块下品灵石",
-        "special_constitution": "常年服食丹毒，身体对大部分剧毒有天然抗性。",
-        "moral_character": "随性而为，好恶分明。看得顺眼的可以不收钱，看不顺眼的千金不治。",
-        "sexual_knowledge": "寻常",
-        "fertility": "受损（长期接触毒草）",
-        "lifestyle_summary": "居无定所，哪里有灵草就去哪里。偶尔在坊市摆摊，卖自制丹药换盘缠。",
-        "upper_garment": "灰褐色粗布长袍",
-        "upper_inner": "麻布中衣",
-        "lower_garment": "灰色长裤",
-        "footwear": "草鞋",
-        "equipment": [
-          {
-            "name": "药篓",
-            "position": "背在身后",
-            "description": "竹编药篓，里面总是装着各种新鲜采集的灵草。"
-          },
-          {
-            "name": "银针",
-            "position": "胸前衣襟",
-            "description": "一套十三根银针，长短不一，是诊脉和解毒的工具。"
-          }
-        ],
-        "abilities": [
-          {
-            "name": "百草辨识",
-            "description": "能辨认数百种灵草及其药性、毒性、配伍禁忌。",
-            "power_level": "筑基级"
-          }
-        ]
-      }
+      "behavior_note": "背着药篓在山中各处采集药草，偶尔在坊市摆摊义诊。"
     },
     {
       "identity": "隐世高手",
       "personality": "看似普通老者，实则修为通天。豁达随和，喜欢与人闲聊但从不透露真实身份。",
       "cultivation": "渡劫期",
-      "behavior_note": "整日在坊市里闲逛、喝茶、下棋，看起来像一个普通的退休老头。",
-      "portrait": {
-        "age": 72,
-        "height": 165,
-        "weight": 55,
-        "appearance_summary": "一个瘦小的老头，穿着洗得发白的旧布衣，满脸皱纹，背微驼。笑起来露出一口黄牙，和田间老农毫无区别。",
-        "background_summary": "来历不明。在青云坊市住了三年，所有人都以为他只是一个普通的凡人老头。但每逢大劫，他恰好都不在。",
-        "spiritual_root": "未知",
-        "talent_note": "",
-        "monthly_income": "无固定收入（靠卖柴为生）",
-        "savings": "无",
-        "special_constitution": "修为已达返璞归真之境，任何探测手段都只能查到他是个凡人。",
-        "moral_character": "游戏人间，看破不说破。偶尔以不经意的形式点拨有缘人。",
-        "sexual_knowledge": "寡淡",
-        "fertility": "已无",
-        "lifestyle_summary": "每天辰时在聚仙楼门口支摊卖柴，巳时去茶铺喝茶看人下棋，酉时收摊回家。三年来风雨无阻。",
-        "upper_garment": "洗得发白的灰色粗布短褐",
-        "upper_inner": "旧麻布内衬",
-        "lower_garment": "灰色粗布长裤",
-        "footwear": "旧草鞋",
-        "equipment": [
-          {
-            "name": "扁担",
-            "position": "靠在身旁",
-            "description": "一根看起来普通的竹扁担，但用了三年从未断裂。"
-          }
-        ],
-        "abilities": [
-          {
-            "name": "返璞归真",
-            "description": "修为至高境界，气息与天地融为一体，任何窥探都会得到'凡人'的结论。",
-            "power_level": "渡劫级"
-          }
-        ]
-      }
+      "behavior_note": "整日在坊市里闲逛、喝茶、下棋，看起来像一个普通的退休老头。"
     },
     {
       "identity": "情报贩子",
       "personality": "油嘴滑舌，见人说人话见鬼说鬼话。消息灵通但真假参半，从不会做亏本买卖。",
       "cultivation": "炼气期",
-      "behavior_note": "整日在聚仙楼二楼靠窗的位置喝茶，耳朵却始终竖着听各桌的谈话。",
-      "portrait": {
-        "age": 28,
-        "height": 172,
-        "weight": 62,
-        "appearance_summary": "长相普通，属于人群中绝对不会被注意到的类型。一双小眼睛总是滴溜溜地转，嘴角永远挂着一抹似有似无的笑。",
-        "background_summary": "原本是个普通散修，无意中发现贩卖消息比猎妖赚钱快得多，从此转行。在青云坊市混了五年，认识三教九流无数人。",
-        "spiritual_root": "五灵根",
-        "talent_note": "修炼资质极差，但记性极好，见过听过的人事从不忘记。",
-        "monthly_income": "50块下品灵石",
-        "savings": "1500块下品灵石",
-        "special_constitution": "",
-        "moral_character": "没有立场，谁给灵石就帮谁。但也知道什么消息能卖、什么消息卖了会掉脑袋。",
-        "sexual_knowledge": "丰富",
-        "fertility": "正常",
-        "lifestyle_summary": "从不在同一个地方待超过三个时辰。在坊市各处都有可以快速脱身的后路。",
-        "upper_garment": "灰蓝色短褐",
-        "upper_inner": "棉布内衬",
-        "lower_garment": "灰色长裤",
-        "footwear": "黑色布靴",
-        "equipment": [
-          {
-            "name": "传讯玉符",
-            "position": "怀中暗袋",
-            "description": "低阶法器，可与千米内的另一枚玉符传声，是他的重要工具。"
-          }
-        ],
-        "abilities": [
-          {
-            "name": "过目不忘",
-            "description": "天生记性极好，能记住五年来在坊市听过见过的每一个人名和每一桩交易。",
-            "power_level": "无"
-          }
-        ]
-      }
+      "behavior_note": "整日在聚仙楼二楼靠窗的位置喝茶，耳朵却始终竖着听各桌的谈话。"
     },
     {
       "identity": "少年弟子",
       "personality": "活泼好动，充满好奇心，对强者有天然的崇拜。嘴上没个把门，想到什么说什么。",
       "cultivation": "炼气期",
-      "behavior_note": "每日在后山练剑，有空就缠着师兄师姐讲历练故事。天不怕地不怕，最喜欢探险。",
-      "portrait": {
-        "age": 16,
-        "height": 168,
-        "weight": 58,
-        "appearance_summary": "脸上还带着几分少年的稚气，皮肤被日头晒成健康的麦色。眼睛又大又亮，笑起来露出一颗小虎牙。",
-        "background_summary": "三年前被下山游历的师尊从战乱中捡回，拜入青云宗外门。虽然修炼时间不长，但悟性极高，剑诀一教就会。",
-        "spiritual_root": "双灵根",
-        "talent_note": "悟性惊人，属于'一点就通'的类型。可惜心性未定，坐不住冷板凳。",
-        "monthly_income": "10块下品灵石",
-        "savings": "15块下品灵石",
-        "special_constitution": "",
-        "moral_character": "天真烂漫，心地善良。对是非的判断单纯直接，认为好人就该有好报。",
-        "sexual_knowledge": "几乎为零",
-        "fertility": "尚未发育完全",
-        "lifestyle_summary": "天刚亮就去后山练剑，吃过早饭后跟外门弟子一起上早课。下午最开心，可以缠着内门师兄讲历练见闻。",
-        "upper_garment": "青色外门弟子短打",
-        "upper_inner": "白色棉布中衣",
-        "lower_garment": "同色束脚长裤",
-        "footwear": "灰布靴",
-        "equipment": [
-          {
-            "name": "木剑",
-            "position": "握在手中",
-            "description": "外门弟子标配的练功木剑，剑身上已经满是被剑气劈出的痕迹。"
-          }
-        ],
-        "abilities": [
-          {
-            "name": "青云基础剑诀",
-            "description": "青云宗入门剑法的前六式，虽只学了皮毛，但使出来已有模有样。",
-            "power_level": "炼气一级"
-          }
-        ]
-      }
+      "behavior_note": "每日在后山练剑，有空就缠着师兄师姐讲历练故事。天不怕地不怕，最喜欢探险。"
     },
     {
       "identity": "小师妹",
       "personality": "害羞内向，说话细声细气，但心思极其细腻。对信赖的人会露出依赖的一面。",
       "cultivation": "炼气期",
-      "behavior_note": "不是在藏经阁看书就是在后山安静地打坐修炼，几乎从不主动与人攀谈。",
-      "portrait": {
-        "age": 17,
-        "height": 158,
-        "weight": 45,
-        "appearance_summary": "身量纤细娇小，瓜子脸，肤色白皙近乎透明。一双杏眼总是带着几分怯生生的神色，睫毛很长，垂眼时像两把小扇子。",
-        "background_summary": "从小在宗门长大，父母是青云宗的外门执事，在一次猎妖行动中双双殒命。此后更加沉默寡言，整日与书卷为伴。",
-        "spiritual_root": "天灵根",
-        "talent_note": "百年难遇的天灵根，但性格过于内敛，战斗时缺乏决断力，限制了实际发挥。",
-        "monthly_income": "20块下品灵石",
-        "savings": "80块下品灵石",
-        "special_constitution": "先天灵体，对天地灵气的亲和力远超常人，修炼事半功倍。",
-        "moral_character": "温柔善良，从不与人争执。即使受了委屈也只会自己躲起来哭。",
-        "sexual_knowledge": "几乎为零",
-        "fertility": "尚未完全成熟",
-        "lifestyle_summary": "每天卯时准时到藏经阁报到，一看书就是一整天。傍晚会在后山的溪边独自打坐，直到天黑才回房舍。",
-        "upper_garment": "淡紫色对襟襦裙",
-        "upper_inner": "白色绣花抹胸",
-        "lower_garment": "同色百褶裙",
-        "footwear": "绣花布鞋",
-        "equipment": [
-          {
-            "name": "旧书卷",
-            "position": "抱在胸前",
-            "description": "一本翻阅过无数次的《青云基础功法心得》，书页已经起毛边，里面密密麻麻写满了批注。"
-          }
-        ],
-        "abilities": [
-          {
-            "name": "灵气感知",
-            "description": "先天灵体赋予的超强灵气感知力，能在百步之外分辨出灵气的纯度与属性。",
-            "power_level": "炼气九级"
-          }
-        ]
-      }
+      "behavior_note": "不是在藏经阁看书就是在后山安静地打坐修炼，几乎从不主动与人攀谈。"
+    },
+    {
+      "identity": "",
+      "personality": "",
+      "cultivation": "",
+      "behavior_note": ""
+    },
+    {
+      "identity": "",
+      "personality": "",
+      "cultivation": "",
+      "behavior_note": ""
     }
+  ],
+  "spiritual_roots": [
+    "金灵根",
+    "木灵根",
+    "水灵根",
+    "火灵根",
+    "土灵根",
+    "变异雷灵根",
+    "变异冰灵根",
+    "变异风灵根",
+    "双灵根",
+    "三灵根",
+    "天灵根"
+  ],
+  "constitutions": [
+    "玄阴体",
+    "纯阳体",
+    "天脉者",
+    "魔骨",
+    "神体",
+    "无垢之体",
+    "先天道体",
+    "九幽之体",
+    "星辰体",
+    "不灭金身",
+    "空灵体",
+    "万劫不灭体"
+  ],
+  "body_types": [
+    "修长挺拔",
+    "娇小玲珑",
+    "高大威猛",
+    "纤细瘦弱",
+    "丰满匀称",
+    "虎背熊腰",
+    "仙风道骨",
+    "曼妙婀娜"
+  ],
+  "attires": [
+    "素色道袍",
+    "锦缎法袍",
+    "青衣长衫",
+    "白衣胜雪",
+    "黑衣劲装",
+    "纱裙飘飘",
+    "金丝镶边长袍",
+    "粗布麻衣",
+    "斗笠蓑衣",
+    "华美宫装"
   ]
 }

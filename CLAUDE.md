@@ -80,6 +80,42 @@ watch_backup.bat
 
 ## 功能变更记录
 
+### 🎨 designer 选项编辑器扩展（NPC 自定义）
+- 「📋 选项」新增 9 个 NPC tab：姓氏池/男名池/女名池/NPC性格池/修为级别池/体型池/衣着池/体质天赋池/NPC原型
+- 新增 `kind: 'str_list'` + `list_key` 机制：选项编辑器统一支持字符串数组（姓名池等）与对象数组（NPC原型等）两种数据形态的增删改保存
+- 修复既有 bug：对象数组保存时表头 tr 导致索引错位（此前 edits 只影响上一行，新行丢失）
+- NPC 原型的 identity/personality/cultivation/behavior_note 均可可视化编辑，写回 `npc_templates.json` 的 `core_archetypes`
+
+### 🏗️ 四个世界观包内容完善（开箱即用）
+- **modern_city**：补 `form.json`（角色创建表单，含金手指 card_grid）；world_templates 7→25 个都市地点；npc_templates 5→12 个原型；player_templates 补 6 个都市金手指 + 8 种出身；intent_keywords 补 work/shopping/social/rest
+- **fantasy_kingdom**：world_templates 补 6 大势力（骑士团/法师议会/圣光教会等）+ 4 城镇 + 17 地点；npc_templates 姓名池 14→28/24/24 + 12 原型；intent_keywords 补 quest/magic_study/explore/social
+- **naruto_shippuden**：补 `modeler/schema.json`（忍者建模字段，查克拉/血继限界/忍术）；npc_templates 姓名池 30/30/19 + 10 忍者原型 + 忍界 realm；world_facts 9→41 角色（十二小强/晓/三忍/各影）；world_templates 补 10 大组织 + 23 地点；intent_keywords 补 training/mission/spar/medical
+- **xianxia_v1**：intent_keywords 补 craft/harvest/quest/alchemy_lore；events idle_events 2→8；constraints 补 5 条 triggers
+- **意图分类优先级修正**：input_validator 将包级意图插入 CORE 的 trade 之前（nsfw/ntr/time_skip/use_item 之后），使世界观特有意图（work/shopping/training 等）不被宽泛 CORE 的 travel/trade/dialogue 抢先；修复 `外卖` 含"卖"字被 CORE trade 误判
+- **数据字段对齐**：四个包 backgrounds 补 `background_summary`、identities 补 `identity_desc`（与 derive/prompt_builder/ui 卡片期望的字段名一致）
+
+### 🧹 清理氛围死代码
+- `SceneContext` 移除从未赋值的 `atmosphere/weather/present_characters/perceptible_objects` 字段 + prompt_builder 两处对应渲染分支（此前 `if s.atmosphere:` 永远不触发）
+- 移除 `sects/detail` 接口的 atmosphere/law_description/spiritual_rules 收集（无前端消费方，返回空 details）
+- designer「📋 选项」移除「地点氛围」tab（place_attrs，含 era_description/law_description 列）
+- 保留：位置层级/场景描述/时间/不在场相关人物（`absent_related`）——这些有真实数据源且每轮生效
+
+### 🧩 NPC 建模档案世界观化（modeler/schema.json）
+- 新增包级工件 `modeler/schema.json`：作者声明自己世界的 NPC 建模字段树，包级全替换修仙 90+ 字段
+- `game_engine.py` 建模 prompt / `_llm_cover` 增量更新 / 渲染器统一按包 schema 组装，包未提供时降级 xianxia 默认模板
+- `npc_modeler.render_model_for_prompt` 改为**通用递归渲染**：遍历 model dict 本身，未知字段也能渲染进 [重要人物] 块（中文标签从字段名映射，schema 可覆盖）
+- 前端编辑弹窗按 schema 动态渲染字段树（替换第二份硬编码模板），`GET templates` 返回 `modeler_schema`
+- `modeler/schema.json` 可经 designer `data` API 读写（`write_artifact` 白名单子路径）；pack_generator 自动产出通用 schema
+- 各包已配：xianxia（原 90+ 字段）、fantasy_kingdom（骑士/魔法/血统）、modern_city（职场/生活/社交）
+- **匹配修复**：`_model_rels_to_entries` 通用化（遍历 relationships 所有键，中文标签走 npc_modeler keymap）；重要人物面板/导入/列表的 `basic.identity/cultivation` 兜底（title/rank/occupation/level）；`formatNpcModel` 详情浮层通用化（未知分节递归渲染）；关系网图合并 `NPC.relations`（建模/导入声明的关系即时上边，不依赖 LLM 后台）
+
+### 🧩 NPC 提示库世界观化
+- 「新建建模NPC」弹窗的 📚 提示库（角色模板/姓名池/修为/性格/体型/衣着）从前端硬编码改为按世界观读取
+- 数据源 = 世界观包的 `npc_templates.json`，经 `GET /sessions/{id}/templates?worldview=` 返回给前端；字段缺失时回退到修仙缺省数组
+- 空数组 = 作者明确"无此项"，前端隐藏对应区块（如 modern_city 无灵根 → 🧬 区块消失）；`quick_pick_sections` 可自定义区块标签与数据源键
+- `POST /npcs/library` 新增 `worldview` 查询参数，总库建模按当前世界观走 `modeler/role.txt` 包模板（此前固定 xianxia legacy）
+- 为 `xianxia_v1` 补 `spiritual_roots/constitutions/body_types/attires` 键；新增 `modern_city`、`fantasy_kingdom` 的 `npc_templates.json`（作者示范，可经 designer「📋 选项」直接编辑）
+
 ### 🌍 多世界观平台（世界观包系统）
 - 世界观包 = 纯 JSON/文本目录（`backend/ane/worldviews/<id>/`），作者无需改代码即可创建新世界观
 - 首个参考包 `xianxia_v1`（修仙，从 content/ 与代码常量抽出）+ 验证包 `modern_city`（现代都市，无宗门/无金手指/无 cultivate）

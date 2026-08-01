@@ -31,7 +31,7 @@ def test_generate_pack_all_files():
         "manifest.json", "system_prompt.txt", "intent_keywords.json",
         "constraints.json", "world_templates.json", "player_templates.json",
         "npc_templates.json", "panel.json", "ui.json", "events.json", "form.json",
-        "modeler/role.txt", "modeler/age_rules.txt",
+        "modeler/role.txt", "modeler/age_rules.txt", "modeler/schema.json",
     }
     assert set(files) == expected
 

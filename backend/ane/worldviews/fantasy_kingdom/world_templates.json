@@ -6,9 +6,31 @@
     {"name": "影牙森林", "type": "area", "description": "王国东侧的密林，相传深处有狼人和古代遗迹，猎人和冒险者出没。"},
     {"name": "古墓地下城", "type": "area", "description": "废弃的地下墓穴，入口在橡木村东北，据说埋藏着旧王国的宝物。"},
     {"name": "白塔法师议会", "type": "city", "description": "法师们的高塔群，魔法学院所在地，外人需获许方可进入。"},
-    {"name": "码头区", "type": "settlement", "description": "河流入海口的港口，渔夫、走私贩、水手鱼龙混杂。"}
+    {"name": "码头区", "type": "settlement", "description": "河流入海口的港口，渔夫、走私贩、水手鱼龙混杂。"},
+    {"name": "王都卡美洛", "type": "city", "description": "王国的心脏，白色城墙环抱，王宫金顶在阳光下闪耀，骑士在街巷巡逻，贵族马车往来。"},
+    {"name": "圣光大教堂", "type": "building", "description": "王都最高的尖顶建筑，唱诗班的圣歌每日回荡，信徒们在此祈福忏悔。"},
+    {"name": "冒险者公会", "type": "building", "description": "铁橡堡中心的公会大厅，任务板贴满委托，各色佣兵在此集结，柜台后老板娘记挂着每笔佣金。"},
+    {"name": "银月港", "type": "city", "description": "王国西南的贸易大港，异国商船云集，香料和丝绸的香气弥漫码头，酒馆里各国语言混杂。"},
+    {"name": "风息镇", "type": "settlement", "description": "山谷间的宁静小镇，风车缓缓转动，麦田金黄，镇民淳朴好客。"},
+    {"name": "石盾堡", "type": "city", "description": "王国西境要塞，石墙厚重如盾，驻守着王国最精锐的边防军，城外是荒芜的边境。"},
+    {"name": "翠叶村", "type": "settlement", "description": "靠近影牙森林的边陲小村，猎户聚居，夜里常听到森林深处的狼嚎。"},
+    {"name": "龙脊山脉", "type": "area", "description": "横贯王国北境的险峻山脉，白雪皑皑，山腹中传说沉睡着古龙的骸骨和宝藏。"},
+    {"name": "黑沼泽", "type": "area", "description": "王国东侧的阴暗湿地，雾气弥漫，沼泽深处有女巫的茅屋和遗失的遗迹。"},
+    {"name": "旧王城废墟", "type": "area", "description": "被遗弃的旧王都，残垣断壁间长满藤蔓，据说每到月圆之夜会传来钟声。"}
   ],
-  "sects": [],
-  "settlements": [],
+  "sects": [
+    {"name": "铁橡骑士团", "type": "sect", "description": "王国最古老的骑士团，驻地铁橡堡，以忠诚与荣誉立团，团长是王室册封的骑士统领。"},
+    {"name": "白塔法师议会", "type": "sect", "description": "掌管魔法研究与教育的组织，驻白塔，法师按魔力等级晋升，外界事务甚少参与。"},
+    {"name": "圣光教会", "type": "sect", "description": "信奉圣光的主教团，驻圣光大教堂，势力遍及王国的每个村镇，牧师与圣骑士遍布各地。"},
+    {"name": "暗影兄弟会", "type": "sect", "description": "隐秘的盗贼与刺客组织，没有公开据点，只收被世界抛弃的人，在黑暗里开出一条生路。"},
+    {"name": "冒险者公会", "type": "sect", "description": "管理佣兵与冒险者的松散组织，按完成委托的等级晋升，从E级到S级，是平民踏上冒险的起点。"},
+    {"name": "商人工会", "type": "sect", "description": "掌控王国商贸的商人联合体，驻银月港，掌控着粮食、矿石、香料的大宗买卖。"}
+  ],
+  "settlements": [
+    {"name": "王都卡美洛", "type": "city", "description": "王国的心脏，白色城墙环抱，王宫金顶在阳光下闪耀。"},
+    {"name": "银月港", "type": "city", "description": "王国西南的贸易大港，异国商船云集。"},
+    {"name": "铁橡堡", "type": "city", "description": "王国北方重镇，石砌城墙高耸。"},
+    {"name": "石盾堡", "type": "city", "description": "王国西境要塞，驻守着精锐边防军。"}
+  ],
   "sect_filters": []
 }

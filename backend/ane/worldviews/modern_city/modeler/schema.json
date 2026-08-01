@@ -1,0 +1,22 @@
+{
+  "basic": {"name": "", "gender": "", "age": 0, "identity": "", "occupation": "", "city": "", "relationship_status": ""},
+  "appearance": {
+    "overall_impression": "", "height": "", "build": "",
+    "hair": {"style": "", "color": "", "length": ""},
+    "eyes": {"color": "", "detail": ""},
+    "face": {"shape": "", "features": "", "glasses": false},
+    "dress_sense": ""
+  },
+  "wardrobe": {"usual_style": "", "accessories": "", "tattoos": ""},
+  "voice": {"timbre": "", "accent": "", "catchphrases": ""},
+  "behavior": {"posture": "", "mannerisms": "", "phone_habits": "", "smile": ""},
+  "personality": {"core": "", "values": "", "quirks": "", "fears": "", "likes": "", "pet_peeves": ""},
+  "background": {"hometown": "", "education": "", "family": "", "career_history": ""},
+  "lifestyle": {"home": "", "income": "", "transport": "", "daily_routine": ""},
+  "social": {"friend_group": [], "social_media_presence": "", "secrets": ""},
+  "knowledge_bounds": {"knows": [], "does_not_know": [], "suspicious_of": []},
+  "attitude_to_player": {"surface": "", "true_feelings": "", "relationship_trend": ""},
+  "relationships": {"family": [], "friends": [], "colleagues": [], "exes": [], "crush": ""},
+  "nsfw": {"is_virgin": true, "fertility": "",
+           "desire_toward_target": "", "rejection_toward_target": ""}
+}

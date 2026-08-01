@@ -93,6 +93,25 @@ _MODEL_TEMPLATE = {
              "male_genital": "", "female_genital": ""},
 }
 
+# ── Per-worldview NPC model schema ──
+# 建模 prompt / _llm_cover / 渲染器 统一读取当前世界观的 modeler/schema.json；
+# 包未提供时降级到 xianxia 默认模板（_MODEL_TEMPLATE），引擎行为保持不变。
+_DEFAULT_WORLDVIEW_SCHEMA_ID = "xianxia_v1"
+
+
+def _resolve_model_schema(worldview: str | None = None) -> dict:
+    """Resolve the NPC model field-tree schema for a worldview.
+
+    Returns the pack's modeler/schema.json when present, otherwise the
+    hardcoded xianxia default template. Never raises — falls back to {}.
+    """
+    from ane.worldview import get as get_worldview, DEFAULT_WORLDVIEW_ID
+    wv = get_worldview(worldview or DEFAULT_WORLDVIEW_ID)
+    schema = wv.modeler_schema
+    if isinstance(schema, dict) and schema:
+        return schema
+    return _MODEL_TEMPLATE
+
 
 @dataclass
 class TurnResult:
@@ -859,13 +878,14 @@ class GameEngine:
                 )
                 if n.personality:
                     panel_parts.append(f"  性格：{n.personality}")
-                if model_data:
-                    bg = model_data.get("background", {})
-                    if bg.get("family"):
-                        panel_parts.append(f"  家族：{bg['family']}")
-                    pers = model_data.get("personality", {})
-                    if pers.get("obsession"):
-                        panel_parts.append(f"  执念：{pers['obsession']}")
+                if model_data and isinstance(model_data, dict) and model_data.get("model_version"):
+                    from ane.modules.npc_modeler import render_model_for_prompt as _render_model
+                    rendered = _render_model(model_data, include_nsfw=False)
+                    if rendered:
+                        # compact: only first few non-empty lines
+                        compact_lines = [ln for ln in rendered.splitlines() if ln.strip()][:6]
+                        if compact_lines:
+                            panel_parts.append("  " + "\n  ".join(compact_lines))
                 if n_attrs.get("summary"):
                     panel_parts.append(f"  备注：{n_attrs['summary']}")
                 panel_parts.append("")
@@ -1051,23 +1071,26 @@ class GameEngine:
 
     @staticmethod
     def _model_rels_to_entries(model_rels: dict) -> list[dict]:
-        """Convert _MODEL_TEMPLATE relationships dict to NPC.relations entries list."""
+        """Convert a model's relationships dict to NPC.relations entries list.
+
+        Worldview-generic: iterates every field in `relationships`. String
+        fields become a paired relationship (type = Chinese label from
+        npc_modeler's field map, falling back to the raw field name); list
+        fields become one relationship per item. No hardcoded xianxia keys.
+        """
+        from ane.modules.npc_modeler import _FIELD_LABELS as _RELABELS
         entries = []
-        # Direct string fields → paired relationship
-        for key, label in [("father", "父亲"), ("mother", "母亲"), ("spouse", "配偶"),
-                           ("master", "师父"), ("senior_brother", "师兄"), ("senior_sister", "师姐"),
-                           ("junior_brother", "师弟"), ("junior_sister", "师妹"),
-                           ("teacher", "师尊"), ("superior", "上级"), ("subordinate", "下属"),
-                           ("lover", "恋人"), ("fiance", "婚约对象"), ("beloved", "爱人"),
-                           ("rival", "竞争者"), ("pursuer", "追求者")]:
-            v = model_rels.get(key)
-            if v and isinstance(v, str) and v.strip():
-                entries.append({"target": v.strip(), "type": label, "nature": "", "external_note": ""})
-        # List fields
-        for key, label in [("friends", "朋友"), ("enemies", "敌人")]:
-            for v in (model_rels.get(key) or []):
-                if isinstance(v, str) and v.strip():
-                    entries.append({"target": v.strip(), "type": label, "nature": "", "external_note": ""})
+        for key, val in (model_rels or {}).items():
+            if not val:
+                continue
+            label = _RELABELS.get(key, key)
+            if isinstance(val, str):
+                if val.strip():
+                    entries.append({"target": val.strip(), "type": label, "nature": "", "external_note": ""})
+            elif isinstance(val, list):
+                for item in val:
+                    if isinstance(item, str) and item.strip():
+                        entries.append({"target": item.strip(), "type": label, "nature": "", "external_note": ""})
         return entries
 
     # ── Full NPC modeling (called after user confirms) ──────────
@@ -1086,6 +1109,7 @@ class GameEngine:
 
         wv = get_worldview(worldview or DEFAULT_WORLDVIEW_ID)
         world_name = wv.name or "修仙世界"
+        model_schema = _resolve_model_schema(worldview)
 
         safe_input = user_input
         for w in nsfw_body_words(worldview):
@@ -1136,7 +1160,7 @@ class GameEngine:
                 f"以及NPC之间的关系（如「张海是张大强的妻子」）。\n"
                 f"注意区分：spouse（配偶/丈夫/妻子）指已婚夫妻关系，"
                 f"lover（恋人）指恋爱中未结婚的对象。\n\n"
-                f'{json.dumps(_MODEL_TEMPLATE, ensure_ascii=False, indent=2)}\n\n'
+                f'{json.dumps(model_schema, ensure_ascii=False, indent=2)}\n\n'
                 f"请输出 JSON："
             )
         else:
@@ -1181,7 +1205,7 @@ class GameEngine:
                 f"以及NPC之间的关系（如「张海是张大强的妻子」）。\n"
                 f"注意区分：spouse（配偶/丈夫/妻子）指已婚夫妻关系，"
                 f"lover（恋人）指恋爱中未结婚的对象。\n\n"
-                f'{json.dumps(_MODEL_TEMPLATE, ensure_ascii=False, indent=2)}\n\n'
+                f'{json.dumps(model_schema, ensure_ascii=False, indent=2)}\n\n'
                 f"请输出 JSON："
             )
 
@@ -1206,8 +1230,13 @@ class GameEngine:
             lts["pending_debut"] = True
             npc_model.long_term_state = lts
             basic = model_data.get("basic", {})
-            if basic.get("identity"): npc_model.identity = basic["identity"]
-            if basic.get("cultivation"): npc_model.cultivation = basic["cultivation"]
+            # Schema-generic: xianxia basic.identity/cultivation; other schemas
+            # (fantasy → title/rank, modern → occupation/level) map onto the
+            # NPC table columns so the panel/list stays populated.
+            if basic.get("identity") or basic.get("title") or basic.get("occupation"):
+                npc_model.identity = basic.get("identity") or basic.get("title") or basic.get("occupation")
+            if basic.get("cultivation") or basic.get("level") or basic.get("rank"):
+                npc_model.cultivation = basic.get("cultivation") or basic.get("level") or basic.get("rank")
             if basic.get("gender"): npc_model.gender = basic["gender"]
             if basic.get("age"): npc_model.age = int(basic["age"])
             pers_core = model_data.get("personality", {}).get("core", "")
@@ -1458,7 +1487,7 @@ class GameEngine:
         return []
 
     async def _llm_cover(
-        self, npc_name, user_input, existing_model, user_id="", session_id="",
+        self, npc_name, user_input, existing_model, user_id="", session_id="", worldview: str | None = None,
     ) -> dict | None:
         """Partial update to an existing NPC model.
         Only fills fields that the user's new input touches, doesn't touch others.
@@ -1467,8 +1496,8 @@ class GameEngine:
         from ane.modules.model_adapter import model_adapter
         from ane.config import SYSTEM_PROMPT_SUFFIX
 
-        # Build a minimal template showing only the structure
-        template_copy = json.loads(json.dumps(_MODEL_TEMPLATE))
+        # Build a minimal template showing only the structure (per-worldview schema)
+        template_copy = json.loads(json.dumps(_resolve_model_schema(worldview)))
 
         # Serialize existing model (abbreviated for context window)
         existing_summary = json.dumps(existing_model, ensure_ascii=False, indent=2)

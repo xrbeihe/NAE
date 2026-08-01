@@ -497,10 +497,6 @@ class SceneContext:
     location_name: str = ""
     location_description: str = ""
     time_label: str = ""
-    weather: str = "晴"
-    atmosphere: str = ""
-    present_characters: list[dict] = field(default_factory=list)
-    perceptible_objects: list[str] = field(default_factory=list)
     absent_related: list[str] = field(default_factory=list)  # e.g. "宗主（白慕彩的丈夫，金丹后期，可能在宗门大殿）"
 
 
@@ -901,26 +897,17 @@ class PromptBuilder:
         # ── Section builders (inline to keep data flow local) ──
         player_section = self._build_player_block(ctx)
 
-        # Scene: time / weather / location hierarchy / atmosphere
+        # Scene: time / location hierarchy / description
         scene_lines = []
         if ctx.scene:
             s = ctx.scene
             if s.time_label:
                 scene_lines.append(f"日期/时间：{s.time_label}")
-            if s.weather:
-                scene_lines.append(f"天气：{s.weather}")
             if s.location_name:
                 loc_str = s.location_hierarchy or s.location_name
                 scene_lines.append(f"位置层级：{loc_str}")
             if s.location_description:
                 scene_lines.append(f"场景描述：{s.location_description}")
-            if s.atmosphere:
-                scene_lines.append(f"环境氛围：{s.atmosphere}")
-            if s.present_characters:
-                names = ", ".join(c.get("name", "?") for c in s.present_characters)
-                scene_lines.append(f"在场人物：{names}")
-            if s.perceptible_objects:
-                scene_lines.append(f"可感知物品：{'、'.join(s.perceptible_objects)}")
         scene_section = "\n".join(scene_lines) if scene_lines else ""
 
         # Important NPCs: all player-marked important NPCs (full detail).
@@ -1609,28 +1596,10 @@ class PromptBuilder:
                 lines.append(f"位置层级：{s.location_hierarchy}")
             if s.location_name:
                 lines.append(f"具体位置：{s.location_name}")
-            time_weather_parts = []
             if s.time_label:
-                time_weather_parts.append(s.time_label)
-            if s.weather:
-                time_weather_parts.append(s.weather)
-            if time_weather_parts:
-                lines.append(f"时间/天气：{'｜'.join(time_weather_parts)}")
+                lines.append(f"时间：{s.time_label}")
             if s.location_description:
                 lines.append(f"环境描写：{s.location_description}")
-            if s.present_characters:
-                lines.append("在场人物：")
-                for ch in s.present_characters:
-                    name = ch.get("name", "")
-                    identity = ch.get("identity", "")
-                    action = ch.get("action", "")
-                    id_str = f"（{identity}）" if identity else ""
-                    action_str = f" — {action}" if action else ""
-                    lines.append(f"  - {name}{id_str}{action_str}")
-            if s.perceptible_objects:
-                lines.append(f"可感知物：{'、'.join(s.perceptible_objects)}")
-            if s.atmosphere:
-                lines.append(f"环境氛围：{s.atmosphere}")
             if s.absent_related:
                 lines.append("不在场但相关人物：")
                 for r in s.absent_related:
