@@ -27,6 +27,62 @@ class ParsedOutput:
     player_relationships: list[dict] = field(default_factory=list)  # named NPCs with player relationship
 
 
+# ── Robust list-of-dicts cleaning ──────────────────────────────
+
+def _coerce_dict(item) -> dict | None:
+    """Best-effort coerce a nearby/offstage/relationship item into a dict.
+
+    Handles the LLM failure mode where json_repair recovers a list of
+    *string fragments* instead of objects (e.g. `'name": "卖炊饼老汉'`).
+    Returns None for items that can't be salvaged — they get dropped.
+    """
+    if isinstance(item, dict):
+        return item
+    if not isinstance(item, str):
+        return None
+    s = item.strip()
+    if not s:
+        return None
+    # Re-wrap a fragment that lost its opening brace (json_repair artifact).
+    if not s.startswith("{"):
+        s = "{" + s
+    try:
+        return json.loads(s)
+    except json.JSONDecodeError:
+        try:
+            import json_repair
+            repaired = json_repair.loads(s)
+            return repaired if isinstance(repaired, dict) else None
+        except Exception:
+            return None
+
+
+def _as_dict_list(value) -> list[dict]:
+    """Normalize a parsed LLM list-of-objects field to list[dict].
+
+    Non-list input → []; non-dict items → best-effort coerce, drop failures.
+    """
+    if not isinstance(value, list):
+        return []
+    out = []
+    for item in value:
+        d = _coerce_dict(item)
+        if d is not None:
+            out.append(d)
+    return out
+
+
+def _as_str_list(value) -> list[str]:
+    """Normalize a parsed LLM list-of-strings field to list[str]."""
+    if not isinstance(value, list):
+        return []
+    out = []
+    for item in value:
+        if isinstance(item, str) and item.strip():
+            out.append(item.strip())
+    return out
+
+
 # ── Balanced brace JSON extraction ──────────────────────────────
 
 def _extract_balanced_json(text: str) -> list[str]:
@@ -180,12 +236,12 @@ def _parse_json(json_str: str, fallback_raw: str, event_types: set[str] | None =
     return ParsedOutput(
         narrative=narrative,
         state_changes=valid_changes,
-        nearby_characters=raw_nearby if isinstance(raw_nearby, list) else [],
+        nearby_characters=_as_dict_list(raw_nearby),
         is_valid_json=True,
         character_model=character_model if isinstance(character_model, dict) else None,
-        recommendations=raw_recs if isinstance(raw_recs, list) else [],
-        offstage_npcs=raw_offstage if isinstance(raw_offstage, list) else [],
-        player_relationships=raw_player_rels if isinstance(raw_player_rels, list) else [],
+        recommendations=_as_str_list(raw_recs),
+        offstage_npcs=_as_dict_list(raw_offstage),
+        player_relationships=_as_dict_list(raw_player_rels),
     )
 
 

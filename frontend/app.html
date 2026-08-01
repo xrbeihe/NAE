@@ -194,6 +194,14 @@
   .font-row { display: flex; align-items: center; gap: 8px; margin: 10px 0 6px; }
   .font-row label { flex: 0 0 70px; font-size: 13px; color: var(--text); }
   .font-row select { flex: 1; padding: 4px 6px; background: var(--input-bg); border: 1px solid var(--border); border-radius: 3px; color: var(--text); font-size: 12px; font-family: inherit; }
+  .bg-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+  .bg-row label { flex: 0 0 70px; font-size: 13px; color: var(--text); }
+  .bg-row input[type="range"] { flex: 1; accent-color: var(--accent); }
+  #chat-panel.bg-enabled { background-size: cover; background-repeat: no-repeat; background-position: center var(--bg-pos-y, 50%); }
+  #chat-panel.bg-transparent .msg.ai { background: rgba(20, 24, 32, 0.72); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  #chat-panel.bg-transparent .msg.user { background: rgba(45, 52, 68, 0.66); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  #chat-panel.bg-transparent .msg.system { background: rgba(0, 0, 0, 0.35); }
+  #chat-panel.bg-transparent .msg-wrapper .msg { box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
 
   /* ── help popup ── */
   #help-popup { display: none; position: fixed; z-index: 9999; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; width: 260px; box-shadow: 0 4px 16px rgba(0,0,0,0.6); font-size: 13px; line-height: 1.6; color: var(--text); }
@@ -438,6 +446,23 @@
   <div class="font-row"><label>字体</label><select id="font-select" onchange="applyFont(this.value)">
     <option value="default">默认</option><option value="songti">宋体</option><option value="heiti">黑体</option><option value="kaiti">楷体</option><option value="fangsong">仿宋</option><option value="lishu">隶书</option><option value="xingkai">华文行楷</option></select>
   </div>
+  <hr style="border:none;border-top:1px solid var(--border);margin:10px 0">
+  <div style="font-size:13px;color:var(--accent);margin-bottom:8px;text-align:center">🖼 背景图</div>
+  <div class="bg-row">
+    <label>图片</label>
+    <input type="file" id="bg-image-input" accept="image/*" onchange="onChatBgSelected(this)" style="flex:1;font-size:12px">
+    <button onclick="clearChatBg()" style="padding:3px 8px;background:transparent;border:1px solid var(--border);color:var(--accent-dim);border-radius:3px;cursor:pointer;font-size:12px;flex-shrink:0">清除</button>
+  </div>
+  <div class="bg-row">
+    <label>位置</label>
+    <input type="range" id="bg-pos-slider" min="0" max="100" value="50" oninput="setChatBgPos(this.value)">
+    <span id="bg-pos-value" style="font-size:11px;color:var(--accent-dim);width:34px;text-align:right">50%</span>
+  </div>
+  <div class="bg-row">
+    <label>透明化</label>
+    <input type="checkbox" id="bg-transparent-check" onchange="setChatBgTransparent(this.checked)">
+    <span style="font-size:11px;color:var(--accent-dim)">聊天气泡半透明</span>
+  </div>
 </div>
 <div id="help-popup">
   <b>📦 加载建模</b><br>勾选后，输入中提到的已建模人物自动注入完整档案到 Prompt，叙事更精准。名字需严格匹配。
@@ -657,11 +682,73 @@ function showColorPopup() {
     else { var c = getComputedStyle(document.documentElement).getPropertyValue('--color-' + t).trim(); if (c) { document.getElementById('color-picker-' + t).value = rgbToHex(c); document.getElementById('color-text-' + t).value = c; } }
   });
   document.getElementById('font-select').value = localStorage.getItem('font_family') || 'default';
+  // 背景图设置初始化
+  var bg = localStorage.getItem('chat_bg');
+  var bgOn = !!(bg && bg.length);
+  document.getElementById('bg-pos-slider').value = localStorage.getItem('chat_bg_pos') || 50;
+  document.getElementById('bg-pos-value').textContent = (localStorage.getItem('chat_bg_pos') || 50) + '%';
+  document.getElementById('bg-transparent-check').checked = localStorage.getItem('chat_bg_transparent') !== '0';
+  applyChatBg();
   var rect = btn.getBoundingClientRect();
   popup.style.left = Math.max(4, rect.left + rect.width - 280) + 'px';
   popup.style.top = (rect.bottom + 4) + 'px';
   popup.classList.add('visible');
 }
+
+// ── 聊天空背景图 ──
+function applyChatBg() {
+  var bg = localStorage.getItem('chat_bg');
+  var panel = document.getElementById('chat-panel');
+  if (!panel) return;
+  var hasBg = !!(bg && bg.length);
+  panel.classList.toggle('bg-enabled', hasBg);
+  if (hasBg) {
+    panel.style.backgroundImage = "url('" + bg + "')";
+    panel.style.setProperty('--bg-pos-y', (localStorage.getItem('chat_bg_pos') || 50) + '%');
+  } else {
+    panel.style.backgroundImage = '';
+  }
+  var transparent = localStorage.getItem('chat_bg_transparent') !== '0';
+  panel.classList.toggle('bg-transparent', transparent);
+}
+function setChatBgPos(val) {
+  localStorage.setItem('chat_bg_pos', val);
+  document.getElementById('bg-pos-value').textContent = val + '%';
+  var panel = document.getElementById('chat-panel');
+  if (panel) panel.style.setProperty('--bg-pos-y', val + '%');
+}
+function setChatBgTransparent(checked) {
+  localStorage.setItem('chat_bg_transparent', checked ? '1' : '0');
+  var panel = document.getElementById('chat-panel');
+  if (panel) panel.classList.toggle('bg-transparent', checked);
+}
+function clearChatBg() {
+  localStorage.removeItem('chat_bg');
+  var panel = document.getElementById('chat-panel');
+  if (panel) {
+    panel.classList.remove('bg-enabled');
+    panel.style.backgroundImage = '';
+  }
+  document.getElementById('bg-image-input').value = '';
+}
+function onChatBgSelected(input) {
+  var file = input.files && input.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var dataUrl = e.target.result;
+    localStorage.setItem('chat_bg', dataUrl);
+    localStorage.setItem('chat_bg_transparent', '1');
+    document.getElementById('bg-transparent-check').checked = true;
+    applyChatBg();
+  };
+  reader.readAsDataURL(file);
+}
+// 恢复背景图（页面加载时）
+(function() {
+  var bg = localStorage.getItem('chat_bg');
+  if (bg && bg.length) applyChatBg();
+})();
 function showHelpPopup(event) {
   event.stopPropagation();
   var popup = document.getElementById('help-popup');

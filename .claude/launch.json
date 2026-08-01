@@ -9,6 +9,14 @@
       "cwd": "D:/ANE/backend",
       "env": {"ANE_PORT": "3001"},
       "port": 3001
+    },
+    {
+      "name": "ANE Preview",
+      "runtimeExecutable": "D:/ANE/.venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "ane.main"],
+      "cwd": "D:/ANE/backend",
+      "env": {"ANE_PORT": "3002"},
+      "port": 3002
     }
   ]
 }

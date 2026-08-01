@@ -114,6 +114,9 @@
       <h2>🃏 我的角色卡</h2>
       <button class="cmd-btn primary" onclick="newCard()">＋ 新建</button>
     </div>
+    <div style="padding:0 14px 8px">
+      <button class="cmd-btn" onclick="showNovelModal()" style="width:100%">📖 从小说生成</button>
+    </div>
     <div id="card-list"></div>
   </div>
 
@@ -133,6 +136,31 @@
       <div id="form-fields"></div>
       <button class="cmd-btn" id="preview-toggle" onclick="togglePreview()">👁 预览</button>
       <div id="preview-box" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 📖 从小说生成 弹窗 -->
+<div id="novel-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100;display:none;align-items:center;justify-content:center">
+  <div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;width:min(560px,calc(100vw - 32px));max-height:80vh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)">
+      <h3 style="color:var(--accent);font-size:15px">📖 从小说生成角色卡</h3>
+      <span onclick="closeNovelModal()" style="cursor:pointer;color:var(--accent-dim);font-size:16px">✕</span>
+    </div>
+    <div style="padding:16px;overflow-y:auto" id="novel-body">
+      <div style="color:var(--accent-dim);font-size:12px;margin-bottom:12px;line-height:1.6">上传一本小说 txt，系统会提取主要人物，你选择一个后自动生成角色卡（可在编辑器里继续细化）。</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <input type="file" id="novel-file" accept=".txt" style="flex:1;color:var(--accent-dim);font-size:13px">
+        <button class="cmd-btn primary" onclick="uploadNovel()">上传提取角色</button>
+      </div>
+      <div id="novel-progress" style="display:none;color:var(--accent-dim);font-size:12px;margin-bottom:12px">读取中…</div>
+      <div id="novel-characters"></div>
+      <div id="novel-form" style="display:none;margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
+        <div style="font-size:13px;color:var(--accent);margin-bottom:8px">生成 <span id="novel-selected-name"></span> 的角色卡</div>
+        <div class="field-row"><label>你们的关系</label><input type="text" id="novel-relation" placeholder="如: 我是他的青梅竹马（可留空）"></div>
+        <div class="field-row"><label>卡片名</label><input type="text" id="novel-cardname" placeholder="默认用角色名"></div>
+        <button class="cmd-btn primary" onclick="generateFromNovel(this)" style="margin-top:10px;width:100%">⚡ 生成角色卡</button>
+      </div>
     </div>
   </div>
 </div>
@@ -340,14 +368,74 @@ function renderPreview() {
 
 // ── 工具 ──
 function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
-function deepMerge(base, over) {
-  const out = JSON.parse(JSON.stringify(base));
-  for (const k in over) {
-    if (out[k] && typeof out[k] === 'object' && !Array.isArray(out[k]) && typeof over[k] === 'object' && !Array.isArray(over[k])) {
-      out[k] = deepMerge(out[k], over[k]);
-    } else { out[k] = JSON.parse(JSON.stringify(over[k])); }
-  }
-  return out;
+// ── 📖 从小说生成 ──
+let novelFile = null;
+function showNovelModal() {
+  document.getElementById('novel-modal').style.display = 'flex';
+  document.getElementById('novel-characters').innerHTML = '';
+  document.getElementById('novel-form').style.display = 'none';
+  document.getElementById('novel-progress').style.display = 'none';
+  document.getElementById('novel-file').value = '';
+  novelFile = null;
+}
+function closeNovelModal() { document.getElementById('novel-modal').style.display = 'none'; }
+
+async function uploadNovel() {
+  const input = document.getElementById('novel-file');
+  if (!input.files || !input.files.length) { alert('请先选择 txt 文件'); return; }
+  novelFile = input.files[0];
+  const prog = document.getElementById('novel-progress');
+  const charsBox = document.getElementById('novel-characters');
+  prog.style.display = 'block'; prog.textContent = '正在提取人物…（约需 10-30 秒）';
+  charsBox.innerHTML = '';
+  document.getElementById('novel-form').style.display = 'none';
+
+  const fd = new FormData();
+  fd.append('file', novelFile);
+  try {
+    const res = await apiFetch('/cards/from-novel', { method: 'POST', body: fd });
+    if (!res.ok) { const d = await res.json().catch(() => ({})); alert('提取失败：' + (d.detail || res.status)); return; }
+    const d = await res.json();
+    prog.style.display = 'none';
+    if (!d.characters || !d.characters.length) { charsBox.innerHTML = '<div style="color:var(--danger)">未提取到人物</div>'; return; }
+    charsBox.innerHTML = '<div style="font-size:12px;color:var(--accent-dim);margin-bottom:8px">选择要还原的角色：</div>' +
+      d.characters.map(c =>
+        `<div style="padding:8px 12px;border:1px solid var(--border);border-radius:4px;margin:4px 0;cursor:pointer;font-size:13px" onclick="selectNovelChar('${escAttr(c.name)}', this)">` +
+        `<span style="color:var(--accent);font-weight:bold">${escHtml(c.name)}</span>` +
+        `<span style="color:var(--accent-dim);margin-left:8px">${escHtml(c.reason || '')}</span></div>`
+      ).join('');
+  } catch(e) { prog.style.display = 'none'; alert('请求失败'); }
+}
+
+function selectNovelChar(name, el) {
+  document.querySelectorAll('#novel-characters > div[onclick]').forEach(x => x.style.borderColor = 'var(--border)');
+  el.style.borderColor = 'var(--accent)';
+  document.getElementById('novel-selected-name').textContent = name;
+  document.getElementById('novel-form').style.display = 'block';
+}
+
+async function generateFromNovel(btn) {
+  if (!novelFile) { alert('请先上传小说'); return; }
+  const name = document.getElementById('novel-selected-name').textContent.trim();
+  const relation = document.getElementById('novel-relation').value.trim();
+  const cardname = document.getElementById('novel-cardname').value.trim();
+  if (!btn) btn = document.querySelector('#novel-form .cmd-btn.primary');
+  btn.disabled = true; btn.textContent = '生成中…（约需 30-60 秒）';
+  const fd = new FormData();
+  fd.append('file', novelFile);
+  fd.append('character', name);
+  if (relation) fd.append('relationship_note', relation);
+  if (cardname) fd.append('name', cardname);
+  try {
+    const res = await apiFetch('/cards/from-novel/character', { method: 'POST', body: fd });
+    if (!res.ok) { const d = await res.json().catch(() => ({})); alert('生成失败：' + (d.detail || res.status)); return; }
+    const d = await res.json();
+    closeNovelModal();
+    await init();
+    await selectCard(d.id);
+    alert('角色卡已生成，可在表单中继续细化');
+  } catch(e) { alert('请求失败'); }
+  finally { btn.disabled = false; btn.textContent = '⚡ 生成角色卡'; }
 }
 
 init();

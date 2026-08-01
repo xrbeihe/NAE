@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
@@ -232,6 +232,90 @@ async def import_from_npc(
         card_data=card_data,
         tags=md.get("tags", []),
         source_user_npc_id=npc.id,
+    )
+    db.add(card)
+    await db.commit()
+    await db.refresh(card)
+    return {"id": card.id, "name": card.name}
+
+
+# ── 小说 → 角色卡（llm_read 管线）──────────────────────────────
+
+@router.post("/from-novel")
+async def from_novel_upload(
+    file: UploadFile = File(...),
+    db=Depends(get_db),
+    user=Depends(get_current_user),
+):
+    """上传小说 txt，提取候选角色列表。文件 ≤8MB。"""
+    raw = await file.read()
+    if len(raw) > 8 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="文件过大（上限 8MB）")
+    if not raw:
+        raise HTTPException(status_code=400, detail="文件为空")
+
+    from ane.modules.card_from_novel import read_novel_text, extract_characters
+    text = read_novel_text(raw)
+    if len(text.strip()) < 200:
+        raise HTTPException(status_code=400, detail="文本过短，无法提取角色")
+
+    characters = await extract_characters(text, user_id=user.id)
+    if not characters:
+        raise HTTPException(status_code=502, detail="未能从小说中提取角色，请重试")
+
+    return {
+        "characters": characters,
+        "total_chars": len(text),
+        "filename": file.filename,
+    }
+
+
+@router.post("/from-novel/character")
+async def from_novel_generate(
+    file: UploadFile = File(...),
+    character: str = Form(..., min_length=1, max_length=50),
+    relationship_note: str = Form("", max_length=100),
+    name: str | None = Form(None, max_length=50),
+    db=Depends(get_db),
+    user=Depends(get_current_user),
+):
+    """选定角色后，读小说抽样片段，生成角色卡并存入 UserCard。
+
+    multipart 表单：file（txt）+ character（角色名）+ relationship_note（可选）
+    + name（可选，卡片名，默认用角色名）。
+    """
+    raw = await file.read()
+    if len(raw) > 8 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="文件过大（上限 8MB）")
+
+    from ane.modules.card_from_novel import (
+        read_novel_text,
+        sample_character,
+        generate_card_from_sample,
+    )
+    text = read_novel_text(raw)
+    sample = sample_character(text, character)
+    card_data = await generate_card_from_sample(
+        character,
+        sample,
+        relationship_note=relationship_note,
+        user_id=user.id,
+    )
+    if not card_data or not card_data.get("identity", {}).get("name"):
+        raise HTTPException(status_code=502, detail="角色卡生成失败，请重试")
+
+    name = name or character
+    existing = await db.execute(
+        select(UserCard).where(UserCard.user_id == user.id, UserCard.name == name)
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail=f"角色卡「{name}」已存在，可改名后重试")
+
+    card = UserCard(
+        user_id=user.id,
+        name=name,
+        card_data=card_data,
+        tags=["小说生成"],
     )
     db.add(card)
     await db.commit()

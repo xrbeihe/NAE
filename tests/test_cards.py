@@ -230,3 +230,68 @@ async def test_cards_crud_http(db):
         assert r.status_code == 200
         r = await client.get(f"/cards/{cid}")
         assert r.status_code == 404
+
+
+# ── 小说 → 角色卡（llm_read 管线）────────────────────────────
+
+NOVEL_SAMPLE = """第1章 初见
+郁清坐在轮椅上，指尖轻轻敲着扶手。他看向来人，眼底没什么温度，声音却温润："你好。"
+魏沾衣站在门口，杏眼弯弯："郁先生好。"
+郁清没有接话，只是看着她，过了很久才轻声说："你和我见过的所有人都不一样。"
+第2章 试探
+郁清垂下眼，掩住那一瞬的凉意。他对魏沾衣说："留在我身边。"
+魏沾衣装出天真的样子："郁先生，我不太明白。"
+郁清笑了，笑容很浅："你懂的。"
+"""
+
+
+@pytest.mark.asyncio
+async def test_novel_read_and_split():
+    """read_novel_text + split_chapters handle UTF-8 + chapter markers."""
+    from ane.modules.card_from_novel import read_novel_text, split_chapters
+    text = read_novel_text(NOVEL_SAMPLE.encode("utf-8"))
+    chapters = split_chapters(text)
+    assert len(chapters) >= 2
+    assert "第1章" in chapters[0]
+    assert "第2章" in chapters[1]
+
+
+@pytest.mark.asyncio
+async def test_novel_gbk_decode():
+    """gbk-encoded input decodes correctly."""
+    from ane.modules.card_from_novel import read_novel_text
+    text = read_novel_text(NOVEL_SAMPLE.encode("gbk"))
+    assert "郁清" in text
+
+
+@pytest.mark.asyncio
+async def test_novel_sample_character():
+    """sample_character extracts role-related paragraphs (contains role name)."""
+    from ane.modules.card_from_novel import sample_character
+    sample = sample_character(NOVEL_SAMPLE, "郁清")
+    assert "郁清" in sample
+    assert len(sample) >= 40  # 有实质内容
+
+
+@pytest.mark.asyncio
+async def test_novel_generate_card(db, mock_llm):
+    """generate_card_from_sample produces normalized card with name."""
+    from ane.modules.card_from_novel import generate_card_from_sample, sample_character
+
+    # mock LLM 返回一个带 schema 结构的卡
+    async def _fake(prompt, model=None, **kwargs):
+        return ('{"identity": {"name": "郁清", "gender": "男", "age": "30", "persona": "表面温润的轮椅病秧子"},'
+                '"personality": {"core": "腹黑克制"},'
+                '"initial_relationship": {"type": "相识", "history": "你在医院见过他"},'
+                '"opening": {"greeting": "你来了。"}}')
+    with patch.object(ModelAdapter, "generate", new_callable=AsyncMock, side_effect=_fake) as m:
+        sample = sample_character(NOVEL_SAMPLE, "郁清")
+        card = await generate_card_from_sample("郁清", sample, user_id="test")
+
+    assert card["identity"]["name"] == "郁清"
+    assert card["identity"]["gender"] == "男"
+    assert card["initial_relationship"]["type"] == "相识"
+    assert card["opening"]["greeting"] == "你来了。"
+    # normalize 补全了缺省
+    assert card["clinginess"]["level"] == "适中"
+    assert isinstance(card["relationship_behavior"]["intimate_terms"], list)

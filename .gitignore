@@ -37,3 +37,7 @@ nul
 # OS
 Thumbs.db
 .DS_Store
+
+# Novel test fixtures (copyrighted content, not for repo)
+别装乖*.txt
+*测试用*.txt

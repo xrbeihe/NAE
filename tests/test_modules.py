@@ -491,6 +491,59 @@ class TestOutputParserExtended:
         assert "他说：{你好}" in result.narrative
         assert result.state_changes[0]["note"] == "包含{和}的文本"
 
+    def test_nearby_characters_dict_passes_through(self):
+        """Valid dict list passes through unchanged — design not altered."""
+        from ane.modules.output_parser import parse
+        raw = '{"narrative": "街上人来人往。", "nearby_characters": [{"name": "卖炊饼老汉", "gender": "男", "action": "烤炊饼"}]}'
+        result = parse(raw)
+        assert result.is_valid_json is True
+        assert result.nearby_characters == [{"name": "卖炊饼老汉", "gender": "男", "action": "烤炊饼"}]
+
+    def test_nearby_characters_string_fragments_cleaned(self):
+        """json_repair string-fragment recovery must not crash the turn."""
+        from ane.modules.output_parser import parse
+        # 复现真实 bug：LLM 输出被 json_repair 恢复成字符串片段数组
+        raw = '''{"narrative": "街上人来人往。", "nearby_characters": ['name": "卖炊饼老汉', 'gender": "男']}'''
+        result = parse(raw)
+        assert result.is_valid_json is True
+        # 片段尽量修复为 dict（能补左花括号的）
+        assert isinstance(result.nearby_characters, list)
+        for item in result.nearby_characters:
+            assert isinstance(item, dict)
+        # 至少保住一个（'name": "卖炊饼老汉' → {"name": "卖炊饼老汉"}）
+        assert any(n.get("name") == "卖炊饼老汉" for n in result.nearby_characters)
+
+    def test_nearby_characters_mixed_garbage_dropped(self):
+        """Non-dict garbage items are dropped, valid ones kept."""
+        from ane.modules.output_parser import parse
+        raw = '''{"narrative": "测试", "nearby_characters": [{"name": "正常"}, "完全无法解析的乱文字", 123, null, ""]}'''
+        result = parse(raw)
+        assert result.is_valid_json is True
+        assert result.nearby_characters == [{"name": "正常"}]
+
+    def test_nearby_characters_non_list_defaults_empty(self):
+        """Non-list nearby_characters → empty list, no crash."""
+        from ane.modules.output_parser import parse
+        raw = '{"narrative": "测试", "nearby_characters": "not_a_list"}'
+        result = parse(raw)
+        assert result.is_valid_json is True
+        assert result.nearby_characters == []
+
+    def test_offstage_and_recommendations_cleaned(self):
+        """offstage_npcs / player_relationships / recommendations all guarded."""
+        from ane.modules.output_parser import parse
+        raw = '''{
+          "narrative": "测试",
+          "offstage_npcs": [{"name": "路人甲"}, "坏片段"],
+          "player_relationships": ["also bad", {"name": "张三"}],
+          "recommendations": ["好建议", "", "   "]
+        }'''
+        result = parse(raw)
+        assert result.is_valid_json is True
+        assert result.offstage_npcs == [{"name": "路人甲"}]
+        assert result.player_relationships == [{"name": "张三"}]
+        assert result.recommendations == ["好建议"]
+
 
 # ── RetrievalEngine tests ────────────────────────────────────
 
