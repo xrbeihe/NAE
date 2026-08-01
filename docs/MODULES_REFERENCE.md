@@ -25,6 +25,8 @@
 | **Worldview** | **`worldview.py`** | **世界观包 loader/注册表：扫目录 + 逐工件降级链 + 路径注入防护** | **所有模块（按世界观取配置）** |
 | **PanelRenderer** | **`panels.py`** | **主角面板配置化渲染器（按 panel.json spec）** | GameEngine, API routes |
 | **PackGenerator** | **`modules/pack_generator.py`** | **世界观包生成器：短表单 → 完整包 zip** | worldview_routes |
+| **CompanionEngine** | **`companion_engine.py`** | **1v1 陪伴对话引擎（会话/聊天/关系记忆/主动搭话），独立于世界管线** | **chat_routes** |
+| **CardSchema** | **`modules/card_schema.py`** | **角色卡字段树 + 中文标签 + 下拉选项 + normalize/预览** | **card_routes** |
 | JSONLoader | `content/json_loader.py` | 中文 JSON 文件惰性加载 + 缓存 | Player/NPC/World/NSFW 模板 |
 | **Auth** | **`auth.py`** | **JWT 生成/验证 + 密码 pbkdf2_sha256 哈希 + get_current_user 依赖** | **API routes** |
 
@@ -55,6 +57,31 @@ read_artifact / write_artifact     # 通用白名单 JSON 工件读写
 ### PackGenerator（`modules/pack_generator.py`）
 
 `build_pack(author) -> {path: str}` / `generate_pack_zip(author) -> bytes`。短表单（id/name/desc/genre/power/money/role/professions/places/create_button + world_setting/era/factions/taboos/npc_names/golden_fingers/event_theme/ip_based/ip_work）生成 11-13 个工件。IP 模式产出 world_facts.json 骨架。
+
+---
+
+## 陪伴/角色卡子系统详情（v1.3，独立于世界管线）
+
+### CompanionEngine（`companion_engine.py`）
+
+```python
+create_companion_session(db, user_id, npc_id, name) -> dict      # 用 UserNPC 开启 1v1 会话
+create_companion_session_from_card(db, user_id, card_id, name)   # 用 UserCard 开启
+process_chat(db, session_id, input, user_id, model) -> dict      # 发消息 → {reply, emotion, relationship_note, ...}
+nudge(db, session_id, user_id) -> dict | None                    # 主动搭话轮询（双阈值 + 冷却）
+get_nudge_settings / set_nudge_settings(db, session_id, idle_seconds)
+get_relationship_memory(db, session_id) -> list[dict]            # 关系记忆（剥离 [第N轮] 前缀）
+get_history(db, session_id) -> list[dict]                        # 对话历史
+```
+
+- 会话用 `WorldSession(worldview="companion_v1")` 标记，**不生成世界区域**，不进入 turn 管线
+- 关系记忆：LLM 输出 `relationship_note` → 存 `Memory(memory_type="companion")`，内容带 `[第N轮]` 前缀
+- `NUDGE_IDLE_SECONDS = 30*60` 默认阈值；`_NUDGE_TS_KEY` 存上次主动搭话时间戳做冷却；`clinginess`（粘人度）可覆盖阈值
+- 角色卡渲染：`_render_companion_card(card_data)` / `_render_character_card(model_data)` 把卡片/NPC 档案渲染成 prompt 文本
+
+### CardSchema（`modules/card_schema.py`）
+
+`CARD_SCHEMA`（恋爱向字段树：identity/appearance/personality/speech_style/initial_relationship/relationship_behavior/clinginess/opening）+ `CARD_LABELS`（中文标签）+ `CARD_SELECTS`（下拉选项）。`normalize_card(card_data)` 补全缺省字段，`render_card_preview(card_data)` 生成列表预览。角色卡与 UserNPC 建模档案彻底分离，不依赖 LLM 建模链。
 
 ---
 
@@ -388,24 +415,27 @@ get_current_user(credentials, db) -> User               # 强制认证
 
 ---
 
-## API Routes (`api/routes.py`)
+## API Routes
 
-The API layer (FastAPI router under `/sessions/*`) complements the modules above. Key endpoint groups:
+`api/routes.py`（前缀 `/sessions/*`）+ `api/chat_routes.py`（前缀 `/chat`）+ `api/card_routes.py`（前缀 `/cards`）：
 
 | 功能 | 主要端点 |
 |------|----------|
 | Session CRUD | `GET/POST /sessions`, `GET/DELETE /sessions/{id}` |
 | Turn processing | `POST /sessions/{id}/turn` |
-| NPC Library（跨世界总库） | `GET/POST/PUT/DELETE /sessions/{id}/npc-library` |
+| NPC Library（跨世界总库） | `GET/POST/PUT/DELETE /npcs/library`（`_lib_router`，无 `/sessions` 前缀） |
 | NPC import/export | `GET /sessions/{id}/npcs/imported`, `POST/DELETE /sessions/{id}/npcs/import/{name}` |
 | Important NPCs | `GET /sessions/{id}/important-npcs` |
 | NPC Modeling | `POST /sessions/{id}/npc-modeling`, `POST …/confirm` |
 | Character creation | `POST /sessions/{id}/character` |
 | Memory retrieval | `GET /sessions/{id}/memories` |
+| 陪伴对话（1v1） | `GET /chat/characters`, `POST/GET/DELETE /chat/sessions`, `POST /chat/sessions/{id}/message`, `GET /chat/sessions/{id}/nudge`, `GET/PUT …/nudge-settings` |
+| 角色卡 | `GET /cards/schema`, `GET/POST/PUT/DELETE /cards`, `POST /cards/import` |
 
 - All routes require JWT authentication (`Depends(get_current_user)`)
 - User data is isolated by `user.id`
 - The NPC Library endpoints provide cross-session NPC storage (independent of per-session NPC CRUD in NPCManager)
+- `/chat/*` 由 `companion_engine` 驱动，`/cards/*` 由 `card_schema` 驱动，均独立于世界管线
 
 ---
 

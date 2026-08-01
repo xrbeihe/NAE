@@ -4,7 +4,7 @@
 
 ## 表总览
 
-11 张业务表（v1.2 新增 2 张：开源共享库 + 评分）：
+12 张业务表（v1.3 新增 1 张：角色卡）：
 
 | 表名 | 模型名 | 说明 |
 |------|--------|------|
@@ -17,6 +17,7 @@
 | `event_logs` | EventLog | 状态变更事件日志 |
 | `memories` | Memory | 对话/摘要/推荐/日志 三层记忆 |
 | `user_npcs` | UserNPC | 用户级 NPC 总库（跨世界共享模型数据） |
+| `user_cards` | UserCard | 角色卡（恋爱向 1v1 卡片，独立于 NPC 建模链） |
 | `worldview_shares` | WorldviewShare | 开源世界观共享库（作者推送，全用户可见） |
 | `worldview_ratings` | WorldviewRating | 开源世界观评分（1-5 星，同用户重复评覆盖） |
 
@@ -339,6 +340,25 @@ UNIQUE(user_id, name)
 
 - `worldview` 记录该总库 NPC 建模时的世界观包 id（v1.3 新增，启动时无损迁移加列）。编辑弹窗按此渲染字段树、AI 增量更新按此取 schema——总库是跨世界的，记录归属保证用正确的结构读写。
 - 用于在**用户级别**跨世界共享 NPC 模型数据。一个用户创建的 NPC 模型可导入多个世界的 NPC 实例。导入后 `NPC.source_user_npc_id` 指向此条记录。
+
+## UserCard 表（角色卡，v1.3）
+
+用户专属**角色卡**——与 UserNPC 建模档案彻底分离的恋爱向 1v1 卡片（由结构化表单制作，不依赖 LLM 建模链）：
+
+```sql
+id                  TEXT PRIMARY KEY     -- UUID hex[:12]
+user_id             TEXT NOT NULL         -- FK → users.id
+name                TEXT NOT NULL         -- 卡片名（同 user 下唯一）
+card_data           JSON DEFAULT {}       -- 恋爱向字段树（card_schema.CARD_SCHEMA）
+tags                JSON DEFAULT []       -- 用户自定义标签
+source_user_npc_id  TEXT                  -- 从总库导入的来源 UserNPC id（迁移用）
+created_at          DATETIME
+updated_at          DATETIME
+
+UNIQUE(user_id, name)
+```
+
+`card_data` 结构：`identity`（姓名/性别/年龄/职业/人设/背景）、`appearance`、`personality`、`speech_style`、`initial_relationship`、`relationship_behavior`、`clinginess`、`opening`。角色卡可直接作为陪伴对话（1v1）的角色源（`/chat`）。
 
 ## WorldviewShare 表（开源共享库，v1.2）
 

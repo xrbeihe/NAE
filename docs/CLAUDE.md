@@ -43,7 +43,7 @@
 │       ├── migrate_users.py       # 数据库迁移脚本
 │       ├── database/
 │       │   ├── engine.py          # 异步 SQLAlchemy 引擎
-│       │   └── models.py          # ORM 模型（11 张表：users + 10 业务表，含开源共享/评分）
+│       │   └── models.py          # ORM 模型（12 张表：users + 11 业务表，含开源共享/评分/角色卡）
 │       ├── modules/               # 15 个独立模块（全部单例）
 │       │   ├── input_validator.py # 安全检查 + 意图分类 + 中文数字解析
 │       │   ├── time_manager.py    # 时间推进 + Phase 1 内联 Scheduler
@@ -80,7 +80,7 @@
 │   └── public/
 │       ├── common.js      # 共享工具函数（JWT、日志、颜色、NPC 格式化）
 │       └── character.js   # 角色创建 + 世界观选择逻辑
-├── tests/                 # 测试（pytest，152 个用例）
+├── tests/                 # 测试（pytest，208 个用例）
 │   ├── conftest.py        # engine + db fixtures
 │   ├── test_modules.py    # 单元测试
 │   └── test_turn.py       # 集成测试

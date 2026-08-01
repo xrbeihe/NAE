@@ -277,6 +277,45 @@ Token 有效期 7 天。前端存储在 `localStorage`，每次请求自动附�
 
 ---
 
+## 陪伴对话（1v1，v1.3）
+
+独立于世界管线 `/sessions/*` 的 1v1 虚拟角色陪伴对话（前缀 `/chat`）。数据由 `companion_engine` 驱动，会话用 `worldview="companion_v1"` 标记，不生成世界区域。
+
+| 方法 | 路径 | 请求体 | 说明 |
+|------|------|--------|------|
+| GET | `/chat/characters` | — | 可选的陪伴角色：UserNPC 总库 + UserCard 角色卡合并列表（`source: npc/card`，卡片带 `initial_relationship`/`clinginess`） |
+| POST | `/chat/sessions` | `{npc_id?`, `card_id?`, `name?}` | 开启 1v1 会话（card_id 或 npc_id 二选一） |
+| GET | `/chat/sessions` | — | 列出当前用户 1v1 会话 |
+| GET | `/chat/sessions/{id}` | — | 完整对话历史 |
+| GET | `/chat/sessions/{id}/memories` | — | 关系记忆（「TA 记得什么」面板） |
+| GET/PUT | `/chat/sessions/{id}/nudge-settings` | `{idle_seconds}` | 主动搭话阈值（0=粘人，86400=几乎不主动，默认 30 分钟） |
+| GET | `/chat/sessions/{id}/nudge` | — | 角色主动搭话轮询（超阈值返回开场白/主动搭话，否则 null） |
+| POST | `/chat/sessions/{id}/message` | `{input, model?}` | 发消息 → `{reply, emotion, relationship_note, npc_name, prompt}` |
+| DELETE | `/chat/sessions/{id}` | — | 删除 1v1 会话（级联删 NPC/记忆） |
+
+**设计要点**：
+- 关系记忆存 `Memory(memory_type="companion")`，内容带 `[第N轮]` 前缀，`get_relationship_memory` 读取时剥离
+- `nudge` 受双阈值控制：距最后对话 + 距上次主动搭话均超阈值才触发，触发后写入 `_last_nudge_ts` 冷却
+- 角色卡创建时 `clinginess`（粘人度）可覆盖默认 nudge 阈值
+
+## 角色卡（card-editor，v1.3）
+
+角色卡制作工具（前缀 `/cards`），独立于 NPC 建模链：由结构化表单制作恋爱向 1v1 卡片，不经过 LLM 建模。前端页面 `/card-editor`。
+
+| 方法 | 路径 | 请求体 | 说明 |
+|------|------|--------|------|
+| GET | `/cards/schema` | — | 编辑器表单源：`{schema, labels, selects}`（字段树 + 中文标签 + 下拉选项） |
+| GET | `/cards` | — | 列出当前用户角色卡 |
+| POST | `/cards` | `{name, card_data?, tags?}` | 新建（同名 409；card_data 经 normalize 补全缺省） |
+| GET | `/cards/{card_id}` | — | 读取完整角色卡 |
+| PUT | `/cards/{card_id}` | `{name, card_data, tags}` | 整卡替换保存 |
+| DELETE | `/cards/{card_id}` | — | 删除（活跃会话持创建时快照，不受影响） |
+| POST | `/cards/import` | `{source_npc_id, name?}` | 从 UserNPC 总库预填（手动物理映射：basic→identity、personality、appearance） |
+
+**card_data 字段树**（`card_schema.CARD_SCHEMA`）：`identity`（姓名/性别/年龄/职业/人设/背景）、`appearance`（整体印象/脸型/眼眸/头发/身材/穿着）、`personality`（核心/价值观/怪癖/喜好）、`speech_style`、`initial_relationship`（初始关系）、`relationship_behavior`（关系行为）、`clinginess`（粘人度）、`opening`（开场白）。
+
+---
+
 ## 日志 & 调试
 
 | 方法 | 路径 | 参数 | 说明 |

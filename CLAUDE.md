@@ -48,10 +48,12 @@ frontend/         → 前端 SPA
   login.html         独立登录/注册页
   settings.html      用户设置页（头像/密码/日志/设计器入口）
   designer.html      世界观设计器（/designer 路由）
+  chat.html          1v1 陪伴对话页（/chat 路由）
+  card_editor.html   角色卡编辑器（/card-editor 路由）
   public/
     common.js        共享工具函数（JWT、日志、颜色、NPC 格式化等）
     character.js     角色创建 + 世界观选择逻辑（ES5 共享）
-tests/            → 测试（pytest，152 个用例）
+tests/            → 测试（pytest，208 个用例）
 data/             → SQLite 数据库文件
 docs/             → 文档
 ```
@@ -79,6 +81,22 @@ watch_backup.bat
 ```
 
 ## 功能变更记录
+
+### 💬 1v1 陪伴对话 + 角色卡编辑器（v1.3）
+- **陪伴对话**：独立于世界管线的 1v1 虚拟角色对话（`companion_engine.py` + `api/chat_routes.py`，前缀 `/chat`）。会话用 `worldview="companion_v1"` 标记，不生成世界区域、不进入 turn 管线
+- 角色源：UserNPC 总库 + UserCard 角色卡合并（`GET /chat/characters`），开启会话后按卡渲染 prompt 文本
+- 关系记忆：LLM 输出 `relationship_note` → 存 `Memory(memory_type="companion")`（`[第N轮]` 前缀），「TA 记得什么」面板读取
+- 主动搭话（nudge）：双阈值（距最后对话 + 距上次主动搭话均超阈值）+ `_last_nudge_ts` 冷却，默认 30 分钟，`clinginess` 粘人度可覆盖
+- 前端 `chat.html`（`/chat` 路由，顶栏 💬 按钮进入）
+- **角色卡**：`card_editor.html`（`/card-editor`）+ `api/card_routes.py`（前缀 `/cards`）+ `modules/card_schema.py`（恋爱向字段树）。结构化表单制作，**不依赖 LLM 建模链**；支持从总库预填（`POST /cards/import`）
+- `UserCard` 表（`user_cards`），`card_data` 含 identity/appearance/personality/speech_style/initial_relationship/relationship_behavior/clinginess/opening
+- 测试：`test_companion.py`（会话/聊天/关系记忆/nudge 阈值）+ `test_cards.py`
+
+### 🔗 建模链路跨世界观适配（v1.3）
+- `UserNPC` 新增 `worldview` 列：记录建模时的归属世界观（无损迁移）。编辑弹窗按此渲染字段树、AI 增量更新按此取 schema，总库跨世界资产不再被错误地用 xianxia 模板读写
+- 修复增量更新/直接替换把 `model_version` 硬编码降级为 1.0 的 bug（保留当前版本）
+- 前端编辑弹窗改为从 NPC 自身 model 构建字段树，跨世界观独有字段（lifestyle/wardrobe/ninja_ability 等）不再丢失
+- 测试：`test_modeling_chain.py`（17 用例）+ `test_modeling_routes.py`（7 用例 HTTP 集成）
 
 ### ⚡ Prompt 内核去重 + NSFW 安全规则常态化
 - `NARRATIVE_KERNEL_PROMPT` 去重：合并"禁止反问"3 处重复表达与"推进感"重复强调，精简 73 字符
@@ -171,7 +189,7 @@ watch_backup.bat
 - 意图关键词 / 叙事约束 / 玩家面板（`panel.json` 渲染器）/ 角色建模 prompt / 事件白名单 / 前端文案（`ui.json`）全部世界观化
 - 事件白名单改为 `CORE ∪ 包.extra_event_types`，并修复 `economy_change` 被白名单静默丢弃的 bug
 - 前端角色创建弹窗新增世界观下拉，切包即时刷新表单选项 + 显隐宗门/金手指区块 + 动态按钮/标签文案
-- 共享 `frontend/public/character.js`（ES5）承载世界观选择逻辑，chat.html/app.html 各自接线
+- 共享 `frontend/public/character.js`（ES5）承载世界观选择逻辑，app.html 等页面接线
 - 世界观包规范见 [docs/WORLDVIEW_PACK_SPEC.md](docs/WORLDVIEW_PACK_SPEC.md)
 
 ### 🔧 世界观平台 · P2（作者工具链）
@@ -184,7 +202,6 @@ watch_backup.bat
 - manifest 支持 `calendar`（按世界观覆盖 seasons/times_of_day/month_to_season）
 - 会话级包版本钉住：`sessions.worldview_version` 记录创建时版本，包升级时检测但不自动迁移旧会话
 - 前端世界观管理面板：settings.html「🌍 世界观管理」区块（列表/校验/重载/上传/删除），后端工具链 API 全覆盖
-- 双页收敛：chat.html 已删除（孤儿页面），`/chat` 重定向到 `/`，前端统一 app.html + character.js
 
 ### ✨ 世界观平台 · P5（作者生成器）
 - `POST /worldviews/generate`：填短表单（ID/名称/设定/风格基调/能力体系/货币/称呼/职业/地点/按钮文案）→ 自动生成完整 11 文件世界观包 zip
