@@ -13,7 +13,15 @@ from ane.config import DATABASE_URL
 
 logger = logging.getLogger(__name__)
 
-engine = create_async_engine(DATABASE_URL, echo=False)
+# SQLite 并发写锁防护：timeout（秒）让连接等待锁而非立即报 database is locked。
+# 与 init_db 的 PRAGMA busy_timeout 双保险——这里覆盖所有业务连接，
+# 那里是启动时兜底。仅 SQLite 需要；其他 DB 忽略此参数。
+_engine_kwargs: dict = {}
+if DATABASE_URL.startswith("sqlite"):
+    _engine_kwargs["connect_args"] = {"timeout": 15}
+    _engine_kwargs["pool_pre_ping"] = True
+
+engine = create_async_engine(DATABASE_URL, echo=False, **_engine_kwargs)
 
 async_session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
