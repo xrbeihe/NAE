@@ -53,10 +53,11 @@
   .sess-item .sdel:hover { text-decoration: underline; }
 
   /* ── 聊天 ── */
-  #chat-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  #chat-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
   #chat {
     flex: 1; min-height: 0; overflow-y: auto; padding: 16px 20px;
     display: flex; flex-direction: column; gap: 12px;
+    position: relative; z-index: 1;
   }
   #chat::-webkit-scrollbar { width: 6px; }
   #chat::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
@@ -190,6 +191,7 @@
   <button class="cmd-btn" onclick="location.href='/card-editor'">🃏 角色卡</button>
   <button class="cmd-btn" id="mem-btn" onclick="showMemories()" style="display:none;">💭 TA记得</button>
   <button class="cmd-btn" id="nudge-btn" onclick="showNudgeSettings()" style="display:none;">⚙️ 主动</button>
+  <button class="cmd-btn" id="me-btn" onclick="showMeAvatar()" style="display:none;" title="设置你的头像">🧑 我</button>
   <button class="cmd-btn" onclick="logout()">退出</button>
 </header>
 
@@ -225,6 +227,35 @@
   </div>
 </div>
 
+<!-- 玩家头像 弹窗 -->
+<div id="me-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:100;display:none;align-items:center;justify-content:center" onclick="if(event.target===this)closeMeAvatar()">
+  <div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;width:min(520px,calc(100vw - 32px));display:flex;flex-direction:column;overflow:hidden;max-height:85vh">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)">
+      <h3 style="color:var(--accent);font-size:15px">🧑 我的头像</h3>
+      <span onclick="closeMeAvatar()" style="cursor:pointer;color:var(--accent-dim);font-size:16px">✕</span>
+    </div>
+    <div style="padding:12px 16px;flex:1;overflow-y:auto">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+        <div id="me-avatar-preview" style="width:64px;height:64px;border-radius:50%;overflow:hidden;flex-shrink:0;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;background:var(--input-bg);color:var(--accent-dim);font-size:20px">你</div>
+        <input type="file" id="me-avatar-file" accept="image/*" style="color:var(--accent-dim);font-size:12px;flex:1" onchange="onMeAvatarFile(this)">
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-size:12px;color:var(--accent-dim)">缩放</span>
+        <input type="range" id="me-avatar-zoom" min="20" max="300" value="100" style="flex:1;accent-color:var(--accent)" oninput="onMeAvatarZoom(this.value)">
+        <span id="me-avatar-zoom-label" style="font-size:11px;color:var(--accent-dim);min-width:30px;text-align:right">100%</span>
+      </div>
+      <div id="me-crop-wrap" style="position:relative;width:100%;height:240px;overflow:hidden;border-radius:8px;border:1px solid var(--border);margin:0 auto 10px;background:var(--input-bg);user-select:none">
+        <img id="me-crop-img" src="" alt="拖动可调整位置" style="display:block;width:100%;height:100%;object-fit:contain;pointer-events:none;user-select:none;-webkit-user-drag:none">
+        <div id="me-crop-ring" style="position:absolute;width:120px;height:120px;border-radius:50%;border:2px dashed var(--accent);box-shadow:0 0 0 9999px rgba(0,0,0,0.5);pointer-events:auto;cursor:grab;top:50%;left:50%;transform:translate(-50%,-50%)"></div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:center">
+        <button class="cmd-btn primary" onclick="saveMeAvatarCrop()" style="display:none" id="me-save-crop">保存裁剪</button>
+        <button class="cmd-btn" onclick="removeMeAvatar()">移除头像</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- 主动搭话设置 弹窗 -->
 <div id="nudge-modal">
   <div class="modal-box">
@@ -238,7 +269,7 @@
 
 <script src="/public/common.js"></script>
 <script>
-const S = { currentSession: null, currentName: '', busy: false };
+const S = { currentSession: null, currentName: '', busy: false, avatar: '', meAvatar: '' };
 
 function logout() { clearToken(); location.href = '/login'; }
 
@@ -249,16 +280,24 @@ function showHome() {
   document.getElementById('home-page').style.display = 'flex';
   document.getElementById('mem-btn').style.display = 'none';
   document.getElementById('nudge-btn').style.display = 'none';
+  document.getElementById('me-btn').style.display = 'none';
   closeMemories();
   closeNudgeSettings();
   loadHome();
 }
 function showChat(sid, name) {
-  S.currentSession = sid; S.currentName = name;
+  S.currentSession = sid; S.currentName = name; S.avatar = '';
+  S.meAvatar = getSessionAvatar(sid) || '';
+  // 清掉上一会话的背景/遮罩
+  const panel = document.getElementById('chat-panel');
+  panel.style.backgroundImage = '';
+  const ov = panel.querySelector('.chat-bg-overlay');
+  if (ov) ov.remove();
   document.getElementById('home-page').style.display = 'none';
   document.getElementById('chat-panel').style.display = 'flex';
   document.getElementById('mem-btn').style.display = '';
   document.getElementById('nudge-btn').style.display = '';
+  document.getElementById('me-btn').style.display = '';
   document.getElementById('session-name').textContent = name;
   document.getElementById('input').value = '';
   closeMemories();
@@ -284,6 +323,127 @@ function showMemories() {
     .catch(() => { body.innerHTML = '<div class="mem-empty">加载失败，请重试</div>'; });
 }
 function closeMemories() { document.getElementById('mem-modal').classList.remove('open'); }
+
+// ── 玩家头像（环形裁剪器）──
+var _meZoom = 100, _meRingX = 50, _meRingY = 50, _meDragging = false;
+
+function showMeAvatar() {
+  const preview = document.getElementById('me-avatar-preview');
+  if (S.meAvatar) {
+    preview.innerHTML = '<img src="' + escAttr(S.meAvatar) + '" style="width:100%;height:100%;object-fit:cover">';
+    preview.style.background = 'transparent';
+  } else {
+    preview.textContent = '你';
+    preview.style.background = '';
+  }
+  document.getElementById('me-save-crop').style.display = 'none';
+  document.getElementById('me-modal').style.display = 'flex';
+}
+function closeMeAvatar() { document.getElementById('me-modal').style.display = 'none'; }
+
+function onMeAvatarFile(input) {
+  if (!input.files || !input.files.length) return;
+  const file = input.files[0];
+  if (file.size > 8 * 1024 * 1024) { alert('图片过大（上限 8MB）'); return; }
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    document.getElementById('me-crop-img').src = ev.target.result;
+    _meZoom = 100; _meRingX = 50; _meRingY = 50;
+    _meUpdateRing(); onMeAvatarZoom(100);
+    document.getElementById('me-save-crop').style.display = '';
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+function _meUpdateRing() {
+  const ring = document.getElementById('me-crop-ring');
+  ring.style.left = _meRingX + '%';
+  ring.style.top = _meRingY + '%';
+  const size = Math.round(120 * _meZoom / 100);
+  ring.style.width = size + 'px';
+  ring.style.height = size + 'px';
+}
+function onMeAvatarZoom(val) {
+  _meZoom = parseInt(val) || 100;
+  document.getElementById('me-avatar-zoom-label').textContent = _meZoom + '%';
+  _meUpdateRing();
+}
+
+// 拖动环形
+function _meBindDrag() {
+  const ring = document.getElementById('me-crop-ring');
+  if (!ring) return;
+  ring.addEventListener('mousedown', (e) => {
+    _meDragging = true;
+    _meDragStartX = e.clientX; _meDragStartY = e.clientY;
+    _meDragOrigX = _meRingX; _meDragOrigY = _meRingY;
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', (e) => {
+    if (!_meDragging) return;
+    const wrap = document.getElementById('me-crop-wrap');
+    const wr = wrap.getBoundingClientRect();
+    _meRingX = Math.max(0, Math.min(100, _meDragOrigX + (e.clientX - _meDragStartX) / wr.width * 100));
+    _meRingY = Math.max(0, Math.min(100, _meDragOrigY + (e.clientY - _meDragStartY) / wr.height * 100));
+    _meUpdateRing();
+  });
+  document.addEventListener('mouseup', () => { _meDragging = false; });
+}
+
+// 裁剪核心：高分辨率输出 + 保持正方形（修复 app.html 固定 160 导致降分辨率/压扁）
+function cropMeAvatar() {
+  const img = document.getElementById('me-crop-img');
+  const wrap = document.getElementById('me-crop-wrap');
+  const ring = document.getElementById('me-crop-ring');
+  if (!img || !img.naturalWidth) return null;
+  const wrapRect = wrap.getBoundingClientRect();
+  const imgRect = img.getBoundingClientRect();
+  const ringRect = ring.getBoundingClientRect();
+  // 图片在容器内的实际显示区域（object-fit: contain 可能有留白）
+  const dispW = imgRect.width, dispH = imgRect.height;
+  const ringSize = Math.min(ringRect.width, ringRect.height);  // 屏幕像素的环形直径
+  const rcX = ringRect.left + ringRect.width / 2 - imgRect.left;
+  const rcY = ringRect.top + ringRect.height / 2 - imgRect.top;
+  // 显示坐标 → 自然坐标
+  const scaleX = img.naturalWidth / dispW;
+  const scaleY = img.naturalHeight / dispH;
+  // 保证源区域是正方形：用 min 方向的缩放，避免 scaleX != scaleY 时压扁
+  const ringDisp = Math.min(ringSize, ringSize);  // 环形本来就是正方形
+  const half = ringDisp / 2;
+  const cx = rcX, cy = rcY;
+  // 源矩形（自然坐标），保持正方形：sw == sh
+  const sw = ringDisp * scaleX;
+  const sh = ringDisp * scaleY;
+  // 用更小的那个保证不越界且源是正方形——取 min，但坐标按各自 scale 计算会失配，
+  // 因此统一用「环形直径对应的自然像素」，并让中心对齐
+  const sq = Math.min(sw, sh);  // 正方形边长（自然像素）
+  const sx = Math.max(0, Math.min(img.naturalWidth - sq, cx * scaleX - sq / 2));
+  const sy = Math.max(0, Math.min(img.naturalHeight - sq, cy * scaleY - sq / 2));
+  if (sq < 4) return null;
+  // 输出分辨率：保持源裁剪区域的分辨率（上限 512，避免超大图爆内存）
+  const outSize = Math.min(512, Math.max(256, Math.round(sq)));
+  const c = document.createElement('canvas');
+  c.width = outSize; c.height = outSize;
+  const ctx = c.getContext('2d');
+  ctx.beginPath(); ctx.arc(outSize / 2, outSize / 2, outSize / 2, 0, Math.PI * 2); ctx.clip();
+  ctx.drawImage(img, sx, sy, sq, sq, 0, 0, outSize, outSize);
+  return c.toDataURL('image/png');
+}
+
+function saveMeAvatarCrop() {
+  const dataUrl = cropMeAvatar();
+  if (!dataUrl) { alert('请先选择并调整图片'); return; }
+  if (S.currentSession) setSessionAvatar(S.currentSession, dataUrl);
+  S.meAvatar = dataUrl;
+  document.getElementById('me-save-crop').style.display = 'none';
+  showMeAvatar();
+}
+function removeMeAvatar() {
+  if (S.currentSession) setSessionAvatar(S.currentSession, '');
+  S.meAvatar = '';
+  showMeAvatar();
+}
+_meBindDrag();
 
 // ── 主动搭话设置 ──
 const NUDGE_PRESETS = [
@@ -379,7 +539,8 @@ async function loadHome() {
       const el = document.createElement('div');
       el.className = 'sess-item';
       el.innerHTML = `<span class="sname">${escHtml(s.name)}</span><span class="sdel">✕</span>`;
-      el.querySelector('.sname').onclick = () => showChat(s.session_id, s.name);
+      // 整行可点击进入会话（不只 .sname 文字）
+      el.onclick = () => showChat(s.session_id, s.name);
       el.querySelector('.sdel').onclick = async (e) => {
         e.stopPropagation();
         if (!confirm('删除这个对话？')) return;
@@ -409,6 +570,27 @@ async function loadHistory(sid) {
   try {
     const res = await apiFetch('/chat/sessions/' + sid);
     const d = await res.json();
+    // 应用角色形象（头像 + 背景）
+    S.avatar = (d.visual && d.visual.avatar) || '';
+    const bg = (d.visual && d.visual.background) || '';
+    const panel = document.getElementById('chat-panel');
+    if (bg) {
+      panel.style.backgroundImage = 'url(' + bg + ')';
+      panel.style.backgroundSize = 'cover';
+      panel.style.backgroundPosition = 'center';
+      panel.style.backgroundAttachment = 'fixed';
+      // 深色遮罩保证文字可读
+      if (!panel.querySelector('.chat-bg-overlay')) {
+        const overlay = document.createElement('div');
+        overlay.className = 'chat-bg-overlay';
+        overlay.style.cssText = 'position:absolute;inset:0;background:rgba(26,20,16,0.72);z-index:0;pointer-events:none';
+        panel.appendChild(overlay);
+      }
+    } else {
+      panel.style.backgroundImage = '';
+      const ov = panel.querySelector('.chat-bg-overlay');
+      if (ov) ov.remove();
+    }
     chat.innerHTML = '';
     (d.history || []).forEach(m => appendMsg(m.role, m.content));
     chat.scrollTop = chat.scrollHeight;
@@ -419,11 +601,21 @@ function appendMsg(role, content) {
   const chat = document.getElementById('chat');
   const empty = chat.querySelector('.empty-tip');
   if (empty) empty.remove();
+  // 兼容后端 role 命名：'ai'（前端调用）与 'assistant'（历史接口）都是 AI 消息
+  const isAI = role === 'ai' || role === 'assistant';
   const wrap = document.createElement('div');
   wrap.className = 'msg-wrapper ' + (role === 'user' ? 'user' : 'ai');
   const avatar = document.createElement('div');
   avatar.className = 'msg-avatar';
-  avatar.textContent = role === 'user' ? '你' : (S.currentName || '她').charAt(0);
+  if (isAI && S.avatar) {
+    avatar.innerHTML = '<img src="' + escAttr(S.avatar) + '" style="width:100%;height:100%;object-fit:cover">';
+    avatar.style.background = 'transparent';
+  } else if (role === 'user' && S.meAvatar) {
+    avatar.innerHTML = '<img src="' + escAttr(S.meAvatar) + '" style="width:100%;height:100%;object-fit:cover">';
+    avatar.style.background = 'transparent';
+  } else {
+    avatar.textContent = role === 'user' ? '你' : (S.currentName || '她').charAt(0);
+  }
   const bubble = document.createElement('div');
   bubble.className = 'msg';
   bubble.textContent = content;
@@ -476,7 +668,12 @@ async function sendMsg() {
     bubble.className = 'msg-wrapper ai';
     const avatar = document.createElement('div');
     avatar.className = 'msg-avatar';
-    avatar.textContent = (S.currentName || '她').charAt(0);
+    if (S.avatar) {
+      avatar.innerHTML = '<img src="' + escAttr(S.avatar) + '" style="width:100%;height:100%;object-fit:cover">';
+      avatar.style.background = 'transparent';
+    } else {
+      avatar.textContent = (S.currentName || '她').charAt(0);
+    }
     const inner = document.createElement('div');
     const msg = document.createElement('div');
     msg.className = 'msg';

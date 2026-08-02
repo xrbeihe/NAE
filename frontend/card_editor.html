@@ -27,6 +27,7 @@
   .cmd-btn:hover { border-color: var(--accent); color: var(--accent); }
   .cmd-btn.primary { background: var(--accent); color: var(--panel); border: none; font-weight: bold; }
   .cmd-btn.primary:hover { opacity: 0.85; }
+  .depth-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(201,169,110,0.15); font-weight: bold; }
 
   #layout { flex: 1; display: flex; overflow: hidden; min-height: 0; }
   /* 左栏：卡片列表 */
@@ -149,6 +150,16 @@
     </div>
     <div style="padding:16px;overflow-y:auto" id="novel-body">
       <div style="color:var(--accent-dim);font-size:12px;margin-bottom:12px;line-height:1.6">上传一本小说 txt，系统会提取主要人物，你选择一个后自动生成角色卡（可在编辑器里继续细化）。</div>
+      <div style="margin-bottom:12px">
+        <div style="font-size:12px;color:var(--accent-dim);margin-bottom:6px">读取深度 <span style="color:var(--accent-dim);font-size:11px">（读得越深，角色理解越准，时间/成本越高）</span></div>
+        <div style="display:flex;gap:6px" id="depth-presets">
+          <button type="button" class="cmd-btn depth-btn" data-depth="快速" onclick="setDepth('快速', this)">快速</button>
+          <button type="button" class="cmd-btn depth-btn active" data-depth="标准" onclick="setDepth('标准', this)">标准</button>
+          <button type="button" class="cmd-btn depth-btn" data-depth="深度" onclick="setDepth('深度', this)">深度</button>
+          <button type="button" class="cmd-btn depth-btn" data-depth="全文" onclick="setDepth('全文', this)">全文</button>
+          <input type="number" id="novel-depth-num" min="1" max="200" placeholder="前N章" style="width:70px;background:var(--input-bg);border:1px solid var(--border);border-radius:3px;color:var(--text);font-size:12px;padding:3px 6px" title="手动指定读前 N 章" oninput="onDepthNum()">
+        </div>
+      </div>
       <div style="display:flex;gap:8px;margin-bottom:12px">
         <input type="file" id="novel-file" accept=".txt" style="flex:1;color:var(--accent-dim);font-size:13px">
         <button class="cmd-btn primary" onclick="uploadNovel()">上传提取角色</button>
@@ -288,6 +299,20 @@ function renderFields(obj, depth, sectionName) {
     // 叶子
     const displayVal = (val === '' || val === undefined || val === null) ? '' : String(val);
     const isSelect = S.selects[path];
+    // visual 段：头像/背景 → 上传图片（非文本框）
+    if (path === 'visual.avatar' || path === 'visual.background') {
+      const isAvatar = path === 'visual.avatar';
+      const preview = displayVal ? `<img src="${escAttr(displayVal)}" style="${isAvatar ? 'width:64px;height:64px;border-radius:50%;' : 'width:180px;height:80px;border-radius:4px;'}object-fit:cover;border:1px solid var(--border)">` : '<span style="color:var(--accent-dim);font-size:11px">未设置</span>';
+      html += `<div class="field-row" style="padding-left:${depth * 12}px;flex-wrap:wrap">
+        <label>${label}</label>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          ${preview}
+          <input type="file" accept="image/*" style="color:var(--accent-dim);font-size:11px;max-width:130px" onchange="uploadVisualImg('${path}', this)">
+          ${displayVal ? `<button type="button" class="cmd-btn" onclick="removeVisualImg('${path}')">移除</button>` : ''}
+        </div>
+      </div>`;
+      continue;
+    }
     if (isSelect) {
       html += `<div class="field-row" style="padding-left:${depth * 12}px">
         <label>${label}</label><select data-path="${path}">
@@ -305,6 +330,27 @@ function renderFields(obj, depth, sectionName) {
 }
 
 // ── 收集表单值 → S.cardData ──
+function uploadVisualImg(path, input) {
+  if (!input.files || !input.files.length) return;
+  const file = input.files[0];
+  if (file.size > 3 * 1024 * 1024) { alert('图片过大（上限 3MB）'); return; }
+  const reader = new FileReader();
+  reader.onload = () => {
+    const parts = path.split('.');
+    let target = S.cardData;
+    for (let i = 0; i < parts.length - 1; i++) target = target[parts[i]];
+    target[parts[parts.length - 1]] = reader.result;
+    renderForm();
+  };
+  reader.readAsDataURL(file);
+}
+function removeVisualImg(path) {
+  const parts = path.split('.');
+  let target = S.cardData;
+  for (let i = 0; i < parts.length - 1; i++) target = target[parts[i]];
+  target[parts[parts.length - 1]] = '';
+  renderForm();
+}
 function collectForm() {
   // 文本/下拉
   document.querySelectorAll('#form-fields input[data-path], #form-fields textarea[data-path], #form-fields select[data-path]').forEach(el => {
@@ -379,6 +425,21 @@ function deepMerge(base, over) {
 }
 // ── 📖 从小说生成 ──
 let novelFile = null;
+let novelDepth = '标准';
+function setDepth(d, el) {
+  novelDepth = d;
+  document.querySelectorAll('#depth-presets .depth-btn').forEach(b => b.classList.remove('active'));
+  if (el) el.classList.add('active');
+  document.getElementById('novel-depth-num').value = '';
+}
+function onDepthNum() {
+  const v = document.getElementById('novel-depth-num').value.trim();
+  document.querySelectorAll('#depth-presets .depth-btn').forEach(b => b.classList.remove('active'));
+  novelDepth = v ? v : '标准';
+}
+function getSelectedDepth() {
+  return novelDepth || '标准';
+}
 function showNovelModal() {
   document.getElementById('novel-modal').style.display = 'flex';
   document.getElementById('novel-characters').innerHTML = '';
@@ -386,6 +447,12 @@ function showNovelModal() {
   document.getElementById('novel-progress').style.display = 'none';
   document.getElementById('novel-file').value = '';
   novelFile = null;
+  // 重置读取深度为默认「标准」
+  novelDepth = '标准';
+  document.querySelectorAll('#depth-presets .depth-btn').forEach(b => b.classList.remove('active'));
+  const stdBtn = document.querySelector('#depth-presets .depth-btn[data-depth="标准"]');
+  if (stdBtn) stdBtn.classList.add('active');
+  document.getElementById('novel-depth-num').value = '';
 }
 function closeNovelModal() { document.getElementById('novel-modal').style.display = 'none'; }
 
@@ -401,6 +468,8 @@ async function uploadNovel() {
 
   const fd = new FormData();
   fd.append('file', novelFile);
+  const depth = getSelectedDepth();
+  if (depth) fd.append('depth', depth);
   try {
     const res = await apiFetch('/cards/from-novel', { method: 'POST', body: fd });
     if (!res.ok) { const d = await res.json().catch(() => ({})); alert('提取失败：' + (d.detail || res.status)); return; }
@@ -435,6 +504,8 @@ async function generateFromNovel(btn) {
   fd.append('character', name);
   if (relation) fd.append('relationship_note', relation);
   if (cardname) fd.append('name', cardname);
+  const depth = getSelectedDepth();
+  if (depth) fd.append('depth', depth);
   try {
     const res = await apiFetch('/cards/from-novel/character', { method: 'POST', body: fd });
     if (!res.ok) { const d = await res.json().catch(() => ({})); alert('生成失败：' + (d.detail || res.status)); return; }

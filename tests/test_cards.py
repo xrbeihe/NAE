@@ -295,3 +295,53 @@ async def test_novel_generate_card(db, mock_llm):
     # normalize 补全了缺省
     assert card["clinginess"]["level"] == "适中"
     assert isinstance(card["relationship_behavior"]["intimate_terms"], list)
+
+
+# ── 读取深度（depth）────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_depth_presets():
+    """Depth presets map to candidate/sample ratios."""
+    from ane.modules.card_from_novel import resolve_depth
+    assert resolve_depth("快速") == (8, 0.34)
+    assert resolve_depth("标准") == (15, 0.67)
+    assert resolve_depth("深度") == (30, 1.0)
+    assert resolve_depth("全文") == (None, 1.0)
+    assert resolve_depth(20) == (20, 1.0)
+    assert resolve_depth(None) == (15, 0.67)
+    assert resolve_depth("非法值") == (15, 0.67)  # 回退标准
+
+
+@pytest.mark.asyncio
+async def test_depth_controls_sample_scope():
+    """Shallow depth samples fewer chapters than full depth."""
+    from ane.modules.card_from_novel import sample_character
+    # 构造一个多章节文本，只有后几章含目标角色
+    text = ""
+    for i in range(1, 21):
+        ch = f"第{i}章 章节{i}\n"
+        if i >= 18:  # 只有 18-20 章含"郁清"
+            ch += "郁清站在廊下，指尖轻叩扶手，声音温润。\n"
+        text += ch
+
+    # 全文 → 抽到
+    full = sample_character(text, "郁清", depth="全文")
+    assert "郁清" in full
+    # 快速（前 1/3 章节，不含 18-20 章）→ 找不到 → fallback 提示
+    shallow = sample_character(text, "郁清", depth="快速")
+    assert "未在文中找到" in shallow
+
+
+@pytest.mark.asyncio
+async def test_depth_numeric():
+    """Numeric depth reads first N chapters."""
+    from ane.modules.card_from_novel import sample_character
+    text = ""
+    for i in range(1, 11):
+        ch = f"第{i}章 章节{i}\n"
+        if i <= 3:
+            ch += "郁清微微颔首。\n"
+        text += ch
+    # 数字 5 → 前 5 章，含郁清
+    s = sample_character(text, "郁清", depth=5)
+    assert "郁清" in s

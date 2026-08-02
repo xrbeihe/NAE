@@ -244,10 +244,14 @@ async def import_from_npc(
 @router.post("/from-novel")
 async def from_novel_upload(
     file: UploadFile = File(...),
+    depth: str | None = Form(None, max_length=20),
     db=Depends(get_db),
     user=Depends(get_current_user),
 ):
-    """上传小说 txt，提取候选角色列表。文件 ≤8MB。"""
+    """上传小说 txt，提取候选角色列表。文件 ≤8MB。
+
+    depth: 读取深度（快速/标准/深度/全文，或数字=前 N 章），默认「标准」。
+    """
     raw = await file.read()
     if len(raw) > 8 * 1024 * 1024:
         raise HTTPException(status_code=413, detail="文件过大（上限 8MB）")
@@ -259,7 +263,7 @@ async def from_novel_upload(
     if len(text.strip()) < 200:
         raise HTTPException(status_code=400, detail="文本过短，无法提取角色")
 
-    characters = await extract_characters(text, user_id=user.id)
+    characters = await extract_characters(text, user_id=user.id, depth=depth)
     if not characters:
         raise HTTPException(status_code=502, detail="未能从小说中提取角色，请重试")
 
@@ -267,6 +271,7 @@ async def from_novel_upload(
         "characters": characters,
         "total_chars": len(text),
         "filename": file.filename,
+        "depth": depth or "标准",
     }
 
 
@@ -276,13 +281,14 @@ async def from_novel_generate(
     character: str = Form(..., min_length=1, max_length=50),
     relationship_note: str = Form("", max_length=100),
     name: str | None = Form(None, max_length=50),
+    depth: str | None = Form(None, max_length=20),
     db=Depends(get_db),
     user=Depends(get_current_user),
 ):
     """选定角色后，读小说抽样片段，生成角色卡并存入 UserCard。
 
     multipart 表单：file（txt）+ character（角色名）+ relationship_note（可选）
-    + name（可选，卡片名，默认用角色名）。
+    + name（可选，卡片名，默认用角色名）+ depth（读取深度档位/章节数，可选）。
     """
     raw = await file.read()
     if len(raw) > 8 * 1024 * 1024:
@@ -294,7 +300,7 @@ async def from_novel_generate(
         generate_card_from_sample,
     )
     text = read_novel_text(raw)
-    sample = sample_character(text, character)
+    sample = sample_character(text, character, depth=depth)
     card_data = await generate_card_from_sample(
         character,
         sample,

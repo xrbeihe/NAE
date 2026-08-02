@@ -390,9 +390,15 @@ class CompanionEngine:
             nearby_characters=None, prompt=prompt,
         )
 
-        # 记录主动搭话时间
+        # 记录主动搭话时间——用 UPDATE 语句直接更新，避免 ORM 对象在长 LLM
+        # 调用期间过期/被删导致 StaleDataError。
+        from sqlalchemy import update as _update
         lts[_NUDGE_TS_KEY] = time.time()
-        npc.long_term_state = lts
+        await db.execute(
+            _update(NPC)
+            .where(NPC.session_id == session_id, NPC.is_important == True)
+            .values(long_term_state=lts)
+        )
         await db.commit()
 
         return {

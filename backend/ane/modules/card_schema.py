@@ -19,6 +19,11 @@ CARD_SCHEMA = {
         "persona": "",        # 一句话人设（核心）
         "background": "",     # 背景经历
     },
+    # 沉浸感：头像/背景（base64 图片数据，由前端上传生成，非 LLM 字段）
+    "visual": {
+        "avatar": "",         # 角色头像 base64
+        "background": "",     # 聊天区背景图 base64
+    },
     "appearance": {
         "overall_impression": "",
         "face": "",
@@ -68,6 +73,9 @@ CARD_SCHEMA = {
 # ── 中文标签（渲染 + 表单）──────────────────────────────────
 
 CARD_LABELS = {
+    "visual": "形象",
+    "avatar": "头像",
+    "background": "背景图",
     "identity": "身份",
     "name": "姓名",
     "gender": "性别",

@@ -18,7 +18,7 @@ from sqlalchemy import select
 from ane.auth import get_current_user
 from ane.companion_engine import companion_engine
 from ane.database.engine import get_db
-from ane.database.models import UserNPC, WorldSession
+from ane.database.models import UserNPC, WorldSession, NPC
 
 logger = logging.getLogger(__name__)
 
@@ -160,12 +160,32 @@ async def get_companion_session(
     db=Depends(get_db),
     user=Depends(get_current_user),
 ):
-    """拉取一个 1v1 会话的完整对话历史。"""
+    """拉取一个 1v1 会话的完整对话历史 + 角色形象（头像/背景）。"""
     session = await db.get(WorldSession, session_id)
     if not session or session.user_id != user.id or session.worldview != "companion_v1":
         raise HTTPException(status_code=404, detail="会话不存在")
     history = await companion_engine.get_history(db, session_id)
-    return {"session_id": session_id, "name": session.name, "history": history}
+
+    # 角色形象：会话内 NPC 的 long_term_state["model"]["visual"]
+    visual = {}
+    npc_result = await db.execute(
+        select(NPC).where(NPC.session_id == session_id, NPC.is_important == True)
+    )
+    npc = npc_result.scalars().first()
+    if npc and isinstance(npc.long_term_state, dict):
+        model = npc.long_term_state.get("model")
+        if isinstance(model, dict):
+            visual = (model.get("visual") or {})
+
+    return {
+        "session_id": session_id,
+        "name": session.name,
+        "history": history,
+        "visual": {
+            "avatar": visual.get("avatar", ""),
+            "background": visual.get("background", ""),
+        },
+    }
 
 
 @router.get("/sessions/{session_id}/memories")

@@ -26,6 +26,34 @@ logger = logging.getLogger(__name__)
 # 候选角色提取时读取的章节数（前 N 章足够列出主角团）
 _CANDIDATE_CHAPTERS = 15
 
+# 读取深度档位 → {candidate_chapters, sample_ratio}
+#   candidate_chapters: 候选提取读前 N 章（None = 全部）
+#   sample_ratio: 角色抽样覆盖前多少比例的章节（1.0 = 全部）
+DEPTH_PRESETS = {
+    "快速": {"candidate_chapters": 8, "sample_ratio": 0.34},
+    "标准": {"candidate_chapters": 15, "sample_ratio": 0.67},
+    "深度": {"candidate_chapters": 30, "sample_ratio": 1.0},
+    "全文": {"candidate_chapters": None, "sample_ratio": 1.0},
+}
+
+
+def resolve_depth(depth: str | int | None) -> tuple:
+    """把档位/章节数解析为 (candidate_chapters, sample_ratio)。
+
+    档位（快速/标准/深度/全文）→ 查 DEPTH_PRESETS。
+    整数 → candidate_chapters=N, sample_ratio 按 N/章节总数自适应。
+    None → 默认「标准」。
+    """
+    if isinstance(depth, int) and depth > 0:
+        return depth, 1.0  # 数字章节：候选读前 N 章，抽样全量（数字通常表示"读得多"）
+    if isinstance(depth, str):
+        preset = DEPTH_PRESETS.get(depth.strip())
+        if preset:
+            return preset["candidate_chapters"], preset["sample_ratio"]
+    # 默认标准
+    preset = DEPTH_PRESETS["标准"]
+    return preset["candidate_chapters"], preset["sample_ratio"]
+
 # 角色聚焦抽样：每个抽样片段的最大字符数
 _SAMPLE_CHARS = 6000
 
@@ -79,12 +107,15 @@ async def extract_characters(
     text: str,
     user_id: str = "",
     model: str | None = None,
+    depth: str | int | None = None,
 ) -> list[dict]:
-    """读前 N 章，让 LLM 列出主要人物。返回 [{name, reason}]。"""
+    """读前 N 章（按 depth），让 LLM 列出主要人物。返回 [{name, reason}]。"""
     from ane.modules.model_adapter import model_adapter
 
     chapters = split_chapters(text)
-    head = "\n\n".join(chapters[:_CANDIDATE_CHAPTERS])
+    candidate_chapters, _ = resolve_depth(depth)
+    limit = candidate_chapters if candidate_chapters else len(chapters)
+    head = "\n\n".join(chapters[:limit])
     if len(head) > _MAX_INPUT_CHARS:
         head = head[:_MAX_INPUT_CHARS]
 
@@ -144,15 +175,19 @@ def _parse_character_list(raw: str) -> list[dict]:
 
 # ── 角色聚焦抽样 ─────────────────────────────────────────────
 
-def sample_character(text: str, name: str) -> str:
+def sample_character(text: str, name: str, depth: str | int | None = None) -> str:
     """抽取目标角色的高相关片段。
 
     策略：正文段落优先（含名字的完整段落提供人物上下文），台词作为点缀。
+    depth 控制遍历的章节范围（快速=前1/3，标准=前2/3，深度/全文=全部），
     按章节遍历，每章取含名字的段落（去重），直至样本总量达目标。
     """
     chapters = split_chapters(text)
+    _, sample_ratio = resolve_depth(depth)
+    limit = max(1, int(len(chapters) * sample_ratio))
+    scan = chapters[:limit]
     samples: list[str] = []
-    for ch in chapters:
+    for ch in scan:
         if name not in ch:
             continue
         # 含名字的完整段落（正文上下文）
@@ -164,7 +199,7 @@ def sample_character(text: str, name: str) -> str:
             break
     # 如果正文段落不足，补台词
     if len(samples) < 3:
-        for ch in chapters:
+        for ch in scan:
             if name not in ch:
                 continue
             quoted = _extract_quotes(ch)
