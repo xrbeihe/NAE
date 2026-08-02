@@ -332,7 +332,28 @@ async def get_session(
         world_intro=session.world_intro or "",
         prompts=prompts_list,
         recommendations=recommendations,
+        # 主角面板：前端悬浮球显示用（渲染逻辑与 game_engine step16 一致）
+        player_panel=_build_player_panel(db, session, player),
     )
+
+
+def _build_player_panel(db: AsyncSession, session, player) -> str:
+    """Render the player panel text for a session (悬浮球主角信息)。"""
+    if not player:
+        return ""
+    try:
+        from ane.panels import render_player_panel
+        from ane.worldview import get as get_worldview, DEFAULT_WORLDVIEW_ID
+        wv = get_worldview(getattr(session, "worldview", None) or DEFAULT_WORLDVIEW_ID)
+        panel_spec = wv.panel_spec or {}
+        if panel_spec:
+            return render_player_panel(player, panel_spec)
+        return "【主角面板】\n" + " ｜ ".join([
+            f"姓名：{player.name}",
+            f"位置：{player.location or '未知'}",
+        ])
+    except Exception:
+        return ""
 
 
 # ── Map ─────────────────────────────────────────────────────

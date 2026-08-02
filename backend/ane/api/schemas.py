@@ -64,6 +64,7 @@ class SessionSummary(BaseModel):
     world_intro: str = ""
     prompts: list[ConversationEntry] = []
     recommendations: list[str] = []
+    player_panel: str = ""  # 主角面板文本（前端悬浮球显示用）
 
 
 class DeleteSessionResponse(BaseModel):
