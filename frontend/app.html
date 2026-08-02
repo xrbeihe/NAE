@@ -1560,7 +1560,17 @@ function recMobileClick() { if (!recList.length) return; document.getElementById
 
 // ── NPC Library ──
 async function npcLibLoad() {
-  try { var r = await apiFetch('/npcs/library'); _npcLibData = (await r.json()).npcs || []; } catch(e) { _npcLibData = []; }
+  // 刷新后首次加载偶发失败（token/session 竞态）时重试一次，避免总库静默空表
+  for (var attempt = 0; attempt < 2; attempt++) {
+    try {
+      var r = await apiFetch('/npcs/library');
+      _npcLibData = (await r.json()).npcs || [];
+      break;
+    } catch(e) {
+      if (attempt === 1) { _npcLibData = []; }
+      else await new Promise(function(res) { setTimeout(res, 300); });
+    }
+  }
   _npcImportedData = {};
   if (sessionId) { try { var r2 = await apiFetch('/sessions/' + sessionId + '/npcs/imported'); var d2 = await r2.json(); for (var i = 0; i < (d2.npcs||[]).length; i++) _npcImportedData[d2.npcs[i].name] = true; } catch(e) {} }
 }
@@ -2438,16 +2448,21 @@ function clearAvatar() {
   await loadCharTemplates();
   await loadSessionList();
   await npcLibLoad();
-  // 初始停在主页时渲染总库表（否则登录后总库区域空白，直到点 🏠 或刷新）
-  if (document.getElementById('home-page').style.display !== 'none') renderNpcTable();
-  // 如果有上次打开的会话，直接进入聊天
+  // 先决定最终停在哪个页面，避免「先渲染主页再切走」造成闪烁。
+  // 只有最终停在主页时才渲染总库表；要进聊天区则不渲染（goHome 会再渲染）。
   var lastSession = null;
   try { lastSession = localStorage.getItem('ane_last_session'); } catch(e) {}
+  var willEnterChat = false;
   if (lastSession) {
     var cards = document.querySelectorAll('#session-list .session-card');
     for (var c of cards) {
-      if (c.dataset.sid === lastSession) { await switchSession(lastSession); break; }
+      if (c.dataset.sid === lastSession) { willEnterChat = true; break; }
     }
+  }
+  if (!willEnterChat && document.getElementById('home-page').style.display !== 'none') renderNpcTable();
+  // 进入上次打开的会话
+  if (willEnterChat) {
+    await switchSession(lastSession);
   }
   // 确保球可见
   var ball = document.getElementById('player-ball');
