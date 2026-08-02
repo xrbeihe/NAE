@@ -254,8 +254,8 @@
     #char-modal { width: 95%; padding: 20px; }
     #char-modal h2 { font-size: 16px; }
     .npc-lib-popup { width: 95vw; }
-    #home-npc-table { overflow-x: auto; }
-    #home-npc-table table { min-width: 400px; }
+    #home-npc-table { overflow-y: auto; }
+    #home-npc-table table { width: 100%; }
     [data-modal] > div { width: 95% !important; max-width: 580px; }
     /* ── 新建NPC弹窗 手机端 ── */
     #create-npc-modal > div { flex-direction: column !important; width: 100% !important; max-width: 100% !important; height: 100% !important; max-height: 100dvh !important; border-radius: 0 !important; }
@@ -273,8 +273,8 @@
     .session-card { padding: 6px 10px; }
     .session-card .delete-btn { visibility: visible; }
     .session-card .name { font-size: 12px; }
-    #home-npc-table { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    #home-npc-table table { min-width: 360px; }
+    #home-npc-table { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    #home-npc-table table { width: 100%; }
     .msg-wrapper .msg { max-width: 90%; }
     .msg-avatar { width: 24px; height: 24px; font-size: 12px; }
     #npc-detail-float { max-width: 95vw; left: 50%; transform: translateX(-50%); top: 15vh; }
@@ -1916,6 +1916,34 @@ async function renderNpcTable() {
   await npcLibLoad();
   var table = document.getElementById('home-npc-table');
   if (!_npcLibData || !_npcLibData.length) { table.innerHTML = '<div style="padding:24px;text-align:center;color:var(--accent-dim)">暂无NPC，点击上方"新建"创建第一个角色</div>'; return; }
+  // 手机端（≤768px）用卡片布局，桌面端用表格——避免窄屏中文竖排
+  if (window.innerWidth <= 768) {
+    var c = '<div style="padding:8px">';
+    for (var i = 0; i < _npcLibData.length; i++) {
+      var n = _npcLibData[i];
+      var nb = (n.model_data && n.model_data.basic) || {};
+      var identity = nb.identity || nb.title || nb.occupation || '未知';
+      var cult = nb.cultivation || nb.level || nb.rank || '未知';
+      var tags = (n.tags && n.tags.length) ? n.tags.join('、') : '—';
+      c += '<div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px;background:var(--input-bg)">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px">' +
+          '<b style="font-size:14px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(n.name) + '</b>' +
+          '<div style="display:flex;gap:6px;flex-shrink:0">' +
+            '<button onclick="homeNpcEdit(\'' + n.name.replace(/'/g, "\\'") + '\')" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:2px 8px;border-radius:3px;cursor:pointer;font-size:11px">编辑</button>' +
+            '<button onclick="homeNpcDelete(\'' + n.name.replace(/'/g, "\\'") + '\')" style="background:none;border:1px solid var(--danger);color:var(--danger);padding:2px 8px;border-radius:3px;cursor:pointer;font-size:11px">删除</button>' +
+          '</div>' +
+        '</div>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--accent-dim)">' +
+          '<span>📍 ' + escHtml(identity) + '</span>' +
+          '<span>⚡ ' + escHtml(cult) + '</span>' +
+          '<span>🏷 ' + escHtml(tags) + '</span>' +
+        '</div>' +
+      '</div>';
+    }
+    c += '</div>';
+    table.innerHTML = c;
+    return;
+  }
   var h = '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="border-bottom:1px solid var(--border);color:var(--accent-dim);font-size:12px"><th style="padding:8px 12px;text-align:left">名称</th><th style="padding:8px 12px;text-align:left">身份</th><th style="padding:8px 12px;text-align:left">修为</th><th style="padding:8px 12px;text-align:left;min-width:100px">标签</th><th style="padding:8px 12px;text-align:center">操作</th></tr></thead><tbody>';
   for (var i = 0; i < _npcLibData.length; i++) {
     var n = _npcLibData[i];
