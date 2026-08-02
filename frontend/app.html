@@ -284,7 +284,6 @@
 <body>
 
 <div id="header">
-  <div onclick="goHome()" style="width:36px;height:36px;border-radius:50%;background:var(--input-bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;flex-shrink:0" title="返回主页">🏠</div>
   <h1 onclick="goHome()">⚔ AI Narrative Engine</h1>
   <div style="margin-left:auto;display:flex;align-items:center;gap:6px;position:relative">
     <button onclick="location.href='/chat'" style="background:var(--accent);color:var(--panel);border:none;border-radius:4px;padding:6px 12px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:bold;flex-shrink:0" title="1v1 陪伴对话">💬 1v1 对话</button>
@@ -690,10 +689,30 @@ function showColorPopup() {
   document.getElementById('bg-pos-value').textContent = (localStorage.getItem('chat_bg_pos') || 50) + '%';
   document.getElementById('bg-transparent-check').checked = localStorage.getItem('chat_bg_transparent') !== '0';
   applyChatBg();
-  var rect = btn.getBoundingClientRect();
-  popup.style.left = Math.max(4, rect.left + rect.width - 280) + 'px';
-  popup.style.top = (rect.bottom + 4) + 'px';
+  // 定位：小屏居中，桌面端锚定按钮下方
+  if (window.innerWidth <= 768) {
+    popup.style.left = '50%';
+    popup.style.top = '50%';
+    popup.style.transform = 'translate(-50%, -50%)';
+    popup.style.maxHeight = '80vh';
+    popup.style.overflowY = 'auto';
+  } else {
+    popup.style.transform = '';
+    popup.style.maxHeight = '';
+    popup.style.overflowY = '';
+    var rect = btn.getBoundingClientRect();
+    popup.style.left = Math.max(4, rect.left + rect.width - 280) + 'px';
+    popup.style.top = (rect.bottom + 4) + 'px';
+  }
   popup.classList.add('visible');
+  // 点浮窗外部关闭
+  setTimeout(function() {
+    document.addEventListener('click', function cl(e) {
+      var p = document.getElementById('color-popup');
+      if (!p.classList.contains('visible')) { document.removeEventListener('click', cl); return; }
+      if (!p.contains(e.target)) { p.classList.remove('visible'); document.removeEventListener('click', cl); }
+    });
+  }, 10);
 }
 
 // ── 聊天空背景图 ──
