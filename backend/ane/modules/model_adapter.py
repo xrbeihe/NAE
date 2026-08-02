@@ -290,10 +290,24 @@ class OpenAICompatibleAdapter(BaseAdapter):
                     logger.info(f"[{label}] user={user_id or '-'} model={model} "
                                 f"prompt={pt} completion={ct} total={pt+ct} elapsed={elapsed:.1f}s")
                 msg = data["choices"][0]["message"]
-                content = msg.get("content") or msg.get("reasoning") or ""
+                # DeepSeek 偶发把内容全部写入 reasoning_content（思维链）而 content 为空。
+                # 此时回退读取 reasoning_content 作为内容源，避免"成功但无内容"。
+                content = msg.get("content") or ""
                 if not content:
-                    logger.warning("LLM response has no content field: %s", list(msg.keys()))
-                    content = str(msg)
+                    rc = msg.get("reasoning_content")
+                    if isinstance(rc, list):
+                        # DeepSeek reasoning_content 可能是数组块
+                        parts = [b.get("content", "") if isinstance(b, dict) else str(b) for b in rc if b]
+                        content = "".join(parts)
+                    elif isinstance(rc, str):
+                        content = rc
+                if not content:
+                    content = msg.get("reasoning") or ""
+                if not content:
+                    # 内容彻底为空：抛可重试异常（非解析错误），由 _retry_with_backoff
+                    # 自动重试，降低模型偶发"仅输出思维链"行为的影响。
+                    logger.warning("LLM response has no usable content: %s", list(msg.keys()))
+                    raise RuntimeError("empty LLM content (reasoning-only response)")
                 return content
 
         return await _retry_with_backoff(_call, name=f"OpenAI({model})")
