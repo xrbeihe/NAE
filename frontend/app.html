@@ -540,7 +540,7 @@
         <div id="custom-tags-display" style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px"></div>
       </div>
       <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
-        <button onclick="closeCreateNpcModal()" style="padding:8px 20px;background:transparent;border:1px solid var(--border);color:var(--accent-dim);border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit">取消</button>
+        <button onclick="confirmCancelNpcModeling()" style="padding:8px 20px;background:transparent;border:1px solid var(--border);color:var(--accent-dim);border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit">取消</button>
         <button id="create-npc-submit-btn" onclick="submitCreateNpc()" style="padding:8px 24px;background:var(--accent);color:#1a1410;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:bold;font-family:inherit">✨ 开始建模</button>
       </div>
     </div>
@@ -1782,7 +1782,20 @@ function submitCreateNpc() {
   var cbs = document.querySelectorAll('#create-npc-tags input[type=checkbox]:checked'); var tags = Array.from(cbs).map(function(cb) { return cb.value; });
   if (_customTags && _customTags.length) tags = tags.concat(_customTags);
   var btn = document.getElementById('create-npc-submit-btn'); btn.disabled = true; btn.textContent = '⏳ 建模中...';
-  npcLibCreate(input, tags.length ? tags : null, getCurrentWorldviewId()).finally(function() { btn.disabled = false; btn.textContent = '✨ 开始建模'; });
+  _npcModeling = true;   // 标记建模进行中（取消时用于提示不打断）
+  npcLibCreate(input, tags.length ? tags : null, getCurrentWorldviewId()).finally(function() {
+    _npcModeling = false;
+    btn.disabled = false; btn.textContent = '✨ 开始建模';
+  });
+}
+// ── 建模取消提示（不打断后台生成）──
+var _npcModeling = false;
+function confirmCancelNpcModeling() {
+  if (_npcModeling) {
+    // 建模进行中：提示不打断，后台继续跑，完成后会通知
+    if (!confirm('⏳ 建模正在进行中，关闭窗口不会中断生成。\n\n后台会继续完成 NPC 建模，完成后你会收到「已添加」提示。\n\n确定关闭窗口吗？')) return;
+  }
+  closeCreateNpcModal();
 }
 async function npcLibRefresh() { await npcLibLoad(); if (document.getElementById('home-page').style.display !== 'none') renderNpcTable(); }
 
