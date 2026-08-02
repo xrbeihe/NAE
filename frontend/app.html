@@ -2409,6 +2409,8 @@ function clearAvatar() {
   await loadCharTemplates();
   await loadSessionList();
   await npcLibLoad();
+  // 初始停在主页时渲染总库表（否则登录后总库区域空白，直到点 🏠 或刷新）
+  if (document.getElementById('home-page').style.display !== 'none') renderNpcTable();
   // 如果有上次打开的会话，直接进入聊天
   var lastSession = null;
   try { lastSession = localStorage.getItem('ane_last_session'); } catch(e) {}
