@@ -8,6 +8,8 @@ import json
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from datetime import datetime
+from pathlib import Path
 
 import httpx
 
@@ -42,6 +44,7 @@ class TokenUsage:
     prompt_tokens: int = 0
     completion_tokens: int = 0
     elapsed_seconds: float = 0.0
+    timestamp: str = ""          # ISO 时间戳（写入持久化日志时填充）
 
     @property
     def total(self) -> int:
@@ -58,16 +61,55 @@ class TokenUsage:
             "completion_tokens": self.completion_tokens,
             "total_tokens": self.total,
             "elapsed_seconds": round(self.elapsed_seconds, 2),
+            "timestamp": self.timestamp,
         }
 
 
 # In-memory accumulator (reset on server restart)
 _usage_log: list[TokenUsage] = []
 
+# 持久化日志目录：user_logs/usage/年月.jsonl（重启不丢，可回溯）
+_USAGE_LOG_DIR = Path(__file__).resolve().parent.parent.parent / "user_logs" / "usage"
+
+
+def _usage_log_path() -> Path:
+    """按年月分文件的 JSONL 路径。"""
+    return _USAGE_LOG_DIR / f"{datetime.now().strftime('%Y%m')}.jsonl"
+
 
 def log_usage(entry: TokenUsage) -> None:
-    """Record a token usage entry in memory."""
+    """Record a token usage entry in memory AND persist to user_logs/usage/年月.jsonl."""
+    entry.timestamp = entry.timestamp or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     _usage_log.append(entry)
+    try:
+        _USAGE_LOG_DIR.mkdir(parents=True, exist_ok=True)
+        with open(_usage_log_path(), "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry.to_dict(), ensure_ascii=False) + "\n")
+    except OSError as e:
+        logger.warning("usage log write failed: %s", e)
+
+
+def get_persisted_usage(user_id: str = "") -> list[dict]:
+    """Read usage entries from the persisted JSONL logs (all months)."""
+    if not _USAGE_LOG_DIR.exists():
+        return []
+    out: list[dict] = []
+    for path in sorted(_USAGE_LOG_DIR.glob("*.jsonl")):
+        try:
+            with open(path, encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        d = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if not user_id or d.get("user_id") == user_id:
+                        out.append(d)
+        except OSError:
+            continue
+    return out
 
 
 def get_usage(user_id: str = "") -> list[dict]:
@@ -94,6 +136,45 @@ def get_usage_summary(user_id: str = "") -> dict:
         "by_label": summary,
         "timing": {k: {"count": v["count"], "total_seconds": round(v["total_seconds"], 1),
                         "avg_seconds": round(v["total_seconds"] / v["count"], 1)} for k, v in timing.items()},
+    }
+
+
+def get_usage_by_session(user_id: str = "") -> dict:
+    """Aggregate token totals + elapsed time per session (optionally per label).
+
+    Returns:
+      {
+        "total_tokens": int,
+        "sessions": [
+          {"session_id": "...", "label": "llm_main",
+           "count": n, "total_tokens": int, "total_seconds": float, "avg_seconds": float},
+          ...
+        ]
+      }
+    Sessions without a session_id group under "(unknown)".
+    """
+    entries = _usage_log if not user_id else [e for e in _usage_log if e.user_id == user_id]
+    agg: dict[tuple, dict] = {}
+    for e in entries:
+        key = (e.session_id or "(unknown)", e.label or "unknown")
+        a = agg.setdefault(key, {"count": 0, "total_tokens": 0, "total_seconds": 0.0})
+        a["count"] += 1
+        a["total_tokens"] += e.total
+        a["total_seconds"] += e.elapsed_seconds
+    sessions = [
+        {
+            "session_id": sid,
+            "label": label,
+            "count": a["count"],
+            "total_tokens": a["total_tokens"],
+            "total_seconds": round(a["total_seconds"], 1),
+            "avg_seconds": round(a["total_seconds"] / a["count"], 1),
+        }
+        for (sid, label), a in sorted(agg.items(), key=lambda kv: kv[1]["total_tokens"], reverse=True)
+    ]
+    return {
+        "total_tokens": sum(a["total_tokens"] for a in agg.values()),
+        "sessions": sessions,
     }
 
 # ── Retry configuration ────────────────────────────────────────

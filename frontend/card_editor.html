@@ -368,6 +368,15 @@ function renderPreview() {
 
 // ── 工具 ──
 function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
+function deepMerge(base, over) {
+  const out = JSON.parse(JSON.stringify(base));
+  for (const k in over) {
+    if (out[k] && typeof out[k] === 'object' && !Array.isArray(out[k]) && typeof over[k] === 'object' && !Array.isArray(over[k])) {
+      out[k] = deepMerge(out[k], over[k]);
+    } else { out[k] = JSON.parse(JSON.stringify(over[k])); }
+  }
+  return out;
+}
 // ── 📖 从小说生成 ──
 let novelFile = null;
 function showNovelModal() {

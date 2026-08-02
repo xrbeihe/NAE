@@ -308,18 +308,25 @@ async def list_models():
 async def get_token_usage(
     user_id: str = "",
     summary: bool = False,
+    by: str = "label",  # "label" | "session" | "persisted"
     current_user = Depends(get_current_user),
 ):
     """Get token usage for the current user.
 
     &summary=true: aggregated totals per label.
-    &summary=false: full per-call list.
+    &summary=false: full per-call list (in-memory).
+    &by=session: aggregate per (session_id, label).
+    &by=persisted: read from persisted JSONL logs (survives restart).
     """
-    from ane.modules.model_adapter import get_usage, get_usage_summary
+    from ane.modules.model_adapter import get_usage, get_usage_summary, get_usage_by_session, get_persisted_usage
     # Force to current user's own data
     effective_user_id = user_id or current_user.id
     if effective_user_id != current_user.id:
         raise HTTPException(status_code=403, detail="只能查看自己的消耗数据")
+    if by == "session":
+        return get_usage_by_session(user_id=effective_user_id)
+    if by == "persisted":
+        return {"entries": get_persisted_usage(user_id=effective_user_id)}
     if summary:
         return get_usage_summary(user_id=effective_user_id)
     return get_usage(user_id=effective_user_id)

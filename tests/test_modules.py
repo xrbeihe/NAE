@@ -999,3 +999,72 @@ class TestPromptBuilder:
                 assert ctx.inventory[0]["name"] == "回灵丹"
 
         asyncio.get_event_loop().run_until_complete(_run())
+
+
+# ── Token usage tracking ──────────────────────────────────────
+
+class TestUsageTracking:
+
+    def test_log_usage_persists_to_file(self, tmp_path, monkeypatch):
+        """log_usage writes a JSONL entry that survives re-read."""
+        from ane.modules import model_adapter as ma
+
+        # 重定向持久化日志目录到临时目录
+        monkeypatch.setattr(ma, "_USAGE_LOG_DIR", tmp_path / "usage")
+        # 清空内存日志
+        ma._usage_log.clear()
+
+        entry = ma.TokenUsage(
+            provider="deepseek", model="deepseek-v4-flash", label="llm_main",
+            user_id="u1", session_id="s1",
+            prompt_tokens=100, completion_tokens=50, elapsed_seconds=2.5,
+        )
+        ma.log_usage(entry)
+
+        # 内存
+        assert len(ma.get_usage("u1")) == 1
+        assert ma.get_usage("u1")[0]["total_tokens"] == 150
+
+        # 持久化文件存在且有内容
+        files = list((tmp_path / "usage").glob("*.jsonl"))
+        assert len(files) == 1
+        content = files[0].read_text(encoding="utf-8")
+        assert '"total_tokens": 150' in content
+        assert '"session_id": "s1"' in content
+        assert '"timestamp"' in content
+
+        # 从持久化读回
+        persisted = ma.get_persisted_usage("u1")
+        assert len(persisted) == 1
+        assert persisted[0]["label"] == "llm_main"
+
+        ma._usage_log.clear()
+
+    def test_get_usage_by_session(self):
+        """Session aggregation groups by (session_id, label)."""
+        from ane.modules import model_adapter as ma
+        ma._usage_log.clear()
+        entries = [
+            ma.TokenUsage(user_id="u1", session_id="s1", label="llm_main",
+                          prompt_tokens=100, completion_tokens=50, elapsed_seconds=2.0),
+            ma.TokenUsage(user_id="u1", session_id="s1", label="llm_main",
+                          prompt_tokens=200, completion_tokens=100, elapsed_seconds=3.0),
+            ma.TokenUsage(user_id="u1", session_id="s2", label="llm_summary",
+                          prompt_tokens=50, completion_tokens=20, elapsed_seconds=1.0),
+        ]
+        for e in entries:
+            ma.log_usage(e)
+
+        agg = ma.get_usage_by_session("u1")
+        assert agg["total_tokens"] == 520
+        sessions = {s["session_id"]: s for s in agg["sessions"]}
+        # s1 的 llm_main 聚合了 2 次
+        s1_main = [s for s in agg["sessions"] if s["session_id"] == "s1"][0]
+        assert s1_main["count"] == 2
+        assert s1_main["total_tokens"] == 450
+        assert s1_main["total_seconds"] == 5.0
+        assert s1_main["avg_seconds"] == 2.5
+        # s2 独立
+        assert "s2" in sessions
+
+        ma._usage_log.clear()
