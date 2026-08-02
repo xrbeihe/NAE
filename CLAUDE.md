@@ -82,12 +82,22 @@ watch_backup.bat
 
 ## 功能变更记录
 
+### 📱 UI 与健壮性修复（v1.3）
+- **NPC 总库响应式布局**：`renderNpcTable` 按视口宽度切换——≤768px 用卡片布局（每 NPC 一张卡，名称+操作一行，身份/修为/标签横向排布），>768px 保留表格。解决手机端中文竖排、表格超宽只显示一列的问题
+- **顶栏整理**：删除 🏠 圆形按钮（与 ⚔ 标题 `goHome()` 重复）；💬 1v1 对话按钮移到主页「🌍 世界管理」右侧
+- **🎨 浮窗**：手机端（≤768px）改为屏幕居中定位（原锚定按钮导致超出视口）；支持点浮窗外部关闭
+- **背景图功能**：🎨 浮窗新增🖼 背景图区块——上传本地图片（localStorage 存储）、位置滑块上下移动（`background-position-y`）、聊天气泡半透明开关（`backdrop-filter` 毛玻璃）。`chat_bg`/`chat_bg_pos`/`chat_bg_transparent` 存 localStorage
+- **刷新竞态修复**：init 先判定最终落点（`willEnterChat`），进聊天区则不渲染主页总库（消除闪烁）；`npcLibLoad` 失败重试一次（防总库偶发空表）；`#home-npc-table` 加 `min-height:120px` 防坍缩
+- **SQLite 并发写锁**：`create_async_engine` 加 `connect_args={"timeout":15}` + `pool_pre_ping`，所有业务连接 busy_timeout=15s（此前仅 init_db 连接有，并发写时报 `database is locked`）
+- **短记忆格式**：llm_summary 两处 prompt（`memory_manager` 同步 / `game_engine` 后台）移除「氛围/环境」行，存储与叙事注入均不再含氛围数据
+- **LLM 输出健壮性**：`output_parser` 新增 `_as_dict_list`/`_as_str_list` 清洗——`nearby_characters`/`offstage_npcs`/`player_relationships`/`recommendations` 遇 LLM 畸形输出（字符串片段）自动修复/丢弃，不再触发 Pydantic 校验崩溃
+
 ### 💬 1v1 陪伴对话 + 角色卡编辑器（v1.3）
 - **陪伴对话**：独立于世界管线的 1v1 虚拟角色对话（`companion_engine.py` + `api/chat_routes.py`，前缀 `/chat`）。会话用 `worldview="companion_v1"` 标记，不生成世界区域、不进入 turn 管线
 - 角色源：UserNPC 总库 + UserCard 角色卡合并（`GET /chat/characters`），开启会话后按卡渲染 prompt 文本
 - 关系记忆：LLM 输出 `relationship_note` → 存 `Memory(memory_type="companion")`（`[第N轮]` 前缀），「TA 记得什么」面板读取
 - 主动搭话（nudge）：双阈值（距最后对话 + 距上次主动搭话均超阈值）+ `_last_nudge_ts` 冷却，默认 30 分钟，`clinginess` 粘人度可覆盖
-- 前端 `chat.html`（`/chat` 路由，顶栏 💬 按钮进入）
+- 前端 `chat.html`（`/chat` 路由，主页「🌍 世界管理」右侧 💬 按钮进入）
 - **角色卡**：`card_editor.html`（`/card-editor`）+ `api/card_routes.py`（前缀 `/cards`）+ `modules/card_schema.py`（恋爱向字段树）。结构化表单制作，**不依赖 LLM 建模链**；支持从总库预填（`POST /cards/import`）
 - `UserCard` 表（`user_cards`），`card_data` 含 identity/appearance/personality/speech_style/initial_relationship/relationship_behavior/clinginess/opening
 - 测试：`test_companion.py`（会话/聊天/关系记忆/nudge 阈值）+ `test_cards.py`
