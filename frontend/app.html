@@ -539,10 +539,11 @@
         </div>
         <div id="custom-tags-display" style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px"></div>
       </div>
-      <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
-        <button onclick="confirmCancelNpcModeling()" style="padding:8px 20px;background:transparent;border:1px solid var(--border);color:var(--accent-dim);border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit">取消</button>
+      <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end;flex-wrap:wrap">
+        <button onclick="closeCreateNpcModal()" style="padding:8px 20px;background:transparent;border:1px solid var(--border);color:var(--accent-dim);border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit">取消</button>
         <button id="create-npc-submit-btn" onclick="submitCreateNpc()" style="padding:8px 24px;background:var(--accent);color:#1a1410;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:bold;font-family:inherit">✨ 开始建模</button>
       </div>
+      <div id="npc-modeling-note" style="display:none;font-size:11px;color:var(--accent-dim);margin-top:8px;text-align:right;line-height:1.5">建模进行中关闭窗口不会中断，后台会继续完成，完成后你会收到「已添加」提示。</div>
     </div>
     <!-- ── Right: prompt library ── -->
     <div style="width:220px;flex-shrink:0;border-left:1px solid var(--border);background:var(--input-bg);display:flex;flex-direction:column;overflow:hidden">
@@ -1782,20 +1783,13 @@ function submitCreateNpc() {
   var cbs = document.querySelectorAll('#create-npc-tags input[type=checkbox]:checked'); var tags = Array.from(cbs).map(function(cb) { return cb.value; });
   if (_customTags && _customTags.length) tags = tags.concat(_customTags);
   var btn = document.getElementById('create-npc-submit-btn'); btn.disabled = true; btn.textContent = '⏳ 建模中...';
-  _npcModeling = true;   // 标记建模进行中（取消时用于提示不打断）
+  // 建模中显示提示注释（关闭不中断，后台继续完成）
+  var note = document.getElementById('npc-modeling-note');
+  if (note) note.style.display = 'block';
   npcLibCreate(input, tags.length ? tags : null, getCurrentWorldviewId()).finally(function() {
-    _npcModeling = false;
+    if (note) note.style.display = 'none';
     btn.disabled = false; btn.textContent = '✨ 开始建模';
   });
-}
-// ── 建模取消提示（不打断后台生成）──
-var _npcModeling = false;
-function confirmCancelNpcModeling() {
-  if (_npcModeling) {
-    // 建模进行中：提示不打断，后台继续跑，完成后会通知
-    if (!confirm('⏳ 建模正在进行中，关闭窗口不会中断生成。\n\n后台会继续完成 NPC 建模，完成后你会收到「已添加」提示。\n\n确定关闭窗口吗？')) return;
-  }
-  closeCreateNpcModal();
 }
 async function npcLibRefresh() { await npcLibLoad(); if (document.getElementById('home-page').style.display !== 'none') renderNpcTable(); }
 
@@ -2072,7 +2066,10 @@ async function homeNpcEdit(name) {
               html += '<div style="border:1px solid var(--border);border-radius:4px;padding:6px;margin:4px 0;background:var(--input-bg)">';
               for (var sk in item) {
                 var sv = item[sk] || '';
-                html += '<div style="display:flex;align-items:center;gap:4px;margin:2px 0"><span style="flex:0 0 70px;font-size:12px;color:var(--accent-dim)">' + (labelMap[sk]||sk) + '</span><input type="text" data-array="' + key + '" data-array-idx="' + idx + '" data-array-key="' + sk + '" value="' + escAttr(sv) + '" style="flex:1;padding:3px 6px;background:var(--panel);border:1px solid var(--border);border-radius:3px;color:var(--text);font-size:12px"></div>';
+                // 装备数组元素：name 用「名称」标签，跳过 position
+                if (key === 'equipment' && sk === 'position') continue;
+                var fLabel = (key === 'equipment' && sk === 'name') ? '名称' : (labelMap[sk]||sk);
+                html += '<div style="display:flex;align-items:center;gap:4px;margin:2px 0"><span style="flex:0 0 70px;font-size:12px;color:var(--accent-dim)">' + fLabel + '</span><input type="text" data-array="' + key + '" data-array-idx="' + idx + '" data-array-key="' + sk + '" value="' + escAttr(sv) + '" style="flex:1;padding:3px 6px;background:var(--panel);border:1px solid var(--border);border-radius:3px;color:var(--text);font-size:12px"></div>';
               }
               html += '</div>';
             }

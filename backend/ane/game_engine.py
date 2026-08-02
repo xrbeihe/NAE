@@ -1174,6 +1174,11 @@ class GameEngine:
                 f"3. 补全的内容不能与玩家明确说的事实矛盾\n"
                 f"4. 外貌身体穿着等描写要具体有画面感\n"
                 f"5. 大胆补全，不要留空——玩家不满意后续可以发指令修改\n"
+                f"5b. attire（衣着）与 jewelry（首饰）必须填写，与外貌同等重要——"
+                f"即使玩家没有明说穿着，也要根据身份/修为/气质推演出一套符合角色的衣着和配饰。"
+                f"严禁将 attire 留空或输出空对象。\n"
+                f"5c. 严格按下方 JSON schema 的结构输出，不要把 appearance 的子字段"
+                f"（face/skin/hair/chest 等）平铺到顶层——它们必须嵌套在 appearance 内。\n"
                 f"{wv.modeler_age_rules or ''}"
                 f"7. 身世限制：如果玩家没有主动描述该人物的身世背景（包括过去的经历、"
                 f"家族、历史等），则background.history保持为空字符串，不要自行编造。\n"
@@ -1213,6 +1218,11 @@ class GameEngine:
                 f"3. 补全的内容不能与玩家明确说的事实矛盾\n"
                 f"4. 外貌身体穿着等描写要具体有画面感\n"
                 f"5. 大胆补全，不要留空——玩家不满意后续可以发指令修改\n"
+                f"5b. attire（衣着）与 jewelry（首饰）必须填写，与外貌同等重要——"
+                f"即使玩家没有明说穿着，也要根据身份/修为/气质推演出一套符合角色的衣着和配饰。"
+                f"严禁将 attire 留空或输出空对象。\n"
+                f"5c. 严格按下方 JSON schema 的结构输出，不要把 appearance 的子字段"
+                f"（face/skin/hair/chest 等）平铺到顶层——它们必须嵌套在 appearance 内。\n"
                 f"6. 年龄限制：对年轻俊美的角色（无论男女），除非玩家明确给出年龄，"
                 f"一律设定在40岁以下。外貌应符合实际年龄印象——年轻人应有年轻人的样貌，\n"
                 f"   可以有超乎常人的美貌，但不应毫无根据地呈现老年人特征（沧桑、皱纹等）。\n"
@@ -1239,8 +1249,11 @@ class GameEngine:
                 f"请输出 JSON："
             )
 
+        # 建模需要输出 90+ 字段完整 JSON，单独提高 max_tokens 防止
+        # 输出撞满默认 8192 被截断（曾致 model 只有 basic+appearance）。
         raw = await model_adapter.generate(
             model_prompt, user_id=user_id, session_id=session_id, label="llm_modeling",
+            max_tokens=16000,
         )
         if session_id:
             try:

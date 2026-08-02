@@ -245,11 +245,13 @@ def render_model_for_prompt(model: dict, include_nsfw: bool = False, schema: dic
         s = str(value)
         return s if len(s) <= 200 else s[:200] + "…"
 
-    def _render_dict(d: dict, out: list, depth: int = 1) -> None:
+    def _render_dict(d: dict, out: list, depth: int = 1, is_equipment: bool = False) -> None:
         """Render a nested dict into labelled lines."""
         for k, v in d.items():
             if k == "model_version" or k == "model_version":
                 continue
+            if is_equipment and k == "position":
+                continue  # 装备不显示位置字段
             if isinstance(v, dict):
                 # sub-object → grouped lines
                 sub = []
@@ -263,15 +265,19 @@ def render_model_for_prompt(model: dict, include_nsfw: bool = False, schema: dic
                 out.append("  " * depth + f"{_label(k)}：")
                 for item in v[:8]:
                     if isinstance(item, dict):
+                        # 装备数组元素：name 用「名称」标签，跳过 position
+                        is_eq = (k == "equipment")
                         item_lines = []
-                        _render_dict(item, item_lines, depth + 1)
+                        _render_dict(item, item_lines, depth + 1, is_equipment=is_eq)
                         out.extend(item_lines)
                     else:
                         out.append("  " * (depth + 1) + "· " + _fmt(item))
             else:
                 if v is None or v == "":
                     continue
-                if isinstance(v, bool):
+                if is_equipment and k == "name":
+                    out.append("  " * depth + f"名称：{_fmt(v)}")
+                elif isinstance(v, bool):
                     out.append("  " * depth + f"{_label(k)}：{'是' if v else '否'}")
                 else:
                     out.append("  " * depth + f"{_label(k)}：{_fmt(v)}")

@@ -238,7 +238,7 @@ function formatNpcModel(md, name, status) {
     voiceParts.length ? `声音：${voiceParts.join('，')}` : '',
     persLines.length ? `\n【性格】\n${persLines.join('\n')}` : '',
     cultLines.length ? `\n【修炼】\n${cultLines.join('\n')}` : '',
-    weapons.length ? `\n装备：${weapons.map(w => w.name).join('、')}` : '',
+    weapons.length ? `\n【装备】\n${weapons.map(w => w.name + (w.description ? '：' + w.description : '')).join('\n')}` : '',
     bg.history ? `\n【身世】\n${bg.history.substring(0, 300)}` : '',
     relParts.length ? `\n【关系】\n${relParts.join(' | ')}` : '',
   ].filter(Boolean).join('\n');
