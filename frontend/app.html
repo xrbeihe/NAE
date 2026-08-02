@@ -286,7 +286,6 @@
 <div id="header">
   <h1 onclick="goHome()">⚔ AI Narrative Engine</h1>
   <div style="margin-left:auto;display:flex;align-items:center;gap:6px;position:relative">
-    <button onclick="location.href='/chat'" style="background:var(--accent);color:var(--panel);border:none;border-radius:4px;padding:6px 12px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:bold;flex-shrink:0" title="1v1 陪伴对话">💬 1v1 对话</button>
     <button onclick="location.href='/card-editor'" style="background:transparent;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:6px 12px;cursor:pointer;font-size:13px;font-family:inherit;flex-shrink:0" title="角色卡制作">🃏 角色卡</button>
     <div id="user-avatar" onclick="toggleUserMenu()" style="width:30px;height:30px;border-radius:50%;background:var(--accent);color:var(--panel);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;overflow:hidden;flex-shrink:0;border:1px solid var(--border)">🧑</div>
     <div id="user-menu" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:4px;min-width:140px;z-index:500;box-shadow:0 4px 12px rgba(0,0,0,0.4)">
@@ -324,8 +323,9 @@
     </div>
   </div>
   <div id="home-npc-table"></div>
-  <div style="margin-top:12px;flex-shrink:0">
+  <div style="margin-top:12px;flex-shrink:0;display:flex;gap:8px;align-items:center">
     <button onclick="showWorldManage()" style="background:var(--accent);color:var(--panel);border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:13px">🌍 世界管理</button>
+    <button onclick="location.href='/chat'" style="background:transparent;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:8px 20px;cursor:pointer;font-size:13px;font-family:inherit" title="1v1 陪伴对话">💬 1v1 对话</button>
   </div>
 
   <!-- ── 开源世界观广场 ── -->
