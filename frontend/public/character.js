@@ -317,6 +317,8 @@ function fillFormValues() {
     if (!Array.isArray(src)) return;
     grid.innerHTML = src.map(function (o) {
       var v = o.id != null ? o.id : o.value;
+      // 自定义选项的 id 归一化为 __custom__，对齐 selectFormCard/collectFormValues/后端
+      if (v === 'custom' || v === '__custom__') v = '__custom__';
       return '<div class="gf-card" data-gf-id="' + _escH(v) + '" onclick="selectFormCard(\'' + _escH(key) + '\',\'' + _escH(v) + '\')" style="padding:8px;border:1px solid var(--border);border-radius:6px;cursor:pointer;text-align:center;transition:all .15s;background:var(--input-bg)">' +
         '<div style="font-size:20px;margin-bottom:4px">' + (o.icon || '') + '</div>' +
         '<div style="font-size:12px;color:var(--text)">' + _escH(o.name || o.label || v) + '</div></div>';
