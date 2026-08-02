@@ -68,6 +68,9 @@
   .msg-wrapper.ai .msg { background: var(--panel); border: 1px solid var(--border); color: var(--color-ai); }
   .msg-avatar { width: 30px; height: 30px; border-radius: 50%; overflow: hidden; flex-shrink: 0; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 14px; background: var(--panel); color: var(--accent-dim); }
   .msg-emotion { font-size: 10px; color: var(--accent-dim); margin-top: 2px; }
+  /* 头像裁剪器基准样式（桌面默认） */
+  .me-preview { width: 64px; height: 64px; font-size: 20px; }
+  .me-crop { height: 240px; }
 
   #input-area { flex-shrink: 0; display: flex; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--border); background: var(--bg); }
   #input-area textarea {
@@ -157,6 +160,10 @@
     #input-area textarea { height: 44px; font-size: 13px; }
     #send-btn { padding: 0 16px; font-size: 13px; }
     .msg-avatar { width: 26px; height: 26px; font-size: 12px; }
+    /* 头像裁剪器弹窗：窄屏适配 */
+    #me-modal > div { width: calc(100vw - 24px); max-height: 90vh; }
+    .me-crop { height: 200px; }
+    .me-preview { width: 48px; height: 48px; font-size: 16px; }
   }
 
   /* ── ≤480px：小屏手机 ── */
@@ -179,6 +186,11 @@
     .empty-tip { margin-top: 30%; }
     /* 弹窗 */
     #mem-modal .modal-box, #nudge-modal .modal-box { width: calc(100vw - 20px); }
+    /* 头像裁剪器：小屏进一步压缩 */
+    #me-modal > div { width: calc(100vw - 16px); }
+    .me-crop { height: 180px; }
+    .me-preview { width: 44px; height: 44px; font-size: 15px; }
+    #me-crop-ring { width: 100px; height: 100px; }
   }
 </style>
 </head>
@@ -236,7 +248,7 @@
     </div>
     <div style="padding:12px 16px;flex:1;overflow-y:auto">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
-        <div id="me-avatar-preview" style="width:64px;height:64px;border-radius:50%;overflow:hidden;flex-shrink:0;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;background:var(--input-bg);color:var(--accent-dim);font-size:20px">你</div>
+        <div id="me-avatar-preview" class="me-preview" style="border-radius:50%;overflow:hidden;flex-shrink:0;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;background:var(--input-bg);color:var(--accent-dim)">你</div>
         <input type="file" id="me-avatar-file" accept="image/*" style="color:var(--accent-dim);font-size:12px;flex:1" onchange="onMeAvatarFile(this)">
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
@@ -244,7 +256,7 @@
         <input type="range" id="me-avatar-zoom" min="20" max="300" value="100" style="flex:1;accent-color:var(--accent)" oninput="onMeAvatarZoom(this.value)">
         <span id="me-avatar-zoom-label" style="font-size:11px;color:var(--accent-dim);min-width:30px;text-align:right">100%</span>
       </div>
-      <div id="me-crop-wrap" style="position:relative;width:100%;height:240px;overflow:hidden;border-radius:8px;border:1px solid var(--border);margin:0 auto 10px;background:var(--input-bg);user-select:none">
+      <div id="me-crop-wrap" class="me-crop" style="position:relative;width:100%;overflow:hidden;border-radius:8px;border:1px solid var(--border);margin:0 auto 10px;background:var(--input-bg);user-select:none">
         <img id="me-crop-img" src="" alt="拖动可调整位置" style="display:block;width:100%;height:100%;object-fit:contain;pointer-events:none;user-select:none;-webkit-user-drag:none">
         <div id="me-crop-ring" style="position:absolute;width:120px;height:120px;border-radius:50%;border:2px dashed var(--accent);box-shadow:0 0 0 9999px rgba(0,0,0,0.5);pointer-events:auto;cursor:grab;top:50%;left:50%;transform:translate(-50%,-50%)"></div>
       </div>
