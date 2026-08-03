@@ -430,9 +430,10 @@ async def list_shared_worldviews(
         cnt, avg = agg.get(s.worldview_id, (0, 0))
         author_name = author_names.get(s.user_id, "")
         # 详细历史（lore）从该包 world_facts.json 读取——作者在设计器写的科普文本
+        from ane.worldview import get as _get_wv
         lore = ""
         try:
-            wv = get_worldview(s.worldview_id)
+            wv = _get_wv(s.worldview_id)
             wf = getattr(wv, "world_facts", None) or {}
             lore = wf.get("lore") or ""
         except Exception:

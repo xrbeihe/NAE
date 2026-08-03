@@ -300,6 +300,21 @@ def test_naruto_timelines_pass_validator():
 
 
 @pytest.mark.asyncio
+async def test_list_shared_worldviews_includes_lore(db):
+    """Shared list must attach the pack's lore (world_facts.json) per card."""
+    from ane.database.models import WorldviewShare
+    db.add(WorldviewShare(user_id="u1", worldview_id="naruto_shippuden", title="火影忍者"))
+    await db.commit()
+
+    from ane.api.worldview_routes import list_shared_worldviews
+    result = await list_shared_worldviews(db=db, user=None)
+    wvs = {w["worldview_id"]: w for w in result["worldviews"]}
+    assert "naruto_shippuden" in wvs
+    lore = wvs["naruto_shippuden"].get("lore") or ""
+    assert len(lore) > 100  # 火影包的完整 lore 已写入
+
+
+@pytest.mark.asyncio
 async def test_upload_worldview_via_asgi(tmp_path):
     """End-to-end: build a minimal pack zip, upload via the ASGI app."""
     import io
