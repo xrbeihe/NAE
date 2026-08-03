@@ -1026,6 +1026,9 @@ function renderFactsEditor() {
     '</select></div>';
   html += _factsTextarea('must_follow', '必须遵守（每行一条，如：故事开始于中忍考试之前）', f.must_follow, '例：故事开始于中忍考试之前');
   html += _factsTextarea('forbidden', '禁止出现（每行一条，如：不得让佐助提前叛逃）', f.forbidden, '例：不得出现佩恩与晓组织主线剧情');
+  html += '<div style="margin-bottom:12px"><label style="display:block;font-size:12px;color:var(--accent-dim);margin-bottom:4px">📜 世界观历史与详细介绍（每段一行，空行分段。写入完整历史/关键事件/人物发展，每轮叙事注入给 LLM）</label>' +
+    '<textarea id="facts-lore" style="width:100%;padding:8px 12px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px;font-family:inherit;resize:vertical;min-height:150px;box-sizing:border-box;line-height:1.6">' +
+    _esc(f.lore || '') + '</textarea></div>';
   html += '<div style="margin-bottom:12px"><label style="display:block;font-size:12px;color:var(--accent-dim);margin-bottom:4px">关键角色（每行：名字｜设定）</label>' +
     '<textarea id="facts-characters" data-facts-key="characters" placeholder="例：漩涡鸣人｜九尾人柱力，梦想成为火影" style="width:100%;padding:8px 12px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px;font-family:inherit;resize:vertical;min-height:90px;box-sizing:border-box;line-height:1.6">' +
     _esc((f.characters || []).map(function(c) {
@@ -1042,6 +1045,9 @@ function saveFactsEditor() {
     var el = document.getElementById('facts-' + key);
     f[key] = (el ? el.value : '').split('\n').map(function(s){ return s.trim(); }).filter(Boolean);
   });
+  // lore: 世界观历史长文本，保留空行分段（trim 保留段落结构）
+  var loreEl = document.getElementById('facts-lore');
+  f.lore = loreEl ? loreEl.value : '';
   // characters: each line "name｜desc" → [{name, desc}]
   var charEl = document.getElementById('facts-characters');
   f.characters = (charEl ? charEl.value : '').split('\n').map(function(line) {

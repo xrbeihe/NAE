@@ -1905,6 +1905,7 @@ function renderSharedWorldviews() {
       stars +
       '<div style="display:flex;gap:6px;margin-top:2px">' +
         '<button onclick="useSharedWorldview(\'' + escAttr(w.worldview_id) + '\', \'' + escAttr(w.title) + '\')" style="flex:1;background:var(--accent);color:var(--panel);border:none;padding:6px 10px;border-radius:4px;cursor:pointer;font-size:12px">▶ 使用</button>' +
+        (w.lore ? '<button onclick="showWorldviewLore(\'' + escAttr(w.worldview_id) + '\', \'' + escAttr(w.title) + '\')" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:6px 10px;border-radius:4px;cursor:pointer;font-size:12px">📖 详细介绍</button>' : '') +
         (w.mine ? '<button onclick="unshareWorldview(\'' + escAttr(w.worldview_id) + '\')" style="background:none;border:1px solid var(--danger);color:#b06060;padding:6px 10px;border-radius:4px;cursor:pointer;font-size:12px">撤销开源</button>' : '') +
       '</div>' +
     '</div>';
@@ -1945,6 +1946,29 @@ async function useSharedWorldview(wvId, title) {
   worldviewState.currentName = title || wvId;
   try { localStorage.setItem('ane_last_worldview', wvId); } catch(e) {}
   showCharacterModal('__pending__');
+}
+
+function showWorldviewLore(wvId, title) {
+  // 从已加载的广场数据取 lore（列表接口已带）
+  var lore = '';
+  for (var i = 0; i < _sharedWorldviews.length; i++) {
+    if (_sharedWorldviews[i].worldview_id === wvId) { lore = _sharedWorldviews[i].lore || ''; break; }
+  }
+  if (!lore) { alert('该世界观暂无详细介绍'); return; }
+  // 大弹窗展示科普文本
+  var overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:30000;display:flex;align-items:center;justify-content:center;';
+  var box = document.createElement('div');
+  box.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-radius:12px;width:92vw;max-width:720px;height:80vh;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,0.5);';
+  box.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--panel)">' +
+    '<span style="font-size:15px;color:var(--accent);font-weight:bold">📖 ' + escHtml(title || wvId) + ' 详细介绍</span>' +
+    '<span id="lore-close" style="cursor:pointer;font-size:20px;color:var(--accent-dim);padding:2px 6px">✕</span></div>' +
+    '<div style="flex:1;overflow-y:auto;padding:16px 20px;font-size:13px;line-height:1.8;color:var(--text);white-space:pre-wrap;background:var(--bg);">' + escHtml(lore) + '</div>';
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  function close() { if (overlay.parentNode) document.body.removeChild(overlay); }
+  document.getElementById('lore-close').onclick = close;
+  overlay.onclick = function(e) { if (e.target === overlay) close(); };
 }
 
 async function unshareWorldview(wvId) {
