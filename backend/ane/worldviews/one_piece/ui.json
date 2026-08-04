@@ -1,0 +1,45 @@
+{
+  "labels": {
+    "role": "海贼",
+    "cultivation": "身份",
+    "savings": "贝利",
+    "spiritual_root": "",
+    "sect": "海贼团",
+    "golden_finger": "恶魔果实",
+    "monthly_income": "月入"
+  },
+  "create_button": "出海冒险",
+  "modal_title": "创建你的海贼",
+  "default_session_name": "东海·风车村",
+  "welcome_prefix": "已进入「",
+  "welcome_suffix": "」",
+  "character_card": {
+    "title": "📋 **航海日志登记完成**",
+    "lines": [
+      {"label": "姓名", "key": "name"},
+      {"label": "性别", "composite": "性别：{gender} ｜ 年龄：{age}岁"},
+      {"label": "身份", "key": "cultivation"},
+      {"label": "职位", "composite": "职位：{identity} — {identity_desc}"},
+      {"label": "性格", "key": "personality"},
+      {"label": "出身", "key": "background_summary"}
+    ],
+    "conditional": [
+      {"label": "初始位置", "key": "location"},
+      {"label": "月入", "key": "monthly_income", "show_if": "truthy"}
+    ]
+  },
+  "initial_recommendations": {
+    "base": [
+      "去风车村的酒馆打听一下最近的悬赏令",
+      "到海边看看有没有能出海的船",
+      "找村里的人聊聊，了解一下这个世界最近的传闻"
+    ],
+    "with_sect": ["去向自己的海贼团报到，看看船上的分工"],
+    "with_golden_finger": ["找个安静的地方尝试发动自己的恶魔果实能力"],
+    "without_golden_finger": ["去港口看看有没有需要帮忙的活，顺便赚点贝利"],
+    "tail": [
+      "打听伟大航路的消息",
+      "看看自己能不能找到志同道合的伙伴"
+    ]
+  }
+}

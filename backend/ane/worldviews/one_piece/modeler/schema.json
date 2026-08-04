@@ -1,0 +1,40 @@
+{
+  "basic": {"name": "", "gender": "", "age": 0, "identity": "", "role": "", "bounty": "", "crew": ""},
+  "appearance": {
+    "overall_impression": "", "stature": "", "build": "",
+    "hair": {"length": "", "style": "", "color": ""},
+    "eyes": {"color": "", "detail": ""},
+    "face": {"shape": "", "features": "", "markings": ""},
+    "headgear": {"type": "", "detail": ""},
+    "distinguishing_feature": ""
+  },
+  "attire": {"clothing": "", "outerwear": "", "accessories": "", "signature_item": ""},
+  "equipment": [{"name": "", "description": "", "position": ""}],
+  "voice": {"timbre": "", "catchphrase": "", "manner_of_speech": ""},
+  "behavior": {"stance": "", "gait": "", "mannerisms": "", "quirks": ""},
+  "personality": {"core": "", "values": "", "dream": "", "fears": "", "likes": "", "way_of_life": ""},
+  "background": {"history": "", "family": "", "hometown": "", "major_events": "", "crew_affiliation": ""},
+  "devil_fruit": {
+    "type": "",
+    "fruit_name": "",
+    "ability": "",
+    "weakness": "",
+    "mastery": ""
+  },
+  "haki": {
+    "observation": "",
+    "armament": "",
+    "conqueror": "",
+    "signature_technique": ""
+  },
+  "fighting_style": {
+    "preference": "",
+    "weapon_usage": "",
+    "signature_move": ""
+  },
+  "knowledge_bounds": {"knows": [], "does_not_know": [], "suspicious_of": []},
+  "attitude_to_player": {"surface": "", "true_feelings": "", "relationship_trend": ""},
+  "relationships": {"captain": "", "crewmates": [], "family": [], "friends": [], "enemies": [], "rivals": [], "lover": ""},
+  "nsfw": {"is_virgin": true, "fertility": "",
+           "desire_toward_target": "", "rejection_toward_target": ""}
+}

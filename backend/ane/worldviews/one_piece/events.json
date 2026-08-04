@@ -1,0 +1,19 @@
+{
+  "seclusion_threshold": 2160,
+  "seclusion_event": {
+    "type": "pirate_adventure",
+    "description": "{npc_name}在经历一场冒险后，实力与见识都有了新的精进。"
+  },
+  "idle_threshold": 2160,
+  "idle_probability": 0.2,
+  "idle_events": [
+    {"type": "pirate_adventure", "description": "听闻{npc_name}的船在新海域遇上了风暴，好在有惊无险。"},
+    {"type": "random_encounter", "description": "{npc_name}似乎经历了一些事，但详情不明。"},
+    {"type": "random_encounter", "description": "听说{npc_name}的悬赏金又涨了，酒馆里都在议论。"},
+    {"type": "random_encounter", "description": "{npc_name}最近在练习新招式，练得很晚。"},
+    {"type": "random_encounter", "description": "有人看到{npc_name}和一支陌生海贼团起了冲突。"},
+    {"type": "random_encounter", "description": "港口传来消息，{npc_name}似乎找到了什么宝物。"},
+    {"type": "random_encounter", "description": "{npc_name}和船上的伙伴切磋了一场，打得火热。"},
+    {"type": "random_encounter", "description": "{npc_name}的船被海军盯上了，正想办法脱身。"}
+  ]
+}

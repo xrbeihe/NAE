@@ -1,0 +1,28 @@
+{
+  "worldview_id": "one_piece",
+  "name": "海贼王",
+  "version": "1.0.0",
+  "author": "ANE Team",
+  "description": "伟大航路与四海的冒险世界：恶魔果实、霸气、海贼团与海军本部。基于尾田荣一郎同名作品。",
+  "base_map": "one_piece",
+  "maturity_rating": "adult",
+  "tags": ["onepiece", "pirate", "ip", "anime", "adventure"],
+  "assembly": "shell+kernel",
+  "player_defaults": {
+    "name": "无名海贼",
+    "cultivation": "新人海贼",
+    "location_hint": "东海·风车村",
+    "savings": "3000贝利",
+    "savings_unit": "贝利",
+    "status_label": "海贼"
+  },
+  "extra_event_types": ["pirate_adventure"],
+  "time_per_intent": {
+    "travel": 24
+  },
+  "calendar": {
+    "seasons": ["春", "夏", "秋", "冬"],
+    "times_of_day": ["黎明", "清晨", "正午", "午后", "黄昏", "夜晚", "深夜"],
+    "month_to_season": [[1,3,"春"],[4,6,"夏"],[7,9,"秋"],[10,12,"冬"]]
+  }
+}

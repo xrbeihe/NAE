@@ -1,0 +1,45 @@
+{
+  "regions": [
+    {"name": "东海", "type": "area", "description": "最平静的海域，被称为'最弱之海'，却是路飞的故乡。风车村、霜月村、巴拉蒂海上餐厅都在这里。"},
+    {"name": "伟大航路", "type": "area", "description": "环绕世界的险恶航线，气候诡谲多变，海贼与海军的舞台。前半段为乐园，后半段为新世界。"},
+    {"name": "新世界", "type": "area", "description": "伟大航路的后半段，四皇统治的海域，最强的海贼与最残酷的规则并存。"},
+    {"name": "红土大陆", "type": "area", "description": "横贯世界的巨大大陆，将大海分隔为两大洋，玛丽乔亚与圣地在此。"},
+    {"name": "和之国", "type": "area", "description": "闭关锁国的武士之国，拥有制造海楼石的技术，曾是四皇凯多的据点。"},
+    {"name": "风车村", "type": "city", "description": "东海的小渔村，路飞长大的地方，村长乌普·斯莱普在这里经营着酒吧。"},
+    {"name": "霜月村", "type": "city", "description": "东海的小镇，索隆的故乡，一心道场的所在地。"},
+    {"name": "罗格镇", "type": "city", "description": "东海通往伟大航路的入口城镇，海贼王哥尔·D·罗杰的处刑之地，也是'开始与结束之镇'。"},
+    {"name": "双子岬", "type": "city", "description": "伟大航路入口的灯塔，拉布——一只等待主人多年的岛屿鲸鱼在此徘徊。"},
+    {"name": "阿拉巴斯坦", "type": "city", "description": "伟大航路前半段的沙漠王国，因干旱与叛乱而动荡，藏着古代兵器冥王的下落。"},
+    {"name": "空岛", "type": "city", "description": "漂浮在万米高空之上的岛屿，拥有贝类科技与传说中的黄金钟。"},
+    {"name": "水之七都", "type": "city", "description": "伟大航路的造船之城，以水之都闻名，拥有世界最顶尖的船匠。"},
+    {"name": "司法岛", "type": "city", "description": "世界政府审判犯人的岛屿，路飞在此向世界政府宣战，是草帽团的转折点。"},
+    {"name": "香波地群岛", "type": "city", "description": "伟大航路前半段的终点，以肥皂泡闻名的群岛，通往新世界与玛丽乔亚的入口。"},
+    {"name": "鱼人岛", "type": "city", "description": "万米海底的鱼人王国，被阳光沐浴的海底乐园，是草帽团进入新世界的必经之路。"},
+    {"name": "庞克哈萨德", "type": "city", "description": "新世界的冰火之岛，凯撒的实验室所在，毒气与秘密交织。"},
+    {"name": "德雷斯罗萨", "type": "city", "description": "新世界的爱与激情之国，玩具与角斗场的都市，多弗朗明哥曾统治此处。"},
+    {"name": "蛋糕岛", "type": "city", "description": "四皇大妈统治的甜蜜岛屿，食物与甜点构成的世界。"},
+    {"name": "和之国·花之都", "type": "city", "description": "和之国的首都，武士与艺伎的世界，凯多统治时期的繁华表象下暗流涌动。"}
+  ],
+  "sects": [
+    {"name": "草帽海贼团", "type": "sect", "description": "蒙奇·D·路飞率领的海贼团，悬赏金不断攀升，被称为'最危险的海贼团'。"},
+    {"name": "海军本部", "type": "sect", "description": "世界政府的海上武力，以绝对正义为信条，追捕一切海贼。"},
+    {"name": "革命军", "type": "sect", "description": "以推翻世界政府为目标的神秘组织，首领是蒙奇·D·龙。"},
+    {"name": "白胡子海贼团", "type": "sect", "description": "四皇白胡子率领的海贼团，被称为'世界最强男人'的舰队。"},
+    {"name": "红发海贼团", "type": "sect", "description": "四皇香克斯率领的海贼团，以强大与仁厚并称。"},
+    {"name": "百兽海贼团", "type": "sect", "description": "四皇凯多率领的海贼团，以人造恶魔果实与动物系能力者闻名。"},
+    {"name": "BIG MOM海贼团", "type": "sect", "description": "四皇大妈率领的海贼团，以灵魂果实与甜点岛统治新世界。"},
+    {"name": "黑胡子海贼团", "type": "sect", "description": "马歇尔·D·蒂奇率领的海贼团，在顶上战争后迅速崛起为新四皇。"},
+    {"name": "太阳海贼团", "type": "sect", "description": "鱼人费舍尔·泰格创立的海贼团，为鱼人解放而战。"},
+    {"name": "山治家的杰尔马66", "type": "sect", "description": "杰尔马王国的克隆人军团，以科技与雇佣兵闻名。"}
+  ],
+  "settlements": [
+    {"name": "风车村", "type": "city", "description": "东海的小渔村，路飞的故乡，平静而质朴。"},
+    {"name": "罗格镇", "type": "city", "description": "伟大航路入口的城镇，海贼王的处刑之地。"},
+    {"name": "阿拉巴斯坦王国", "type": "city", "description": "伟大航路前半段的沙漠王国。"},
+    {"name": "水之七都", "type": "city", "description": "造船之城，世界船匠的聚集地。"},
+    {"name": "香波地群岛", "type": "city", "description": "伟大航路前半段的终点，肥皂泡之岛。"},
+    {"name": "德雷斯罗萨", "type": "city", "description": "新世界的热情王国，玩具与斗技场之都。"},
+    {"name": "和之国", "type": "city", "description": "闭关锁国的武士之国。"}
+  ],
+  "sect_filters": []
+}
