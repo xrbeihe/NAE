@@ -607,6 +607,9 @@ async def apply_character(
         card_parts.append(f"初始位置：{player.location}")
     if attrs.get("golden_finger_name"):
         tag = attrs.get("golden_finger_tagline", "")
+        # 自定义金手指：tagline 为空但 desc 有值（自定义内容），用 desc 兜底显示
+        if not tag:
+            tag = attrs.get("golden_finger_desc", "")
         card_parts.append(f"金手指：{attrs['golden_finger_name']}{' — ' + tag if tag else ''}")
     if attrs.get("monthly_income"):
         card_parts.append(f"月入：{attrs['monthly_income']}")
@@ -686,6 +689,7 @@ async def apply_character(
         "clothing": attrs.get("clothing", ""),
         "golden_finger_name": attrs.get("golden_finger_name", ""),
         "golden_finger_tagline": attrs.get("golden_finger_tagline", ""),
+        "golden_finger_desc": attrs.get("golden_finger_desc", ""),
         "sect": attrs.get("sect", ""),
         "monthly_income": attrs.get("monthly_income", ""),
         "player_panel": player_panel_str,

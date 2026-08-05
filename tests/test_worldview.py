@@ -557,6 +557,35 @@ async def test_form_path_sect_special(db):
 
 
 @pytest.mark.asyncio
+async def test_form_path_custom_golden_finger(db):
+    """自定义金手指：__custom__ 标记 + custom 文本 → desc 正确落库。"""
+    from ane.modules.player_manager import player_manager
+
+    result = await game_engine.create_session(db, user_id='u', name="测试")
+    sid = result["session_id"]
+
+    values = {
+        "name": "王五",
+        "age": 19,
+        "gender": "男",
+        "background": "孤儿",
+        "cultivation": "凡人",
+        "personality": "谨慎",
+        "identity": "杂役弟子",
+        "golden_finger": "__custom__",
+        "golden_finger_custom": "系统面板：可查看自己与周围人的因果线",
+    }
+    player = await player_manager.apply_character_from_form(
+        db, sid, values, worldview="xianxia_v1",
+    )
+    attrs = dict(player.attributes or {})
+    assert attrs.get("golden_finger_id") == "custom"
+    assert attrs.get("golden_finger_name") == "自定义"
+    assert attrs.get("golden_finger_desc") == "系统面板：可查看自己与周围人的因果线"
+    assert attrs.get("golden_finger_custom") == "系统面板：可查看自己与周围人的因果线"
+
+
+@pytest.mark.asyncio
 async def test_form_attached_in_templates_endpoint():
     """GET /sessions/__any__/templates returns the pack's form.json."""
     from ane.main import app

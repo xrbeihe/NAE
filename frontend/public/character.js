@@ -315,6 +315,7 @@ function fillFormValues() {
     var key = grid.dataset.key;
     var src = charTemplates && charTemplates[from];
     if (!Array.isArray(src)) return;
+    var allowCustom = !!document.getElementById('custom-' + key + '-wrap');
     grid.innerHTML = src.map(function (o) {
       var v = o.id != null ? o.id : o.value;
       // 自定义选项的 id 归一化为 __custom__，对齐 selectFormCard/collectFormValues/后端
@@ -322,7 +323,14 @@ function fillFormValues() {
       return '<div class="gf-card" data-gf-id="' + _escH(v) + '" onclick="selectFormCard(\'' + _escH(key) + '\',\'' + _escH(v) + '\')" style="padding:8px;border:1px solid var(--border);border-radius:6px;cursor:pointer;text-align:center;transition:all .15s;background:var(--input-bg)">' +
         '<div style="font-size:20px;margin-bottom:4px">' + (o.icon || '') + '</div>' +
         '<div style="font-size:12px;color:var(--text)">' + _escH(o.name || o.label || v) + '</div></div>';
-    }).join('') + (src.length ? '' : '');
+    }).join('');
+    // allow_custom 时追加「＋ 自定义」卡片
+    if (allowCustom) {
+      grid.insertAdjacentHTML('beforeend',
+        '<div class="gf-card" data-gf-id="__custom__" onclick="selectFormCard(\'' + _escH(key) + '\',\'__custom__\')" style="padding:8px;border:1px dashed var(--border);border-radius:6px;cursor:pointer;text-align:center;transition:all .15s;background:var(--input-bg);color:var(--accent-dim)">' +
+        '<div style="font-size:20px;margin-bottom:4px">＋</div>' +
+        '<div style="font-size:12px">自定义</div></div>');
+    }
   });
   // Clear card selection state on first render
   container.querySelectorAll('.gf-card').forEach(function (c) { c.style.borderColor = 'var(--border)'; });
