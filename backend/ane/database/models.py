@@ -33,6 +33,7 @@ class User(Base):
     sessions = relationship("WorldSession", back_populates="user", cascade="all, delete-orphan")
     user_npcs = relationship("UserNPC", back_populates="user", cascade="all, delete-orphan")
     user_cards = relationship("UserCard", back_populates="user", cascade="all, delete-orphan")
+    user_prompts = relationship("UserPrompt", back_populates="user", cascade="all, delete-orphan")
 
 
 # ── WorldSession ─────────────────────────────────────────────
@@ -221,6 +222,30 @@ class UserCard(Base):
     user = relationship("User", back_populates="user_cards")
 
     __table_args__ = (UniqueConstraint("user_id", "name", name="uq_user_card_name"),)
+
+
+class UserPrompt(Base):
+    """用户自定义提示词库 —— 一套含前提示词 + 后提示词，多套可选启一套。
+
+    - pre_prompt：注入 System Prompt 之后（全局风格/规则）
+    - post_prompt：注入【玩家输入】之后（本轮输出要求）
+    - enabled：当前启用的提示词（单选，每次启用时取消其它套）
+    """
+    __tablename__ = "user_prompts"
+
+    id          = Column(String, primary_key=True, default=_new_id)
+    user_id     = Column(String, ForeignKey("users.id"), nullable=False)
+    name        = Column(String, nullable=False)
+    pre_prompt  = Column(Text, default="")
+    post_prompt = Column(Text, default="")
+    enabled     = Column(Boolean, default=False)
+    sort_order  = Column(Integer, default=0)
+    created_at  = Column(DateTime, default=datetime.utcnow)
+    updated_at  = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User")
+
+    __table_args__ = (UniqueConstraint("user_id", "name", name="uq_user_prompt_name"),)
 
 
 # ── Worldview Share (开源共享库) ─────────────────────────

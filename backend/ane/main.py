@@ -356,6 +356,9 @@ app.include_router(chat_router)
 from ane.api.card_routes import router as card_router  # noqa: E402
 app.include_router(card_router)
 
+from ane.api.prompt_routes import router as prompt_router  # noqa: E402
+app.include_router(prompt_router)
+
 _static_dir = Path(__file__).parent.parent.parent / "frontend"
 
 # ── Multi-page routes ──

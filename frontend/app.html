@@ -401,6 +401,7 @@
           <span onclick="showNpcLibraryPopup()" style="cursor:pointer;font-size:13px" title="NPC总库">📚</span>
           <span id="summary-bar-btn" onclick="showLatestSummary()" style="cursor:pointer;font-size:13px;margin-left:2px" title="查看上轮场景摘要">📘</span>
           <span id="word-count-btn" onclick="showWordCountPopup(event)" style="cursor:pointer;font-size:13px;margin-left:2px" title="正文字数设置">🔤</span>
+          <span id="prompt-lib-btn" onclick="showPromptLibPopup(event)" style="cursor:pointer;font-size:13px;margin-left:2px" title="提示词库">🛠</span>
         </span>
       </div>
       <div id="rec-grid">
@@ -486,6 +487,29 @@
 <div id="word-count-popup" style="display:none;position:fixed;z-index:9999;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px;width:180px;box-shadow:0 4px 16px rgba(0,0,0,0.6)">
   <div style="font-size:13px;color:var(--accent);margin-bottom:8px;text-align:center">🔤 正文字数</div>
   <div id="word-count-options" style="display:flex;flex-direction:column;gap:4px"></div>
+</div>
+<div id="prompt-lib-overlay" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.55)" onclick="if(event.target===this)promptLibRequestClose()"></div>
+<div id="prompt-lib-popup" style="display:none;position:fixed;z-index:9999;left:50%;top:50%;transform:translate(-50%,-50%);background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:0;width:460px;max-width:94vw;box-shadow:0 8px 32px rgba(0,0,0,0.7);max-height:80vh;flex-direction:column">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
+    <div style="font-size:14px;color:var(--accent);font-weight:bold">🛠 提示词库</div>
+    <span onclick="promptLibRequestClose()" style="cursor:pointer;font-size:18px;color:var(--accent-dim);line-height:1;padding:2px 6px" title="关闭">✕</span>
+  </div>
+  <div style="overflow-y:auto;padding:12px 16px;flex:1;min-height:0">
+    <div style="font-size:11px;color:var(--accent-dim);margin-bottom:8px;text-align:center">一套提示词 = 前提示词 + 后提示词，可留空。勾选启用（单选）</div>
+    <div id="prompt-lib-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
+    <div id="prompt-lib-editor" style="display:none;border:1px solid var(--border);border-radius:6px;padding:8px;margin-bottom:8px">
+      <input id="prompt-lib-name" placeholder="提示词名称" maxlength="50" oninput="promptLibMarkDirty()" style="width:100%;box-sizing:border-box;background:var(--input-bg);border:1px solid var(--border);color:var(--text);padding:6px;border-radius:4px;font-size:12px;font-family:inherit;margin-bottom:6px">
+      <div style="font-size:11px;color:var(--accent-dim);margin-bottom:3px">📝 前提示词（注入 System 之后，全局风格/规则，可空）</div>
+      <textarea id="prompt-lib-pre" rows="3" oninput="promptLibMarkDirty()" placeholder="例：叙事风格要求——多用环境渲染，少用心理独白。" style="width:100%;box-sizing:border-box;background:var(--input-bg);border:1px solid var(--border);color:var(--text);padding:6px;border-radius:4px;font-size:12px;font-family:inherit;resize:vertical;margin-bottom:6px"></textarea>
+      <div style="font-size:11px;color:var(--accent-dim);margin-bottom:3px">🎯 后提示词（注入玩家输入之后，本轮输出要求，可空）</div>
+      <textarea id="prompt-lib-post" rows="3" oninput="promptLibMarkDirty()" placeholder="例：本轮必须包含至少一段环境描写和一次肢体互动。" style="width:100%;box-sizing:border-box;background:var(--input-bg);border:1px solid var(--border);color:var(--text);padding:6px;border-radius:4px;font-size:12px;font-family:inherit;resize:vertical;margin-bottom:6px"></textarea>
+      <div style="display:flex;gap:4px;justify-content:flex-end">
+        <button onclick="promptLibSave()" style="background:var(--accent);color:var(--panel);border:none;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px">保存</button>
+        <button onclick="promptLibCancelEdit()" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px">取消</button>
+      </div>
+    </div>
+    <button onclick="promptLibNew()" style="width:100%;background:none;border:1px dashed var(--border);color:var(--accent-dim);padding:6px;border-radius:4px;cursor:pointer;font-size:12px">+ 新建提示词</button>
+  </div>
 </div>
 <div id="npc-lib-popup" class="npc-lib-popup">
   <div class="npc-lib-header"><span>📚 NPC总库</span><span onclick="closeNpcLibraryPopup()" style="cursor:pointer;font-size:16px;color:var(--accent-dim)">✕</span></div>
@@ -1127,7 +1151,7 @@ async function sendTurn() {
   var wcParts = wcVal.split('-');
   wcMin = parseInt(wcParts[0]) || 500;
   wcMax = parseInt(wcParts[1]) || 1200;
-  var tr = await apiFetch('/sessions/' + sessionId + '/turn', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({input: text, model: selectedModel, load_model_data: document.getElementById('load-model-check').checked, word_count_min: wcMin, word_count_max: wcMax}) });
+  var tr = await apiFetch('/sessions/' + sessionId + '/turn', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({input: text, model: selectedModel, load_model_data: document.getElementById('load-model-check').checked, word_count_min: wcMin, word_count_max: wcMax, prompt_ids: getEnabledPromptIds()}) });
     var td = await tr.json();
     if (td.detail) { addMsg('system', '天道运转出错: ' + td.detail); sb.disabled = false; ld.classList.remove('active'); return; }
     addMsg('ai', td.narrative, _currentTurnNumber); _currentTurnNumber++;
@@ -1190,6 +1214,156 @@ document.addEventListener('click', function(e) {
   if (popup && !popup.contains(e.target)) popup.style.display = 'none';
 });
 
+// ── 提示词库（🛠）──
+var _promptLib = [];            // [{id,name,pre_prompt,post_prompt,enabled}]
+var _promptLibEditingId = null; // null=新建，否则为编辑的 id
+var _promptLibLoaded = false;
+var _promptLibDirty = false;    // 编辑器是否有未保存改动
+function getPromptLib() {
+  if (_promptLibLoaded) return _promptLib;
+  try {
+    var cached = localStorage.getItem('ane_prompt_lib');
+    if (cached) { _promptLib = JSON.parse(cached) || []; }
+  } catch(e) {}
+  return _promptLib;
+}
+function savePromptLibCache() {
+  try { localStorage.setItem('ane_prompt_lib', JSON.stringify(_promptLib)); } catch(e) {}
+}
+function getEnabledPromptIds() {
+  return getPromptLib().filter(function(p) { return p.enabled; }).map(function(p) { return p.id; });
+}
+function showPromptLibPopup(e) {
+  promptLibLoad();
+  document.getElementById('prompt-lib-overlay').style.display = 'block';
+  document.getElementById('prompt-lib-popup').style.display = 'flex';
+  if (e && e.stopPropagation) e.stopPropagation();
+}
+function hidePromptLibPopup() {
+  document.getElementById('prompt-lib-overlay').style.display = 'none';
+  document.getElementById('prompt-lib-popup').style.display = 'none';
+}
+function promptLibRequestClose() {
+  // 有未保存改动 → 询问
+  if (_promptLibDirty && !confirm('当前提示词有未保存的改动，确定不保存直接关闭？')) return;
+  promptLibCancelEdit();
+  hidePromptLibPopup();
+}
+function promptLibMarkDirty() {
+  _promptLibDirty = true;
+}
+function promptLibLoad() {
+  return apiFetch('/prompts').then(function(r) { return r.json(); }).then(function(d) {
+    _promptLib = (d && d.prompts) || [];
+    _promptLibLoaded = true;
+    savePromptLibCache();
+    promptLibRender();
+  }).catch(function(e) {
+    console.error('提示词库加载失败:', e);
+    addMsg('system', '提示词库加载失败: ' + e.message);
+  });
+}
+function promptLibRender() {
+  var list = document.getElementById('prompt-lib-list');
+  var lib = getPromptLib();
+  if (!lib.length) {
+    list.innerHTML = '<div style="font-size:12px;color:var(--accent-dim);text-align:center;padding:10px">暂无提示词，点击下方「+ 新建提示词」创建</div>';
+    return;
+  }
+  list.innerHTML = lib.map(function(p) {
+    var active = p.enabled ? 'rgba(201,169,110,0.15)' : 'var(--input-bg)';
+    var border = p.enabled ? 'var(--accent)' : 'var(--border)';
+    var label = '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;flex:1;font-size:12px;color:' + (p.enabled ? 'var(--accent)' : 'var(--text)') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
+      '<input type="radio" name="prompt-lib-radio" onchange="promptLibEnable(\'' + p.id + '\',this.checked)" style="accent-color:var(--accent);cursor:pointer"' + (p.enabled ? ' checked' : '') + '>' +
+      p.name + '</label>';
+    var badge = '';
+    if (p.pre_prompt) badge += '<span style="font-size:10px;color:var(--accent-dim)">前</span>';
+    if (p.post_prompt) badge += '<span style="font-size:10px;color:var(--accent-dim)">后</span>';
+    return '<div style="display:flex;align-items:center;gap:4px;padding:6px 8px;border:1px solid ' + border + ';border-radius:4px;background:' + active + '">' +
+      label + badge +
+      '<button onclick="promptLibEdit(\'' + p.id + '\')" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:2px 8px;border-radius:3px;cursor:pointer;font-size:11px">✏️</button>' +
+      '<button onclick="promptLibDelete(\'' + p.id + '\',\'' + (p.name || '').replace(/'/g,"\\'") + '\')" style="background:none;border:1px solid var(--border);color:var(--danger);padding:2px 8px;border-radius:3px;cursor:pointer;font-size:11px">🗑</button>' +
+      '</div>';
+  }).join('');
+}
+function promptLibEnable(id, checked) {
+  if (!checked) return; // 单选：radio 取消时不处理（radio 无法主动取消）
+  var lib = getPromptLib();
+  var target = null;
+  lib.forEach(function(p) { p.enabled = (p.id === id); if (p.id === id) target = p; });
+  savePromptLibCache();
+  promptLibRender();
+  if (!target) return;
+  apiFetch('/prompts/' + id, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({enabled: true}) })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.detail) addMsg('system', '提示词启用失败: ' + d.detail);
+      else addMsg('system', '🛠 已启用提示词：「' + target.name + '」');
+    })
+    .catch(function(e) { addMsg('system', '提示词启用失败: ' + e.message); });
+}
+function promptLibNew() {
+  // 新建前若有未保存改动，先询问（用户可能正编辑到一半）
+  if (_promptLibDirty && !confirm('当前提示词有未保存的改动，确定放弃？')) { return; }
+  _promptLibDirty = false;
+  _promptLibEditingId = null;
+  document.getElementById('prompt-lib-name').value = '';
+  document.getElementById('prompt-lib-pre').value = '';
+  document.getElementById('prompt-lib-post').value = '';
+  document.getElementById('prompt-lib-editor').style.display = 'block';
+  document.getElementById('prompt-lib-name').focus();
+}
+function promptLibEdit(id) {
+  // 编辑前若有未保存改动，先询问
+  if (_promptLibDirty && !confirm('当前提示词有未保存的改动，确定放弃？')) { return; }
+  var p = getPromptLib().filter(function(x) { return x.id === id; })[0];
+  if (!p) return;
+  _promptLibDirty = false;
+  _promptLibEditingId = id;
+  document.getElementById('prompt-lib-name').value = p.name || '';
+  document.getElementById('prompt-lib-pre').value = p.pre_prompt || '';
+  document.getElementById('prompt-lib-post').value = p.post_prompt || '';
+  document.getElementById('prompt-lib-editor').style.display = 'block';
+  document.getElementById('prompt-lib-name').focus();
+}
+function promptLibCancelEdit() {
+  document.getElementById('prompt-lib-editor').style.display = 'none';
+  _promptLibEditingId = null;
+  _promptLibDirty = false;
+}
+function promptLibSave() {
+  var name = document.getElementById('prompt-lib-name').value.trim();
+  var pre = document.getElementById('prompt-lib-pre').value;
+  var post = document.getElementById('prompt-lib-post').value;
+  if (!name) { addMsg('system', '⚠️ 请输入提示词名称'); return; }
+  if (!pre.trim() && !post.trim()) { addMsg('system', '⚠️ 前提示词和后提示词至少填一个'); return; }
+  var url = '/prompts';
+  var method = 'POST';
+  var body = {name: name, pre_prompt: pre, post_prompt: post};
+  if (_promptLibEditingId) { url += '/' + _promptLibEditingId; method = 'PUT'; }
+  apiFetch(url, { method: method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.detail) { addMsg('system', '提示词保存失败: ' + d.detail); return; }
+      addMsg('system', (_promptLibEditingId ? '✅ 提示词已更新：「' + name + '」' : '✅ 已创建提示词：「' + name + '」'));
+      _promptLibDirty = false;
+      promptLibCancelEdit();
+      return promptLibLoad();
+    })
+    .catch(function(e) { addMsg('system', '提示词保存失败: ' + e.message); });
+}
+function promptLibDelete(id, name) {
+  if (!confirm('确定删除提示词「' + name + '」？')) return;
+  apiFetch('/prompts/' + id, { method: 'DELETE' })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.detail) { addMsg('system', '删除失败: ' + d.detail); return; }
+      addMsg('system', '🗑 已删除提示词「' + name + '」');
+      return promptLibLoad();
+    })
+    .catch(function(e) { addMsg('system', '删除失败: ' + e.message); });
+}
+// 点击遮罩关闭（在 overlay 的 onclick 中处理，无独立监听）
 // ── UI helpers ──
 function addMsg(type, text, turnNumber) {
   var chat = document.getElementById('chat');

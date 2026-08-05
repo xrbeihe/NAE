@@ -689,6 +689,11 @@ class PromptContext:
     word_count_min: int = 500
     word_count_max: int = 1200
 
+    # ── User custom prompts (提示词库) ──
+    # pre_prompt 注入 System 之后，post_prompt 注入【玩家输入】之后
+    custom_pre_prompts: list[str] = field(default_factory=list)
+    custom_post_prompts: list[str] = field(default_factory=list)
+
     # ── Legacy flat fields (backward compat) ──
     world_context: str = ""
     location_context: str = ""
@@ -751,6 +756,11 @@ class PromptBuilder:
             system += nsfw
         blocks.append(system)
 
+        # ── User custom prompts (前提示词) — right after System, global style/rules ──
+        for _p in ctx.custom_pre_prompts:
+            if _p and _p.strip():
+                blocks.append(f"【用户前提示词】\n{_p.strip()}")
+
         # P0: World
         world_block = self._build_world_block(ctx)
         if world_block:
@@ -810,6 +820,11 @@ class PromptBuilder:
 
         # P0: User Input (always last)
         blocks.append(f"【玩家输入】\n{ctx.user_input}")
+
+        # ── User custom prompts (后提示词) — right after user input, this-turn output requirements ──
+        for _p in ctx.custom_post_prompts:
+            if _p and _p.strip():
+                blocks.append(f"【用户后提示词】\n{_p.strip()}")
 
         # ── Modeling turn instruction (code-level, not system prompt) ──
         if ctx.is_modeling_turn:

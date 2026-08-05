@@ -494,6 +494,7 @@ async def process_turn(
         user_id=user.id,
         word_count_min=req.word_count_min,
         word_count_max=req.word_count_max,
+        prompt_ids=req.prompt_ids,
     )
     return TurnResponse(
         narrative=turn_result.narrative,

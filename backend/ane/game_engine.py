@@ -283,6 +283,7 @@ class GameEngine:
         user_id: str = "",
         word_count_min: int = 500,
         word_count_max: int = 1200,
+        prompt_ids: list[str] | None = None,
     ) -> TurnResult:
         """Run the full turn pipeline.
 
@@ -409,6 +410,30 @@ class GameEngine:
         ctx.user_input = validation.cleaned_input
         ctx.word_count_min = word_count_min
         ctx.word_count_max = word_count_max
+
+        # ── User custom prompts (提示词库): load the enabled prompt by prompt_ids.
+        # Only this user's prompts are eligible (data isolation). Multi-prompt
+        # content is supported: all selected prompts' pre/post are injected.
+        if user_id and prompt_ids:
+            from ane.database.models import UserPrompt
+            wanted = set(prompt_ids)
+            if wanted:
+                _pr = await db.execute(
+                    select(UserPrompt).where(
+                        UserPrompt.user_id == user_id,
+                        UserPrompt.id.in_(wanted),
+                    )
+                )
+                for _p in _pr.scalars().all():
+                    if _p.pre_prompt and _p.pre_prompt.strip():
+                        ctx.custom_pre_prompts.append(_p.pre_prompt)
+                    if _p.post_prompt and _p.post_prompt.strip():
+                        ctx.custom_post_prompts.append(_p.post_prompt)
+                if ctx.custom_pre_prompts or ctx.custom_post_prompts:
+                    logger.info(
+                        f"Custom prompts injected: {len(ctx.custom_pre_prompts)} pre, "
+                        f"{len(ctx.custom_post_prompts)} post"
+                    )
 
         # Authoritative canon (IP worldviews) — injected from world_facts.json
         _wv_obj = get_worldview(worldview or DEFAULT_WORLDVIEW_ID)
