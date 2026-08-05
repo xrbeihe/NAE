@@ -254,6 +254,17 @@ class OpenAICompatibleAdapter(BaseAdapter):
         user_id = kwargs.get("user_id", "")
         session_id = kwargs.get("session_id", "")
 
+        # DeepSeek 默认开启思考模式，思维链会占用输出 token 并可能混入 content，
+        # 导致叙事 JSON 被截断/污染。显式禁用 thinking，让全部输出 token 用于叙事。
+        payload: dict = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+        if "deepseek" in model.lower():
+            payload["thinking"] = {"type": "disabled"}
+
         async def _call():
             async with httpx.AsyncClient(timeout=120.0) as client:
                 response = await client.post(
@@ -262,12 +273,7 @@ class OpenAICompatibleAdapter(BaseAdapter):
                         "Authorization": f"Bearer {self.api_key}",
                         "Content-Type": "application/json",
                     },
-                    json={
-                        "model": model,
-                        "messages": [{"role": "user", "content": prompt}],
-                        "temperature": temperature,
-                        "max_tokens": max_tokens,
-                    },
+                    json=payload,
                 )
                 response.raise_for_status()
                 data = response.json()
