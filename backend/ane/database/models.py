@@ -248,6 +248,40 @@ class UserPrompt(Base):
     __table_args__ = (UniqueConstraint("user_id", "name", name="uq_user_prompt_name"),)
 
 
+# ── Image Library (开源共享图片库) ────────────────────────
+
+class ImageCategory(Base):
+    """全局共享的世界类型分类（一级分类/仓库）。
+
+    预置分类 created_by=None；用户新增的分类 created_by=user_id。
+    母分类（男/女）为固定概念，不建表——图片用 mother_category 字符串列约束。
+    """
+    __tablename__ = "image_categories"
+
+    id          = Column(String, primary_key=True, default=_new_id)
+    name        = Column(String, nullable=False, unique=True)   # 全局唯一
+    created_by  = Column(String, ForeignKey("users.id"), nullable=True)  # None=预置
+    created_at  = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint("name", name="uq_image_category_name"),)
+
+
+class UserImage(Base):
+    """全局共享图片 —— 开源素材库，所有用户互相可见。"""
+    __tablename__ = "user_images"
+
+    id              = Column(String, primary_key=True, default=_new_id)
+    user_id         = Column(String, ForeignKey("users.id"), nullable=False)   # 上传者
+    category_id     = Column(String, ForeignKey("image_categories.id"), nullable=False)
+    mother_category = Column(String, nullable=False)   # 严格 "男" / "女"
+    filename        = Column(String, nullable=False)   # 磁盘文件名（服务端生成 <id>.<ext>）
+    original_name   = Column(String, default="")       # 用户原始文件名（显示用）
+    tags            = Column(JSON, default=list)
+    created_at      = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User")
+
+
 # ── Worldview Share (开源共享库) ─────────────────────────
 
 class WorldviewShare(Base):

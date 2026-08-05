@@ -46,6 +46,10 @@ else:
 DATA_DIR = ROOT_DIR / "data"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
+# Image library storage (开源共享图片库)
+IMAGE_DIR = DATA_DIR / "images"
+IMAGE_DIR.mkdir(parents=True, exist_ok=True)
+
 # ── LLM ──────────────────────────────────────────────────────
 
 _llm = _cfg["llm"]

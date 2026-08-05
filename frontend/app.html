@@ -327,6 +327,15 @@
     </div>
     <span style="color:var(--accent-dim);font-size:16px">›</span>
   </div>
+  <!-- 🖼 图片库入口 -->
+  <div onclick="enterImageLib()" style="border:1px solid var(--border);border-radius:8px;padding:16px 18px;margin-bottom:16px;background:var(--panel);cursor:pointer;display:flex;align-items:center;gap:12px;">
+    <div style="width:40px;height:40px;border-radius:8px;background:var(--accent);color:var(--panel);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🖼</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:15px;font-weight:bold;color:var(--text)">图片库</div>
+      <div style="font-size:12px;color:var(--accent-dim);margin-top:2px">开源共享素材库——男/女分类，按世界类型分仓库，上传你的图片素材</div>
+    </div>
+    <span style="color:var(--accent-dim);font-size:16px">›</span>
+  </div>
   <div style="margin-top:12px;flex-shrink:0;display:flex;gap:8px;align-items:center">
     <button onclick="showWorldManage()" style="background:var(--accent);color:var(--panel);border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:13px">🌍 世界管理</button>
     <button onclick="location.href='/chat'" style="background:transparent;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:8px 20px;cursor:pointer;font-size:13px;font-family:inherit" title="1v1 陪伴对话">💬 1v1 对话</button>
@@ -356,6 +365,49 @@
     </div>
   </div>
   <div id="home-npc-table"></div>
+</div>
+
+<!-- ── 图片库独立页面 ── -->
+<div id="image-lib-page" style="display:none;flex-direction:column;flex:1;overflow-y:auto;padding:20px 32px;background:var(--bg);min-height:0;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-shrink:0">
+    <h2 style="margin:0;color:var(--accent)">🖼 图片库</h2>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button onclick="imageLibRefresh()" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px">↻ 刷新</button>
+      <button onclick="goHome()" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px">← 返回</button>
+    </div>
+  </div>
+  <div style="font-size:12px;color:var(--accent-dim);margin-bottom:12px;flex-shrink:0">先选母分类（男/女），再进入世界类型仓库。图片开源共享，所有用户互看。</div>
+  <!-- 母分类选择 -->
+  <div id="img-mother-select" style="display:flex;gap:12px;margin-bottom:16px;flex-shrink:0">
+    <div onclick="selectImgMother('男')" id="img-mother-男" style="flex:1;border:1px solid var(--border);border-radius:8px;padding:20px;background:var(--panel);cursor:pointer;text-align:center">
+      <div style="font-size:32px">👨</div><div style="font-size:14px;font-weight:bold;color:var(--text);margin-top:6px">男</div>
+    </div>
+    <div onclick="selectImgMother('女')" id="img-mother-女" style="flex:1;border:1px solid var(--border);border-radius:8px;padding:20px;background:var(--panel);cursor:pointer;text-align:center">
+      <div style="font-size:32px">👩</div><div style="font-size:14px;font-weight:bold;color:var(--text);margin-top:6px">女</div>
+    </div>
+  </div>
+  <!-- 一级分类（世界类型仓库） -->
+  <div id="img-category-section" style="display:none;flex-shrink:0">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="font-size:13px;color:var(--accent);font-weight:bold">📁 世界类型仓库 <span id="img-cat-mother-label" style="font-size:11px;color:var(--accent-dim)"></span></div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input id="img-new-cat-input" placeholder="新增世界类型" maxlength="20" style="background:var(--input-bg);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:12px;font-family:inherit;width:130px">
+        <button onclick="imgAddCategory()" style="background:var(--accent);color:var(--panel);border:none;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px">+ 新建</button>
+      </div>
+    </div>
+    <div id="img-category-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-bottom:16px"></div>
+  </div>
+  <!-- 图片网格 -->
+  <div id="img-gallery-section" style="display:none;min-height:0">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="font-size:13px;color:var(--accent);font-weight:bold">🖼 <span id="img-gallery-title"></span></div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="file" id="img-upload-input" accept="image/*" style="display:none" onchange="imgUpload(this)">
+        <button onclick="document.getElementById('img-upload-input').click()" style="background:var(--accent);color:var(--panel);border:none;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:12px">⬆ 上传图片</button>
+      </div>
+    </div>
+    <div id="img-gallery-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px"></div>
+  </div>
 </div>
 
 <!-- ── World manage modal ── -->
@@ -644,6 +696,7 @@ function goHome() {
   document.getElementById('home-page').style.display = 'flex';
   document.getElementById('npc-page').style.display = 'none';
   document.getElementById('main-layout').style.display = 'none';
+  document.getElementById('image-lib-page').style.display = 'none';
   loadSharedWorldviews();
 }
 
@@ -659,6 +712,18 @@ function enterChat() {
   document.getElementById('npc-page').style.display = 'none';
   document.getElementById('main-layout').style.display = 'flex';
   document.getElementById('chat-panel').style.display = 'flex';
+}
+
+function enterImageLib() {
+  document.getElementById('home-page').style.display = 'none';
+  document.getElementById('npc-page').style.display = 'none';
+  document.getElementById('main-layout').style.display = 'none';
+  document.getElementById('image-lib-page').style.display = 'flex';
+  imageLibInit();
+}
+
+function backFromImageLib() {
+  goHome();
 }
 
 // ── Load avatar ──
@@ -1370,6 +1435,149 @@ function promptLibDelete(id, name) {
     .catch(function(e) { addMsg('system', '删除失败: ' + e.message); });
 }
 // 点击遮罩关闭（在 overlay 的 onclick 中处理，无独立监听）
+// ── 图片库（🖼 开源共享）──
+var _imgMother = null;            // 当前选中母分类 男/女
+var _imgCategories = [];          // 全部世界类型分类
+var _imgCurrentCatId = null;      // 当前浏览的仓库 id
+var _imgCurrentCatName = '';
+var _imgLibInited = false;
+
+function imageLibInit() {
+  if (!_imgLibInited) imageLibLoadCategories();
+  _imgMother = null;
+  _imgCurrentCatId = null;
+  _imgCurrentCatName = '';
+  renderImgMotherSelect();
+  document.getElementById('img-category-section').style.display = 'none';
+  document.getElementById('img-gallery-section').style.display = 'none';
+}
+function imageLibRefresh() { imageLibLoadCategories(); if (_imgCurrentCatId) imgLoadGallery(_imgCurrentCatId); }
+function imageLibLoadCategories() {
+  apiFetch('/images/categories').then(function(r){ return r.json(); }).then(function(d) {
+    _imgCategories = d.categories || [];
+    _imgLibInited = true;
+    renderImgMotherSelect();
+    if (_imgMother) renderImgCategories();
+  }).catch(function(e) { console.error('图片库分类加载失败:', e); });
+}
+function renderImgMotherSelect() {
+  ['男','女'].forEach(function(m) {
+    var el = document.getElementById('img-mother-' + m);
+    if (!el) return;
+    var active = (_imgMother === m);
+    el.style.borderColor = active ? 'var(--accent)' : 'var(--border)';
+    el.style.background = active ? 'rgba(201,169,110,0.15)' : 'var(--panel)';
+  });
+}
+function selectImgMother(m) {
+  _imgMother = m;
+  _imgCurrentCatId = null; _imgCurrentCatName = '';
+  renderImgMotherSelect();
+  renderImgCategories();
+  document.getElementById('img-category-section').style.display = 'block';
+  document.getElementById('img-gallery-section').style.display = 'none';
+}
+function renderImgCategories() {
+  var grid = document.getElementById('img-category-grid');
+  if (!grid) return;
+  var label = document.getElementById('img-cat-mother-label');
+  if (label) label.textContent = '（' + _imgMother + '）';
+  grid.innerHTML = _imgCategories.map(function(c) {
+    var active = (c.id === _imgCurrentCatId);
+    return '<div onclick="imgSelectCategory(\'' + c.id + '\',\'' + escAttr(c.name) + '\')" style="border:1px solid ' + (active ? 'var(--accent)' : 'var(--border)') + ';border-radius:6px;padding:14px;background:' + (active ? 'rgba(201,169,110,0.15)' : 'var(--panel)') + ';cursor:pointer;text-align:center">' +
+      '<div style="font-size:24px">📁</div>' +
+      '<div style="font-size:13px;color:var(--text);font-weight:bold;margin-top:6px">' + escHtml(c.name) + '</div>' +
+      (c.preset ? '' : '<div style="font-size:10px;color:var(--accent-dim);margin-top:2px">用户自建</div>') +
+      '</div>';
+  }).join('') || '<div style="font-size:12px;color:var(--accent-dim);text-align:center;padding:20px">暂无分类</div>';
+}
+function imgAddCategory() {
+  var inp = document.getElementById('img-new-cat-input');
+  var name = (inp.value || '').trim();
+  if (!name) return;
+  apiFetch('/images/categories', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name: name}) })
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      if (d.detail) { addMsg('system', '新建分类失败: ' + d.detail); return; }
+      inp.value = '';
+      addMsg('system', '✅ 已新建分类「' + name + '」');
+      imageLibLoadCategories();
+    })
+    .catch(function(e) { addMsg('system', '新建分类失败: ' + e.message); });
+}
+function imgSelectCategory(cid, cname) {
+  _imgCurrentCatId = cid; _imgCurrentCatName = cname;
+  renderImgCategories();
+  imgLoadGallery(cid);
+}
+function imgLoadGallery(cid) {
+  var sec = document.getElementById('img-gallery-section');
+  sec.style.display = 'block';
+  document.getElementById('img-gallery-title').textContent = _imgMother + ' / ' + _imgCurrentCatName;
+  var grid = document.getElementById('img-gallery-grid');
+  grid.innerHTML = '<div style="font-size:12px;color:var(--accent-dim);text-align:center;padding:30px">加载中...</div>';
+  apiFetch('/images?category_id=' + encodeURIComponent(cid) + '&mother=' + encodeURIComponent(_imgMother))
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      var imgs = d.images || [];
+      if (!imgs.length) { grid.innerHTML = '<div style="font-size:12px;color:var(--accent-dim);text-align:center;padding:30px">暂无图片，点击「⬆ 上传图片」添加</div>'; return; }
+      grid.innerHTML = imgs.map(function(img) {
+        var tagHtml = (img.tags || []).map(function(t) { return '<span style="font-size:10px;color:var(--accent-dim);background:var(--input-bg);border:1px solid var(--border);border-radius:3px;padding:0 4px;margin:1px">' + escHtml(t) + '</span>'; }).join(' ');
+        return '<div style="border:1px solid var(--border);border-radius:6px;overflow:hidden;background:var(--panel)">' +
+          '<img src="' + img.url + '" style="width:100%;height:150px;object-fit:cover;display:block;cursor:pointer" onclick="imgPreview(\'' + img.url + '\')" alt="">' +
+          '<div style="padding:6px 8px">' +
+            '<div style="font-size:11px;color:var(--accent-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + escAttr(img.original_name) + '">' + escHtml(img.original_name || '图片') + '</div>' +
+            (tagHtml ? '<div style="margin-top:3px;display:flex;flex-wrap:wrap;gap:2px">' + tagHtml + '</div>' : '') +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">' +
+              '<span style="font-size:10px;color:var(--accent-dim)">👤 ' + escHtml(img.uploader || '未知') + '</span>' +
+              (img.can_delete ? '<button onclick="imgDelete(\'' + img.id + '\')" style="background:none;border:1px solid var(--border);color:var(--danger);padding:1px 6px;border-radius:3px;cursor:pointer;font-size:10px">🗑</button>' : '') +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    })
+    .catch(function(e) { grid.innerHTML = '<div style="font-size:12px;color:var(--danger);text-align:center;padding:30px">加载失败: ' + e.message + '</div>'; });
+}
+function imgUpload(input) {
+  if (!input.files || !input.files.length) return;
+  var file = input.files[0];
+  if (file.size > 10 * 1024 * 1024) { alert('图片过大（上限 10MB）'); input.value=''; return; }
+  var fd = new FormData();
+  fd.append('file', file);
+  fd.append('category_id', _imgCurrentCatId);
+  fd.append('mother', _imgMother);
+  var tags = prompt('标签（逗号分隔，可选）', '');
+  fd.append('tags', tags || '');
+  apiFetch('/images/upload', { method: 'POST', body: fd })
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      if (d.detail) { addMsg('system', '上传失败: ' + d.detail); return; }
+      addMsg('system', '✅ 图片已上传');
+      imgLoadGallery(_imgCurrentCatId);
+    })
+    .catch(function(e) { addMsg('system', '上传失败: ' + e.message); });
+  input.value = '';
+}
+function imgDelete(id) {
+  if (!confirm('确定删除这张图片？')) return;
+  apiFetch('/images/' + id, { method: 'DELETE' })
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      if (d.detail) { addMsg('system', '删除失败: ' + d.detail); return; }
+      imgLoadGallery(_imgCurrentCatId);
+    })
+    .catch(function(e) { addMsg('system', '删除失败: ' + e.message); });
+}
+function imgPreview(url) {
+  var overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:30000;display:flex;align-items:center;justify-content:center;cursor:zoom-out';
+  overlay.onclick = function() { document.body.removeChild(overlay); };
+  var img = document.createElement('img');
+  img.src = url; img.style.cssText = 'max-width:90%;max-height:90%;object-fit:contain;border-radius:6px';
+  overlay.appendChild(img);
+  document.body.appendChild(overlay);
+}
+
 // ── UI helpers ──
 function addMsg(type, text, turnNumber) {
   var chat = document.getElementById('chat');
