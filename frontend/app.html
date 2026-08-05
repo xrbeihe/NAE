@@ -539,6 +539,8 @@
     <div style="flex:1;padding:20px 24px;overflow-y:auto;min-width:0">
       <h2 style="margin:0 0 4px;color:var(--accent);font-size:18px">✨ 新建建模NPC</h2>
       <p style="margin:0 0 14px;font-size:12px;color:var(--accent-dim);line-height:1.5">输入NPC描述，AI将自动生成完整人物模型。</p>
+      <label style="display:block;color:var(--accent-dim);font-size:12px;margin-bottom:4px">世界观（决定建模模板与提示库）</label>
+      <select id="create-npc-worldview" onchange="onCreateNpcWorldviewChange()" style="width:100%;padding:8px 12px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:inherit;font-size:13px;margin-bottom:12px;appearance:none"></select>
       <label style="display:block;color:var(--accent-dim);font-size:12px;margin-bottom:4px">NPC描述</label>
       <textarea id="create-npc-input" placeholder="例：一个白发苍苍的老者，修为深不可测，是落霞山脉的隐世高人…" style="width:100%;min-height:110px;padding:10px;background:var(--input-bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;font-family:inherit;resize:vertical;box-sizing:border-box;line-height:1.5"></textarea>
       <div id="create-npc-tags" style="margin-top:10px">
@@ -1841,15 +1843,49 @@ function showCreateNpcModal() {
   document.getElementById('custom-tags-display').innerHTML = '';
   // 重置勾选框（保留重要人物默认勾选）
   document.querySelectorAll('#create-npc-tags input[type=checkbox]').forEach(function(cb) { cb.checked = cb.value === '重要人物'; });
-  // 提示库跟随当前世界观：若 charTemplates 来自旧世界观，则按当前世界观重新拉取。
-  var needFetch = !charTemplates || !charTemplates.npc_templates || charTemplates._wvId !== getCurrentWorldviewId();
-  if (needFetch) {
-    apiFetch('/sessions/__any__/templates?worldview=' + encodeURIComponent(getCurrentWorldviewId())).then(function(r){ return r.json(); }).then(function(d){ charTemplates = d; charTemplates._wvId = getCurrentWorldviewId(); renderPromptSections(); }).catch(function(){ renderPromptSections(); });
+  // 确保世界观列表已加载（未加载或为空时先拉取），再填充下拉
+  var list = (worldviewState && worldviewState.list) || [];
+  if (!worldviewState.loaded || !list.length) {
+    loadWorldviews(true).then(function() {
+      fillCreateNpcWorldviewSelect();
+      var sel = document.getElementById('create-npc-worldview');
+      loadCreateNpcTemplates(sel ? sel.value : getCurrentWorldviewId());
+    });
   } else {
-    renderPromptSections();
+    fillCreateNpcWorldviewSelect();
+    var sel = document.getElementById('create-npc-worldview');
+    var wvId = sel ? sel.value : getCurrentWorldviewId();
+    if (!wvId) wvId = getCurrentWorldviewId();
+    loadCreateNpcTemplates(wvId);
   }
   document.getElementById('create-npc-modal').style.display = 'flex';
   setTimeout(function() { document.getElementById('create-npc-input').focus(); }, 100);
+}
+
+function fillCreateNpcWorldviewSelect() {
+  var sel = document.getElementById('create-npc-worldview');
+  if (!sel) return;
+  var list = (worldviewState && worldviewState.list) || [];
+  // 默认选中当前会话世界观；若无列表则回退当前世界观 id
+  var current = getCurrentWorldviewId() || 'xianxia_v1';
+  if (!list.length) {
+    sel.innerHTML = '<option value="' + escAttr(current) + '">' + escHtml(current) + '</option>';
+    return;
+  }
+  sel.innerHTML = list.map(function(w) {
+    var s = (w.id === current) ? ' selected' : '';
+    return '<option value="' + escAttr(w.id) + '"' + s + '>' + escHtml(w.name || w.id) + '</option>';
+  }).join('');
+}
+
+function onCreateNpcWorldviewChange() {
+  var sel = document.getElementById('create-npc-worldview');
+  if (!sel) return;
+  loadCreateNpcTemplates(sel.value);
+}
+
+function loadCreateNpcTemplates(wvId) {
+  apiFetch('/sessions/__any__/templates?worldview=' + encodeURIComponent(wvId)).then(function(r){ return r.json(); }).then(function(d){ charTemplates = d; charTemplates._wvId = wvId; renderPromptSections(); }).catch(function(){ renderPromptSections(); });
 }
 function submitCreateNpc() {
   var input = document.getElementById('create-npc-input').value.trim();
@@ -1860,7 +1896,10 @@ function submitCreateNpc() {
   // 建模中显示提示注释（关闭不中断，后台继续完成）
   var note = document.getElementById('npc-modeling-note');
   if (note) note.style.display = 'block';
-  npcLibCreate(input, tags.length ? tags : null, getCurrentWorldviewId()).finally(function() {
+  // 用下拉选中的世界观建模（未选则用当前会话世界观）
+  var wvSel = document.getElementById('create-npc-worldview');
+  var wvId = (wvSel && wvSel.value) ? wvSel.value : getCurrentWorldviewId();
+  npcLibCreate(input, tags.length ? tags : null, wvId).finally(function() {
     if (note) note.style.display = 'none';
     btn.disabled = false; btn.textContent = '✨ 开始建模';
   });
