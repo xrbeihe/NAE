@@ -377,3 +377,29 @@ v1.0 平台架构之上，本轮把"作者自定义"从表层推向引擎全链�
 - 新增 `worldview_shares`（共享库）+ `worldview_ratings`（评分）两表，`init_db` 自动建表
 - API：`POST /worldviews/share`（推送）/ `DELETE /worldviews/share?worldview_id=`（撤销）/ `GET /worldviews/shared`（列表含评分）/ `POST /worldviews/shared/{id}/rate`（评分）/ `POST /worldviews/shared/{id}/install`（安装）
 - 异步注意：访问 ORM 关系会触发 SQLAlchemy MissingGreenlet，改用批量查询
+
+---
+
+## 12. 已实现追加（v1.3 — 1v1 陪伴 + 角色卡 + 建模增强）
+
+### 12.1 1v1 陪伴对话（独立子系统）
+- `companion_engine.py` + `api/chat_routes.py`（前缀 `/chat`），会话用 `worldview="companion_v1"` 标记，不进入世界管线
+- 角色源：UserNPC 总库 + UserCard 角色卡合并；关系记忆存 `Memory(memory_type="companion")`
+- 主动搭话（nudge）：双阈值 + 冷却，`clinginess` 粘人度（粘人/适中/含蓄/高冷）映射搭话间隔
+- **开场白场景化**：不再机械复述固定文本——LLM 按关系类型 + 正在发生的场景生成开场，greeting 降级为风格参考
+- **system prompt 内嵌**：`COMPANION_SYSTEM_PROMPT` 为代码常量，不依赖任何世界观包文件
+
+### 12.2 角色卡（card-editor）
+- `card_editor.html`（`/card-editor`）+ `api/card_routes.py`（前缀 `/cards`）+ `modules/card_schema.py`（恋爱向字段树）
+- 结构化表单制作，不依赖 LLM 建模链；从总库预填（`/cards/import`）
+- **小说→角色卡**：`/cards/from-novel` 上传 txt（`depth` 档位控制读取范围）→ LLM 提取候选角色 → 抽样填卡。抽样按名字出现密度排序，常见短名更精准
+
+### 12.3 建模增强
+- **新建建模NPC 世界观下拉**：建模弹窗可手动切换世界观，加载对应提示库（姓名池/原型/quick-pick），为任意世界观建模
+- **建模链路跨世界观适配**：`UserNPC.worldview` 列记录归属，编辑/增量更新按归属 schema
+- **自定义金手指完整链路**：card_grid 自定义入口 + desc 显示兜底
+
+### 12.4 性能与健壮性
+- **DeepSeek 思考模式关闭**（`thinking:disabled`）：思维链此前占用大部分输出 token 导致叙事截断重试，关闭后叙事提速 5.5 倍（75s→17.7s）
+- **LLM 输出健壮性**：nearby_characters/offstage_npcs/player_relationships 畸形输出自动清洗
+- **SQLite 并发锁**：所有业务连接 busy_timeout=15s

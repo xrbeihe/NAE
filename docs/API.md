@@ -311,8 +311,14 @@ Token 有效期 7 天。前端存储在 `localStorage`，每次请求自动附�
 | PUT | `/cards/{card_id}` | `{name, card_data, tags}` | 整卡替换保存 |
 | DELETE | `/cards/{card_id}` | — | 删除（活跃会话持创建时快照，不受影响） |
 | POST | `/cards/import` | `{source_npc_id, name?}` | 从 UserNPC 总库预填（手动物理映射：basic→identity、personality、appearance） |
+| POST | `/cards/from-novel` | multipart：`file`(txt≤8MB) + `depth?` | 上传小说，LLM 提取候选角色列表 `{characters:[{name, reason}]}` |
+| POST | `/cards/from-novel/character` | multipart：`file` + `character` + `relationship_note?` + `name?` + `depth?` | 选定角色，读小说抽样片段 → LLM 填卡 → 存 UserCard |
+
+`depth` 读取深度：`快速/标准/深度/全文` 或数字（前 N 章）。快速=前 1/3、标准=前 2/3、深度=全部（默认标准）。
 
 **card_data 字段树**（`card_schema.CARD_SCHEMA`）：`identity`（姓名/性别/年龄/职业/人设/背景）、`appearance`（整体印象/脸型/眼眸/头发/身材/穿着）、`personality`（核心/价值观/怪癖/喜好）、`speech_style`、`initial_relationship`（初始关系）、`relationship_behavior`（关系行为）、`clinginess`（粘人度）、`opening`（开场白）。
+
+**开场白场景化**：`opening` 不再被机械复述。渲染进 prompt 时降级为「开场基调」——LLM 根据关系类型（主仆/恋人/陌生人等）+ 正在发生的场景生成开场（环境/姿态/神情/真实反应），greeting 仅作风格参考。第一轮对话注入场景块，禁止空泛招呼。
 
 ---
 

@@ -100,7 +100,15 @@ watch_backup.bat
 - 前端 `chat.html`（`/chat` 路由，主页「🌍 世界管理」右侧 💬 按钮进入）
 - **角色卡**：`card_editor.html`（`/card-editor`）+ `api/card_routes.py`（前缀 `/cards`）+ `modules/card_schema.py`（恋爱向字段树）。结构化表单制作，**不依赖 LLM 建模链**；支持从总库预填（`POST /cards/import`）
 - `UserCard` 表（`user_cards`），`card_data` 含 identity/appearance/personality/speech_style/initial_relationship/relationship_behavior/clinginess/opening
-- 测试：`test_companion.py`（会话/聊天/关系记忆/nudge 阈值）+ `test_cards.py`
+- **开场白场景化**：`opening` 不再机械复述——渲染时降级为「开场基调」，LLM 按关系类型（主仆/恋人/陌生人等）+ 正在发生的场景生成（环境/姿态/神情/真实反应），greeting 仅作风格参考；第一轮对话注入场景块，禁止空泛招呼
+- **小说→角色卡**：`POST /cards/from-novel`（上传 txt，`depth` 档位：快速/标准/深度/全文或章节数）→ LLM 提取候选角色 → `from-novel/character` 抽样片段填卡。`card_from_novel.py`：候选提取已移除硬编码书名，抽样按**名字出现密度**降序取最相关片段（常见短名更精准）
+- **system prompt 内嵌**：`COMPANION_SYSTEM_PROMPT` 内嵌为代码常量（不再依赖 companion_v1 包文件）
+- 测试：`test_companion.py`（会话/聊天/关系记忆/nudge 阈值）+ `test_cards.py`（含小说管线 + depth 档位）
+
+### 🧩 新建建模NPC 世界观选择（v1.3）
+- 建模弹窗新增**世界观下拉**：切换即时加载该世界观的提示库（姓名池/身份池/原型/quick-pick），提交用选中世界观建模——可在任意会话为任意世界观建模 NPC
+- 修复下拉只显示 xianxia_v1：打开弹窗时若世界观列表未加载，先 `loadWorldviews` 再填充
+- 移除 `companion_v1` 伪世界观包（1v1 会话内部标记，非真实作品；system prompt 已内嵌至 companion_engine，功能不受影响）
 
 ### 🔗 建模链路跨世界观适配（v1.3）
 - `UserNPC` 新增 `worldview` 列：记录建模时的归属世界观（无损迁移）。编辑弹窗按此渲染字段树、AI 增量更新按此取 schema，总库跨世界资产不再被错误地用 xianxia 模板读写
