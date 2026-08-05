@@ -920,6 +920,7 @@ async function switchSession(sid) {
     npcLibLoad();
     loadSessionList();
     if (data.player_panel) updateInfoPanel(data.player_panel);
+    if (data.info_panel) addInfoPanel(data.info_panel);  // 刷新/切换后重建信息栏
   } catch(e) { frontendLog('ERROR', 'Switch: ' + e.message); addMsg('system', '加载世界失败: ' + e.message); }
 }
 
@@ -1089,6 +1090,7 @@ async function applyCharacter() {
       if (data.monthly_income) parts.push('月入：' + data.monthly_income);
       addMsg('system', parts.join('\n'));
       if (data.player_panel) updateInfoPanel(data.player_panel);
+    if (data.info_panel) addInfoPanel(data.info_panel);  // 刷新/切换后重建信息栏
       // ── Show llm_introduction if present (world opening narration) ──
       if (data.llm_introduction) addMsg('system', data.llm_introduction);
       try { localStorage.setItem('ane_last_session', sessionId); } catch(e) {};

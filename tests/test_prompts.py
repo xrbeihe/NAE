@@ -357,3 +357,60 @@ async def test_turn_info_panel_passthrough_with_interacting_npc(db, client_a, mo
     assert "【正在交互人物】" not in panel
     # nearby_characters 仍是独立字段（前端点击标签用）
     assert r.json()["nearby_characters"][0]["name"] == "林清雪"
+
+
+@pytest.mark.asyncio
+async def test_info_panel_persistence_across_turns(db, client_a, mock_llm):
+    """第1轮输出的信息栏存入，第2轮构建 prompt 时整块回喂（持续性）。"""
+    from ane.game_engine import game_engine
+    from ane.modules.prompt_builder import assemble_system
+    info = await game_engine.create_session(db, user_id=USER_A, name="持续")
+    session_id = info["session_id"]
+
+    captured = {}
+    turn = {"n": 0}
+
+    async def _fake(prompt, model=None, **kwargs):
+        if kwargs.get("label") == "llm_main":
+            turn["n"] += 1
+            if turn["n"] == 1:
+                # 第1轮：建栏目
+                captured["turn1_has_feedback"] = "上一轮信息栏" in prompt
+                return json.dumps(
+                    {"narrative": "一段叙事。", "state_changes": [],
+                     "nearby_characters": [],
+                     "info_panel": "【主角】无名修士 ｜ 凡人\n【宗门贡献】今日接取清剿任务"},
+                    ensure_ascii=False,
+                )
+            else:
+                # 第2轮：应收到上一轮信息栏回喂
+                captured["turn2_has_feedback"] = "【上一轮信息栏】" in prompt
+                captured["turn2_has_content"] = "宗门贡献" in prompt
+                captured["turn2_has_content2"] = "今日接取清剿任务" in prompt
+                return json.dumps(
+                    {"narrative": "第二段叙事。", "state_changes": [],
+                     "nearby_characters": [],
+                     "info_panel": "【主角】无名修士 ｜ 凡人\n【宗门贡献】今日接取清剿任务；明日交任务"},
+                    ensure_ascii=False,
+                )
+        return json.dumps({"narrative": "x", "state_changes": [], "nearby_characters": []},
+                          ensure_ascii=False)
+
+    with patch.object(ModelAdapter, "generate", new_callable=AsyncMock, side_effect=_fake):
+        r1 = await client_a.post(f"/sessions/{session_id}/turn", json={"input": "建立栏目「宗门贡献」：记录贡献"})
+        assert r1.status_code == 200, r1.text
+        # 第1轮信息栏已持久化到 memory
+        from ane.modules.memory_manager import memory_manager
+        stored = await memory_manager.get_latest_info_panel(db, session_id)
+        assert "宗门贡献" in stored
+        assert "今日接取清剿任务" in stored
+
+        r2 = await client_a.post(f"/sessions/{session_id}/turn", json={"input": "继续"})
+        assert r2.status_code == 200, r2.text
+
+    assert captured.get("turn2_has_feedback") is True, "第2轮应收到上一轮信息栏回喂"
+    assert captured.get("turn2_has_content") is True, "回喂内容应含栏目名"
+    assert captured.get("turn2_has_content2") is True, "回喂内容应含具体条目"
+    # 第2轮输出的新信息栏继续持久化（覆盖）
+    stored2 = await memory_manager.get_latest_info_panel(db, session_id)
+    assert "明日交任务" in stored2

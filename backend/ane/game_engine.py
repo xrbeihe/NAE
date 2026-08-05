@@ -432,6 +432,14 @@ class GameEngine:
                         f"{len(ctx.custom_post_prompts)} post"
                     )
 
+        # ── Info panel 持续化：把上一轮信息栏整块回喂，让 LLM 基于它持续更新 ──
+        prev_panel = await memory_manager.get_latest_info_panel(db, session_id)
+        if prev_panel:
+            ctx.custom_pre_prompts.append(
+                "【上一轮信息栏】以下是你上一轮输出的完整信息栏，请在此基础上更新而非重建：\n" + prev_panel
+            )
+            logger.info("Info panel persisted: previous turn panel fed back to LLM")
+
         # Authoritative canon (IP worldviews) — injected from world_facts.json
         _wv_obj = get_worldview(worldview or DEFAULT_WORLDVIEW_ID)
         ctx.world_facts = _resolve_world_facts_for_timeline(
@@ -951,6 +959,8 @@ class GameEngine:
                     })
 
         # Step 17: Commit and return
+        # 持久化本轮 info_panel（供下一轮回喂持续更新）
+        await memory_manager.save_info_panel(db, session_id, turn_number, parsed.info_panel)
         await db.commit()
 
         # Fire background summary AFTER commit — avoids concurrent SQLite write

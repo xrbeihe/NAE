@@ -298,6 +298,56 @@ class MemoryManager:
             await db.delete(entry)
         await db.flush()
 
+    # ── Info panel (📋 信息栏 持续化) ──────────────────────────
+
+    async def save_info_panel(
+        self,
+        db: AsyncSession,
+        session_id: str,
+        turn_number: int,
+        content: str,
+    ) -> None:
+        """Store the latest info_panel (overwrite previous). One per session.
+
+        Only stores non-empty panels — a turn with no panel keeps the last one.
+        """
+        if not content or not content.strip():
+            return
+        # Remove previous panel entry so we keep only the latest
+        old = await db.execute(
+            select(Memory).where(
+                Memory.session_id == session_id,
+                Memory.memory_type == "info_panel",
+            )
+        )
+        for entry in old.scalars().all():
+            await db.delete(entry)
+        db.add(Memory(
+            session_id=session_id,
+            memory_type="info_panel",
+            content=content.strip(),
+            turn_number=turn_number,
+        ))
+        await db.flush()
+
+    async def get_latest_info_panel(
+        self,
+        db: AsyncSession,
+        session_id: str,
+    ) -> str:
+        """Return the most recent stored info_panel ('' if none)."""
+        result = await db.execute(
+            select(Memory)
+            .where(
+                Memory.session_id == session_id,
+                Memory.memory_type == "info_panel",
+            )
+            .order_by(Memory.turn_number.desc())
+            .limit(1)
+        )
+        row = result.scalar_one_or_none()
+        return row.content if row else ""
+
     # ── Compact summaries (llm_summary / 📕) ───────────────────
 
     async def add_summary_entry(

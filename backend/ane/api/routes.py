@@ -334,6 +334,8 @@ async def get_session(
         recommendations=recommendations,
         # 主角面板：前端悬浮球显示用（渲染逻辑与 game_engine step16 一致）
         player_panel=_build_player_panel(db, session, player),
+        # 最新信息栏：刷新/切换会话后前端重建显示
+        info_panel=await memory_manager.get_latest_info_panel(db, session_id),
     )
 
 

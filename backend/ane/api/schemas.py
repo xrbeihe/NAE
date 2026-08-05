@@ -65,6 +65,7 @@ class SessionSummary(BaseModel):
     prompts: list[ConversationEntry] = []
     recommendations: list[str] = []
     player_panel: str = ""  # 主角面板文本（前端悬浮球显示用）
+    info_panel: str = ""  # 最新信息栏（刷新/切换会话后前端重建显示）
 
 
 class DeleteSessionResponse(BaseModel):
