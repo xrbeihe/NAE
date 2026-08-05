@@ -119,7 +119,7 @@ async def extract_characters(
     if len(head) > _MAX_INPUT_CHARS:
         head = head[:_MAX_INPUT_CHARS]
 
-    prompt = f"""你是角色分析助手。以下是小说《别装乖》的开头若干章。
+    prompt = f"""你是角色分析助手。以下是用户上传的一篇小说（txt）的开头若干章。
 
 你的任务：列出这部小说的主要人物（主角、重要配角），供用户选择想还原哪个角色。
 
@@ -178,26 +178,41 @@ def _parse_character_list(raw: str) -> list[dict]:
 def sample_character(text: str, name: str, depth: str | int | None = None) -> str:
     """抽取目标角色的高相关片段。
 
-    策略：正文段落优先（含名字的完整段落提供人物上下文），台词作为点缀。
-    depth 控制遍历的章节范围（快速=前1/3，标准=前2/3，深度/全文=全部），
-    按章节遍历，每章取含名字的段落（去重），直至样本总量达目标。
+    策略：全量收集含名字的段落，按「名字出现密度」降序取最相关片段——
+    名字密集的段落更可能是该角色的关键场景（对常见短名尤其有效，
+    避免早期章节偶然出现即被优先选取）。台词作为正文不足时的点缀。
     """
     chapters = split_chapters(text)
     _, sample_ratio = resolve_depth(depth)
     limit = max(1, int(len(chapters) * sample_ratio))
     scan = chapters[:limit]
-    samples: list[str] = []
+    candidates: list[str] = []
     for ch in scan:
         if name not in ch:
             continue
-        # 含名字的完整段落（正文上下文）
         paras = [p.strip() for p in re.split(r"\n+", ch) if name in p and p.strip()]
         for p in paras:
             if len(p) >= 40:  # 跳过过短的碎片
-                samples.append(p[:_SAMPLE_CHARS])
+                candidates.append(p[:_SAMPLE_CHARS])
+
+    # 按名字出现密度降序（名字出现越密集 → 越可能是该角色主场景）
+    def _density(p: str) -> int:
+        return p.count(name)
+
+    candidates.sort(key=_density, reverse=True)
+
+    # 去重（保留首次出现）+ 截断
+    seen = set()
+    samples: list[str] = []
+    for s in candidates:
+        if s in seen:
+            continue
+        seen.add(s)
+        samples.append(s)
         if len(samples) >= _MAX_SAMPLES:
             break
-    # 如果正文段落不足，补台词
+
+    # 正文段落不足，补台词
     if len(samples) < 3:
         for ch in scan:
             if name not in ch:
@@ -209,16 +224,15 @@ def sample_character(text: str, name: str, depth: str | int | None = None) -> st
                 break
     if not samples:
         return f"（未在文中找到「{name}」的直接片段，可能为次要角色）"
-    # 去重 + 合并截断
-    seen = set()
-    uniq = []
+    # 合并截断
+    total = 0
+    merged = []
     for s in samples:
-        if s not in seen:
-            seen.add(s)
-            uniq.append(s)
-        if sum(len(x) for x in uniq) >= _MAX_INPUT_CHARS:
+        if total + len(s) > _MAX_INPUT_CHARS:
             break
-    return "\n\n".join(uniq)[:_MAX_INPUT_CHARS]
+        merged.append(s)
+        total += len(s)
+    return "\n\n".join(merged)
 
 
 # ── LLM 填卡 ────────────────────────────────────────────────
