@@ -511,6 +511,7 @@ async def process_turn(
         important_npcs_panel=turn_result.important_npcs_panel,
         modeled_npcs=turn_result.modeled_npcs,
         recommendations=turn_result.recommendations,
+        info_panel=turn_result.info_panel,
     )
 
 @router.get("/{session_id}/templates")

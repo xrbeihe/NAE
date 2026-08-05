@@ -35,7 +35,7 @@ call :KILL_PORT
 
 echo [2/2] Starting backend (waiting for ready)...
 cd backend
-set ANE_RELOAD=1
+set ANE_RELOAD=0
 set ANE_PORT=8002
 start /b "" "%~dp0.venv\Scripts\python.exe" -m ane.main
 cd ..
@@ -65,7 +65,7 @@ echo Killing old backend...
 call :KILL_PORT
 echo Starting backend...
 cd backend
-set ANE_RELOAD=1
+set ANE_RELOAD=0
 set ANE_PORT=8002
 "%~dp0.venv\Scripts\python.exe" -m ane.main
 cd ..
@@ -118,7 +118,7 @@ goto MENU
 
 :KILL_PORT
 for %%p in (8002) do (
-    for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":%%p " ^| findstr LISTENING') do (
+    for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":%%p " ^| findstr "LISTENING"') do (
         taskkill /f /pid %%a >nul 2>&1
     )
 )

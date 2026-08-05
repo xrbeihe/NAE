@@ -99,6 +99,7 @@ class TurnResponse(BaseModel):
     important_npcs_panel: str = ""
     modeled_npcs: list[dict] = []
     recommendations: list[str] = []
+    info_panel: str = ""  # 独立信息区：主角信息 + 附近人物（区别于正文的文本区域）
 
 
 # ── Character Creation ─────────────────────────────────────────

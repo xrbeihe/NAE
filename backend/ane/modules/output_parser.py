@@ -25,6 +25,7 @@ class ParsedOutput:
     recommendations: list[str] = field(default_factory=list)  # 10 recs from llm_main
     offstage_npcs: list[dict] = field(default_factory=list)   # NPCs named in narrative but not revealed to player
     player_relationships: list[dict] = field(default_factory=list)  # named NPCs with player relationship
+    info_panel: str = ""  # 独立信息区：主角信息 + 附近人物等，一整个区别于正文的文本区域
 
 
 # ── Robust list-of-dicts cleaning ──────────────────────────────
@@ -81,6 +82,15 @@ def _as_str_list(value) -> list[str]:
         if isinstance(item, str) and item.strip():
             out.append(item.strip())
     return out
+
+
+def _as_str(value) -> str:
+    """Normalize a parsed LLM string field to str (robust vs non-str)."""
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, (int, float)):
+        return str(value)
+    return ""
 
 
 # ── Balanced brace JSON extraction ──────────────────────────────
@@ -242,6 +252,7 @@ def _parse_json(json_str: str, fallback_raw: str, event_types: set[str] | None =
         recommendations=_as_str_list(raw_recs),
         offstage_npcs=_as_dict_list(raw_offstage),
         player_relationships=_as_dict_list(raw_player_rels),
+        info_panel=_as_str(data.get("info_panel", "")),
     )
 
 

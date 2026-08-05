@@ -55,8 +55,7 @@ _MODEL_TEMPLATE = {
               "cultivation": "", "identity": "", "faction": "", "position": ""},
     "appearance": {
         "overall_impression": "", "body_proportion": "", "aura": "",
-        "face": {"shape": "", "features": "", "eyes": "", "eyebrows": "",
-                 "nose": "", "lips": "", "expression_habit": ""},
+        "face": {"features": ""},
         "skin": {"color": "", "luster": "", "fineness": ""},
         "hair": {"length": "", "style": "", "color": "", "ornament": ""},
         "torso": "",
@@ -67,17 +66,14 @@ _MODEL_TEMPLATE = {
         "feet": {"shape": "", "size": "", "barefoot": False},
         "hands": {"fingers": "", "back": ""}
     },
-    "voice": {"timbre": "", "speed": "", "volume": ""},
-    "attire": {"clothing": "", "jewelry": ""},
-    "equipment": [{"name": "", "description": "", "position": ""}],
-    "behavior": {"stance": "", "sitting": "", "gait": "", "smile": "",
-                 "mannerisms": ""},
+    "voice": {"characteristics": ""},
+    "attire": {"clothing": "", "accessories": ""},
+    "behavior": {"expression": "", "habits": ""},
     "speech_style": {"word_habits": "", "particles": "", "speech_rhythm": "", "catchphrase": "", "battle_cry": "",
                      "address_player": "", "address_others": "", "when_angry": ""},
     "combat_style": {"preference": "", "weapon_usage": "",
                      "spirit_power_signature": ""},
-    "personality": {"core": "", "values": "", "principles": "",
-                    "fears": "", "likes": "", "obsession": ""},
+    "personality": {"core": "", "fears": "", "likes": ""},
     "background": {"history": "", "major_events": "", "faction_affiliation": "", "family": ""},
     "cultivation": {"spiritual_root": "", "special_constitution": "", "techniques": "",
                     "divine_powers": "", "ring_storage": "", "wealth": ""},
@@ -156,6 +152,7 @@ class TurnResult:
     modeled_npcs: list[dict] = field(default_factory=list)
     prompt: str = ""
     recommendations: list[str] = field(default_factory=list)
+    info_panel: str = ""  # 独立信息区：主角信息 + 附近人物，一整个区别于正文的文本区域
 
 
 # ── GameEngine ─────────────────────────────────────────────────
@@ -919,36 +916,27 @@ class GameEngine:
             else:
                 player_panel_str += "（无玩家数据）\n"
 
-        # Important NPCs panel
-        all_npcs = await npc_manager.get_by_session(db, session_id)
-        important_npcs = [n for n in all_npcs if n.is_important]
-        if important_npcs:
-            panel_parts = ["【重要人物】"]
-            for n in important_npcs:
-                n_attrs = dict(n.long_term_state or {})
-                # Check for NPC model data
-                model_data = n_attrs.get("model", {})
-                panel_parts.append(
-                    f"⭐ {n.name} ｜ {n.identity or '未知'} ｜ {n.cultivation}\n"
-                )
-                if n.personality:
-                    panel_parts.append(f"  性格：{n.personality}")
-                if model_data and isinstance(model_data, dict) and model_data.get("model_version"):
-                    from ane.modules.npc_modeler import render_model_for_prompt as _render_model
-                    rendered = _render_model(model_data, include_nsfw=False)
-                    if rendered:
-                        # compact: only first few non-empty lines
-                        compact_lines = [ln for ln in rendered.splitlines() if ln.strip()][:6]
-                        if compact_lines:
-                            panel_parts.append("  " + "\n  ".join(compact_lines))
-                if n_attrs.get("summary"):
-                    panel_parts.append(f"  备注：{n_attrs['summary']}")
-                panel_parts.append("")
-            panel_str = "\n".join(panel_parts).strip()
+        # Step 16: Build player and important NPC panels for frontend display
+        from ane.panels import render_player_panel
+        from ane.worldview import get as get_worldview, DEFAULT_WORLDVIEW_ID
+        _wv = get_worldview(worldview or DEFAULT_WORLDVIEW_ID)
+        _panel_spec = _wv.panel_spec or {}
+        if _panel_spec:
+            player_panel_str = render_player_panel(player, _panel_spec)
         else:
-            panel_str = "【重要人物】\n（无）"
+            # No panel spec (missing pack) — minimal fallback
+            player_panel_str = "【主角面板】\n"
+            if player:
+                p_attrs = dict(player.attributes or {}) if isinstance(player.attributes, dict) else {}
+                player_panel_str += " ｜ ".join([
+                    f"姓名：{player.name}",
+                    f"位置：{player.location or '未知'}",
+                ])
+            else:
+                player_panel_str += "（无玩家数据）\n"
 
         # ── Build modeled_npcs: NPCs with model data mentioned in this turn's input ──
+        all_npcs = await npc_manager.get_by_session(db, session_id)
         modeled_npcs = []
         for n in all_npcs:
             if n.name and n.name in user_input:
@@ -983,9 +971,10 @@ class GameEngine:
             htem_directory="",  # HTEM removed
             prompt=prompt,
             player_panel=player_panel_str,
-            important_npcs_panel=panel_str,
+            important_npcs_panel="",
             modeled_npcs=modeled_npcs,
             recommendations=recommendations,
+            info_panel=parsed.info_panel,
         )
 
     # ── Background llm_summary (fires after commit to avoid SQLite lock) ──

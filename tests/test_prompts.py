@@ -278,3 +278,82 @@ def test_build_skips_blank_custom_prompts():
     p = PromptBuilder().build(ctx)
     assert "【用户前提示词】" not in p
     assert "【用户后提示词】" not in p
+
+
+# ── info_panel 独立信息区 ──────────────────────────────────────
+
+def test_parse_info_panel():
+    """LLM 输出 info_panel → 完整解析进 ParsedOutput。"""
+    from ane.modules.output_parser import parse
+    raw = ('{"narrative": "正文", "state_changes": [], '
+           '"info_panel": "[位置] 青云山·山门\\n[主角] 无名修士 ｜ 凡人\\n[附近] 张三（路人）"}')
+    p = parse(raw)
+    assert p.info_panel.startswith("[位置]")
+    assert "张三" in p.info_panel
+    assert p.narrative == "正文"
+
+
+def test_parse_info_panel_missing_and_malformed():
+    """无 info_panel 字段 / 非字符串 → 默认空串，不报错。"""
+    from ane.modules.output_parser import parse
+    assert parse('{"narrative": "正文"}').info_panel == ""
+    assert parse('{"narrative": "正文", "info_panel": {"a": 1}}').info_panel == ""
+
+
+@pytest.mark.asyncio
+async def test_turn_returns_info_panel(db, client_a, mock_llm):
+    """turn 响应的 info_panel 原样传回前端。"""
+    from ane.game_engine import game_engine
+    info = await game_engine.create_session(db, user_id=USER_A, name="信息区")
+    session_id = info["session_id"]
+    info_text = "[位置] 青云山·山门\n[主角] 无名修士 ｜ 凡人\n[附近] 张三（路人）"
+
+    async def _fake(prompt, model=None, **kwargs):
+        if kwargs.get("label") == "llm_main":
+            return json.dumps(
+                {"narrative": "一段叙事。", "state_changes": [],
+                 "nearby_characters": [], "info_panel": info_text},
+                ensure_ascii=False,
+            )
+        return json.dumps({"narrative": "x", "state_changes": [], "nearby_characters": []},
+                          ensure_ascii=False)
+
+    with patch.object(ModelAdapter, "generate", new_callable=AsyncMock, side_effect=_fake):
+        r = await client_a.post(f"/sessions/{session_id}/turn", json={"input": "测试"})
+    assert r.status_code == 200, r.text
+    assert r.json()["info_panel"] == info_text
+
+
+@pytest.mark.asyncio
+async def test_turn_info_panel_passthrough_with_interacting_npc(db, client_a, mock_llm):
+    """info_panel 由 LLM 输出并原样透传——「正在交互人物」来自 LLM 自主判断（可能来自附近人物）。"""
+    from ane.game_engine import game_engine
+    info = await game_engine.create_session(db, user_id=USER_A, name="交互人物")
+    session_id = info["session_id"]
+
+    # LLM 自主在 info_panel 里列出正在交互人物（可能来自 nearby_characters）
+    info_text = ("[位置] 青云山·山门\n"
+                 "[主角] 无名修士 ｜ 凡人\n"
+                 "[正在交互] 林清雪（师姐）—— 正在与你交谈")
+
+    async def _fake(prompt, model=None, **kwargs):
+        if kwargs.get("label") == "llm_main":
+            return json.dumps(
+                {"narrative": "一段叙事。", "state_changes": [],
+                 "nearby_characters": [{"name": "林清雪", "identity": "师姐"}],
+                 "info_panel": info_text},
+                ensure_ascii=False,
+            )
+        return json.dumps({"narrative": "x", "state_changes": [], "nearby_characters": []},
+                          ensure_ascii=False)
+
+    with patch.object(ModelAdapter, "generate", new_callable=AsyncMock, side_effect=_fake):
+        r = await client_a.post(f"/sessions/{session_id}/turn", json={"input": "测试"})
+    assert r.status_code == 200, r.text
+    panel = r.json()["info_panel"]
+    # LLM 原样透传，引擎不追加/不修改
+    assert panel == info_text
+    # 引擎不再硬编码「重要人物」合并
+    assert "【正在交互人物】" not in panel
+    # nearby_characters 仍是独立字段（前端点击标签用）
+    assert r.json()["nearby_characters"][0]["name"] == "林清雪"

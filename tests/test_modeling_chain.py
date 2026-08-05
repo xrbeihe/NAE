@@ -354,3 +354,39 @@ async def test_turn_without_model_data_no_debut(db, session_with_player, mock_ll
 
     assert "建模登场" not in result.prompt       # no model → no debut
     assert "陆寒渊" in result.prompt
+
+
+# ── _compact_model (瘦身合并) ────────────────────────────────
+
+def test_compact_model_merges_face_subfields():
+    """face 多子项合并为单 features 字段，减少渲染行数。"""
+    from ane.modules.npc_modeler import _compact_model
+    md = {
+        "model_version": "1.1",
+        "appearance": {"face": {"shape": "鹅蛋脸", "eyes": "丹凤眼", "lips": "薄唇"}},
+    }
+    out = _compact_model(md)
+    face = out["appearance"]["face"]
+    assert set(face.keys()) == {"features"}
+    assert "鹅蛋脸" in face["features"]
+    assert "丹凤眼" in face["features"]
+
+
+def test_compact_model_merges_voice_to_single():
+    """voice 三合一为 characteristics。"""
+    from ane.modules.npc_modeler import _compact_model
+    md = {"model_version": "1.1", "voice": {"timbre": "清越", "speed": "不急不缓", "volume": "低"}}
+    out = _compact_model(md)
+    assert set(out["voice"].keys()) == {"characteristics"}
+    assert "清越" in out["voice"]["characteristics"]
+
+
+def test_compact_model_merges_personality_core():
+    """values/principles 合并进 core。"""
+    from ane.modules.npc_modeler import _compact_model
+    md = {"model_version": "1.1", "personality": {"core": "外冷内热", "values": "宗门大义", "likes": "雪景"}}
+    out = _compact_model(md)
+    pers = out["personality"]
+    assert "core" in pers and "values" not in pers and "principles" not in pers
+    assert "宗门大义" in pers["core"]
+    assert pers["likes"] == "雪景"

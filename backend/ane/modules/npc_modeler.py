@@ -36,13 +36,15 @@ _FIELD_LABELS = {
     "feet": "脚部", "barefoot": "赤足", "hands": "手部", "fingers": "手指", "back": "手背",
     # voice
     "voice": "声音", "timbre": "音色", "speed": "语速", "volume": "音量",
+    "characteristics": "声音特征",
     # attire
-    "attire": "穿着", "clothing": "服饰", "jewelry": "首饰",
+    "attire": "穿着", "clothing": "服饰", "jewelry": "首饰", "accessories": "配饰",
+    "wardrobe": "穿着", "usual_style": "日常风格", "tattoos": "纹身",
     # equipment
     "equipment": "装备", "description": "描述", "position": "部位",
     # behavior
     "behavior": "行为特征", "stance": "站姿", "sitting": "坐姿", "gait": "走路",
-    "smile": "笑容", "mannerisms": "小动作",
+    "smile": "笑容", "mannerisms": "小动作", "expression": "常见表情", "habits": "习惯",
     # speech_style
     "speech_style": "说话风格", "word_habits": "用语习惯", "particles": "语气词",
     "speech_rhythm": "说话节奏", "catchphrase": "口头禅", "battle_cry": "战吼",
@@ -79,6 +81,119 @@ _FIELD_LABELS = {
     "desire_toward_target": "对互动目标性渴望程度", "rejection_toward_target": "对互动目标性拒绝程度",
     "male_genital": "♂", "female_genital": "♀",
 }
+
+def _compact_model(data: dict) -> dict:
+    """Compact a model dict into the slim schema (reduce token usage).
+
+    Merges known multi-subfield sections into single fields, matching the
+    optimized schemas (face/voice single field, behavior→expression+habits,
+    personality→core/fears/likes, attire→clothing+accessories).
+    Idempotent — runs on any version, applies to both stored and fresh data.
+    """
+    # ── equipment: removed from modeling (装备改由信息栏输出) ──
+    data.pop("equipment", None)
+
+    # ── appearance.face: subfields → single "features" ──
+    app = data.get("appearance")
+    if isinstance(app, dict):
+        face = app.get("face")
+        if isinstance(face, dict) and len(face) > 1:
+            parts = []
+            for k, v in face.items():
+                if v in (None, "", False, 0):
+                    continue
+                label = _FIELD_LABELS.get(k, k)
+                parts.append(f"{label}：{v}" if k not in ("features", "shape") else str(v))
+            merged = "；".join(parts)
+            if merged:
+                app["face"] = {"features": merged}
+            else:
+                app["face"] = {"features": ""}
+
+    # ── voice: subfields → single "characteristics" ──
+    voice = data.get("voice")
+    if isinstance(voice, dict) and len(voice) > 1:
+        parts = []
+        for k, v in voice.items():
+            if v in (None, "", False, 0):
+                continue
+            label = _FIELD_LABELS.get(k, k)
+            parts.append(f"{label}：{v}" if k != "characteristics" else str(v))
+        merged = "；".join(parts)
+        data["voice"] = {"characteristics": merged} if merged else {"characteristics": ""}
+
+    # ── behavior: stance/sitting/gait/mannerisms/tick/etc → expression + habits ──
+    beh = data.get("behavior")
+    if isinstance(beh, dict):
+        expr = beh.get("expression") or beh.get("smile") or ""
+        if not expr:
+            # merge smile + expression_habit into expression
+            smile = beh.pop("smile", "")
+            expr_habit = beh.pop("expression_habit", "")
+            expr = "；".join(x for x in [smile, expr_habit] if x)
+        habits_parts = []
+        for k in ("stance", "sitting", "gait", "mannerisms", "tick", "quirks",
+                  "posture", "phone_habits", "table_manners", "habits"):
+            v = beh.pop(k, "")
+            if v in (None, "", False, 0):
+                continue
+            label = _FIELD_LABELS.get(k, k)
+            habits_parts.append(f"{label}：{v}")
+        new_beh = {}
+        if expr:
+            new_beh["expression"] = expr
+        if habits_parts:
+            new_beh["habits"] = "；".join(habits_parts)
+        data["behavior"] = new_beh
+
+    # ── personality: merge values/principles/quirks/pet_peeves/vices/desires etc into core ──
+    pers = data.get("personality")
+    if isinstance(pers, dict):
+        core = pers.get("core") or ""
+        merge_keys = ("values", "principles", "bottom_line", "quirks", "pet_peeves",
+                      "vices", "desires", "will_of_fire", "ninja_way", "dream",
+                      "way_of_life", "obsession")
+        extra = []
+        for k in merge_keys:
+            v = pers.pop(k, "")
+            if v in (None, "", False, 0):
+                continue
+            label = _FIELD_LABELS.get(k, k)
+            extra.append(f"{label}：{v}")
+        if extra:
+            pers["core"] = (core + "；" if core else "") + "；".join(extra)
+        else:
+            pers["core"] = core
+
+    # ── attire: armor/heraldry/signature_item/outerwear/tattoos etc → accessories ──
+    for attire_key in ("attire", "wardrobe"):
+        at = data.get(attire_key)
+        if not isinstance(at, dict):
+            continue
+        cloth = at.get("clothing") or at.get("usual_style") or at.get("dress_sense") or ""
+        acc_parts = []
+        for k in ("accessories", "jewelry", "armor", "heraldry", "signature_item",
+                  "outerwear", "tattoos", "usual_style"):
+            if k in ("clothing", "accessories", "jewelry"):
+                continue
+            v = at.pop(k, "")
+            if v in (None, "", False, 0):
+                continue
+            label = _FIELD_LABELS.get(k, k)
+            acc_parts.append(f"{label}：{v}")
+        if at.get("jewelry"):
+            acc_parts.append(str(at.pop("jewelry")))
+        if at.get("accessories"):
+            acc_parts.insert(0, str(at.pop("accessories")))
+        new_at = {}
+        if cloth:
+            new_at["clothing"] = cloth
+        if acc_parts:
+            new_at["accessories"] = "；".join(acc_parts)
+        data[attire_key] = new_at
+
+    return data
+
 
 def migrate_model_v1_0(data: dict) -> dict:
     """Migrate v1.0 model data to v1.1 (merged field structure).
@@ -228,6 +343,7 @@ def render_model_for_prompt(model: dict, include_nsfw: bool = False, schema: dic
     then fall back to the raw field name. Automatically migrates v1.0 data.
     """
     model = migrate_model_v1_0(model)
+    model = _compact_model(model)
     lines = []
     labels = _FIELD_LABELS
 

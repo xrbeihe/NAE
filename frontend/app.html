@@ -1157,9 +1157,9 @@ async function sendTurn() {
     addMsg('ai', td.narrative, _currentTurnNumber); _currentTurnNumber++;
     if (_pending_world_intro) { addMsg('system', _pending_world_intro); _pending_world_intro = null; }
     if (td.is_system_command && td.system_response) addMsg('system', td.system_response);
+    if (td.info_panel) addInfoPanel(td.info_panel);
     if (td.nearby_characters && td.nearby_characters.length) addNearbyCards(td.nearby_characters);
     if (td.player_panel) updateInfoPanel(td.player_panel);
-    if (td.important_npcs_panel) addMsg('system', td.important_npcs_panel);
     if (td.modeled_npcs && td.modeled_npcs.length) renderModeledNpcs(td.modeled_npcs);
     updateRecs(td.recommendations); npcLibLoad();
     if (td.npc_updates && td.npc_updates.length) addMsg('system', '【世界动态】\n' + td.npc_updates.map(function(u) { return '• ' + u.description; }).join('\n'));
@@ -1446,6 +1446,19 @@ function showSummaryPopup(btn, turnStr) {
 function hideSummaryPopup() { document.querySelectorAll('.summary-popup').forEach(function(e) { e.remove(); }); }
 
 // ── Nearby Characters ──
+function addInfoPanel(text) {
+  if (!text || !text.trim()) return;
+  var container = document.createElement('div');
+  container.style.cssText = 'align-self:stretch;margin-top:4px;max-width:100%;';
+  var header = document.createElement('div'); header.textContent = '📋 信息栏'; header.style.cssText = 'font-size:11px;color:var(--accent);margin-bottom:4px;font-weight:bold;';
+  var box = document.createElement('div');
+  box.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:6px;padding:8px 12px;font-size:12px;color:var(--text);line-height:1.6;white-space:pre-wrap;';
+  box.textContent = text; // 纯文本渲染 — LLM 输出信息区，防 XSS
+  container.appendChild(header); container.appendChild(box);
+  document.getElementById('chat').appendChild(container);
+  document.getElementById('chat').scrollTop = document.getElementById('chat').scrollHeight;
+}
+
 function addNearbyCards(characters) {
   var container = document.createElement('div');
   container.style.cssText = 'align-self:stretch;margin-top:4px;max-width:100%;';
@@ -1891,7 +1904,8 @@ var _DEFAULT_QUICK_PICKS = [
 // 读取当前世界观包的提示库数据（charTemplates.npc_templates）。
 // 包内字段为数组时直接用（空数组 = 作者明确"无此项"，前端隐藏区块）；
 // 字段缺失/非数组时才回退到硬编码缺省值。
-function _promptLib(key, fallback) {
+// 注意：不能命名为 _promptLib——与🛠提示词库的数组变量同名会互相覆盖。
+function _promptTpl(key, fallback) {
   var nt = (charTemplates && charTemplates.npc_templates) || null;
   var val = (nt && typeof nt[key] === 'object' && Array.isArray(nt[key])) ? nt[key] : null;
   if (val !== null) return val;
@@ -1902,7 +1916,7 @@ function renderPromptSections() {
   var c = document.getElementById('prompt-sections'); if (!c) return;
   var h = '';
   // 角色模板：优先 pack 的 core_archetypes，缺省时用修仙兜底
-  var archetypes = _promptLib('core_archetypes', _promptArchetypes);
+  var archetypes = _promptTpl('core_archetypes', _promptArchetypes);
   h += '<div style="margin-bottom:10px"><div style="font-size:11px;color:var(--accent-dim);margin-bottom:4px;font-weight:bold">🎭 角色模板</div>';
   archetypes.forEach(function(a, i) {
     var name = a.name || a.identity || ('模板' + (i + 1));
@@ -1919,11 +1933,11 @@ function renderPromptSections() {
   var quickItems = [];
   if (customSections && customSections.length) {
     quickItems = customSections.map(function(s) {
-      return {title: s.label || s.title || '选项', data: _promptLib(s.key, [])};
+      return {title: s.label || s.title || '选项', data: _promptTpl(s.key, [])};
     });
   } else {
     quickItems = _DEFAULT_QUICK_PICKS.map(function(q) {
-      return {title: q.title, data: _promptLib(q.key, q.data)};
+      return {title: q.title, data: _promptTpl(q.key, q.data)};
     });
   }
   quickItems.forEach(function(q) {
@@ -1970,13 +1984,13 @@ document.getElementById('create-npc-custom-tag').addEventListener('keydown', fun
 });
 
 function randomRollNpc() {
-  var surnames = _promptLib('surnames', _promptSurnames);
-  var givenF = _promptLib('given_names_female', _promptGivenFemale);
-  var givenM = _promptLib('given_names_male', _promptGivenMale);
+  var surnames = _promptTpl('surnames', _promptSurnames);
+  var givenF = _promptTpl('given_names_female', _promptGivenFemale);
+  var givenM = _promptTpl('given_names_male', _promptGivenMale);
   var surname = surnames[Math.floor(Math.random() * surnames.length)];
   var given = (Math.random() > 0.4 ? givenF : givenM)[Math.floor(Math.random() * (Math.random() > 0.4 ? givenF.length : givenM.length))];
   var name = surname + given;
-  var cult = _promptLib('realms', _promptCultivations);
+  var cult = _promptTpl('realms', _promptCultivations);
   var cultText = (cult && cult.length) ? cult[Math.floor(Math.random() * cult.length)] : '';
   _promptRolledNames = [name];
   var chipArea = document.getElementById('roll-name-chips');
@@ -1984,7 +1998,7 @@ function randomRollNpc() {
 }
 
 function applyPromptArchetype(i) {
-  var archetypes = _promptLib('core_archetypes', _promptArchetypes);
+  var archetypes = _promptTpl('core_archetypes', _promptArchetypes);
   var a = archetypes[i];
   if (!a) return;
   var text = a.desc || (a.identity ? (a.identity + (a.personality ? '，' + a.personality : '')) : '') || (a.personality || '');
