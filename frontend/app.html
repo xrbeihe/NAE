@@ -552,6 +552,15 @@
   </div>
   <div style="overflow-y:auto;padding:12px 16px;flex:1;min-height:0">
     <div style="font-size:11px;color:var(--accent-dim);margin-bottom:8px;text-align:center">一套提示词 = 前提示词 + 后提示词，可留空。勾选启用（单选）</div>
+    <!-- Token 上限滑动条 -->
+    <div style="border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin-bottom:10px;background:var(--input-bg)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span style="font-size:11px;color:var(--accent-dim)">🔢 单轮输出上限</span>
+        <span id="max-token-label" style="font-size:12px;color:var(--accent);font-weight:bold">4096</span>
+      </div>
+      <input type="range" id="max-token-slider" min="512" max="8192" step="256" value="4096" oninput="maxTokenSlider(this.value)" style="width:100%;accent-color:var(--accent);cursor:pointer">
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--accent-dim)"><span>512</span><span>8192</span></div>
+    </div>
     <div id="prompt-lib-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
     <div id="prompt-lib-editor" style="display:none;border:1px solid var(--border);border-radius:6px;padding:8px;margin-bottom:8px">
       <input id="prompt-lib-name" placeholder="提示词名称" maxlength="50" oninput="promptLibMarkDirty()" style="width:100%;box-sizing:border-box;background:var(--input-bg);border:1px solid var(--border);color:var(--text);padding:6px;border-radius:4px;font-size:12px;font-family:inherit;margin-bottom:6px">
@@ -1222,7 +1231,7 @@ async function sendTurn() {
   var wcParts = wcVal.split('-');
   wcMin = parseInt(wcParts[0]) || 500;
   wcMax = parseInt(wcParts[1]) || 1200;
-  var tr = await apiFetch('/sessions/' + sessionId + '/turn', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({input: text, model: selectedModel, load_model_data: document.getElementById('load-model-check').checked, word_count_min: wcMin, word_count_max: wcMax, prompt_ids: getEnabledPromptIds()}) });
+  var tr = await apiFetch('/sessions/' + sessionId + '/turn', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({input: text, model: selectedModel, load_model_data: document.getElementById('load-model-check').checked, word_count_min: wcMin, word_count_max: wcMax, prompt_ids: getEnabledPromptIds(), max_tokens: getMaxTokens()}) });
     var td = await tr.json();
     if (td.detail) { addMsg('system', '天道运转出错: ' + td.detail); sb.disabled = false; ld.classList.remove('active'); return; }
     addMsg('ai', td.narrative, _currentTurnNumber); _currentTurnNumber++;
@@ -1304,8 +1313,28 @@ function savePromptLibCache() {
 function getEnabledPromptIds() {
   return getPromptLib().filter(function(p) { return p.enabled; }).map(function(p) { return p.id; });
 }
+
+// ── Token 上限滑动条（🛠 弹窗）──
+var _maxTokensDefault = 4096;
+function getMaxTokens() {
+  var v = _maxTokensDefault;
+  try { var saved = parseInt(localStorage.getItem('ane_max_tokens')); if (saved >= 512 && saved <= 8192) v = saved; } catch(e) {}
+  return v;
+}
+function maxTokenSlider(v) {
+  var val = parseInt(v) || _maxTokensDefault;
+  try { localStorage.setItem('ane_max_tokens', val); } catch(e) {}
+  document.getElementById('max-token-label').textContent = val;
+}
+function initMaxTokenSlider() {
+  var sl = document.getElementById('max-token-slider');
+  if (!sl) return;
+  sl.value = getMaxTokens();
+  document.getElementById('max-token-label').textContent = getMaxTokens();
+}
 function showPromptLibPopup(e) {
   promptLibLoad();
+  initMaxTokenSlider();
   document.getElementById('prompt-lib-overlay').style.display = 'block';
   document.getElementById('prompt-lib-popup').style.display = 'flex';
   if (e && e.stopPropagation) e.stopPropagation();

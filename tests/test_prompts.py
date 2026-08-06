@@ -448,3 +448,29 @@ async def test_custom_personality_not_leaking_marker(db, client_a):
     assert attrs.get("personality") == "我的自定义性格：坚韧内敛"
     assert attrs.get("personality_custom") == "我的自定义性格：坚韧内敛"
     assert "__custom__" not in str(attrs.get("personality"))
+
+
+# ── max_tokens 透传（🛠 滑动条自定义输出上限）───────────────
+
+@pytest.mark.asyncio
+async def test_max_tokens_passthrough(db, client_a, mock_llm):
+    """turn 请求的 max_tokens 透传给 LLM 调用。"""
+    from ane.game_engine import game_engine
+    info = await game_engine.create_session(db, user_id=USER_A, name="token测试")
+    session_id = info["session_id"]
+
+    captured = {}
+    async def _fake(prompt, model=None, **kwargs):
+        if kwargs.get("label") == "llm_main":
+            captured["max_tokens"] = kwargs.get("max_tokens")
+        return json.dumps(
+            {"narrative": "一段叙事。", "state_changes": [], "nearby_characters": []},
+            ensure_ascii=False,
+        )
+    with patch.object(ModelAdapter, "generate", new_callable=AsyncMock, side_effect=_fake):
+        r = await client_a.post(
+            f"/sessions/{session_id}/turn",
+            json={"input": "测试", "max_tokens": 8192},
+        )
+    assert r.status_code == 200, r.text
+    assert captured.get("max_tokens") == 8192

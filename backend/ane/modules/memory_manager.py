@@ -149,17 +149,20 @@ class MemoryManager:
     async def get_conversation(
         self, db: AsyncSession, session_id: str
     ) -> list[Memory]:
-        """Return recent compressed conversation for prompt injection."""
+        """Return recent compressed conversation for prompt injection.
+
+        Strictly the latest SHORTMEMORY_WINDOW_SIZE (5) entries, newest last.
+        """
         result = await db.execute(
             select(Memory)
             .where(
                 Memory.session_id == session_id,
                 Memory.memory_type == "shortmemory",
             )
-            .order_by(Memory.turn_number.asc())
+            .order_by(Memory.turn_number.desc())
             .limit(SHORTMEMORY_WINDOW_SIZE)
         )
-        return list(result.scalars().all())
+        return list(reversed(result.scalars().all()))
 
     async def get_full_conversation(
         self, db: AsyncSession, session_id: str
@@ -261,20 +264,20 @@ class MemoryManager:
         )
         all_memories = list(result.scalars().all())
 
-        # Separate: entries that mention important NPCs are protected
-        protected = []
-        trimmable = []
-        for m in all_memories:
-            if any(name in (m.content or "") for name in important_names):
-                protected.append(m)
-            else:
-                trimmable.append(m)
+        # Keep the most recent `keep` entries total — protected (important-NPC)
+        # entries are preferred but still count toward the window, so old ones
+        # beyond the window get trimmed regardless of protection.
+        protected = [m for m in all_memories if any(name in (m.content or "") for name in important_names)]
+        protected_ids = {m.id for m in protected}
+        trimmable = [m for m in all_memories if m.id not in protected_ids]
 
-        # Keep all protected entries + the last `keep` trimmable ones
-        if len(trimmable) <= keep:
+        if len(all_memories) <= keep:
             old = []
         else:
-            old = trimmable[keep:]  # oldest beyond the window
+            # Trim oldest, sparing protected ones as long as they fit in the window
+            kept = list(all_memories[:keep])  # newest `keep` stay
+            kept_ids = {m.id for m in kept}
+            old = [m for m in all_memories if m.id not in kept_ids]
 
         if not old:
             return

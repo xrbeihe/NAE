@@ -281,6 +281,7 @@ class GameEngine:
         word_count_min: int = 500,
         word_count_max: int = 1200,
         prompt_ids: list[str] | None = None,
+        max_tokens: int | None = None,
     ) -> TurnResult:
         """Run the full turn pipeline.
 
@@ -436,7 +437,7 @@ class GameEngine:
         prev_panel = await memory_manager.get_latest_info_panel(db, session_id)
         if prev_panel:
             ctx.custom_pre_prompts.append(
-                "【上一轮信息栏】以下是你上一轮输出的完整信息栏，请在此基础上更新而非重建：\n" + prev_panel
+                "【上一轮信息栏】按 info_panel 规则重新输出，仅保留主角状态、正在交互人物、玩家要求的栏目：\n" + prev_panel
             )
             logger.info("Info panel persisted: previous turn panel fed back to LLM")
 
@@ -591,10 +592,12 @@ class GameEngine:
 
         # Step 9: Call llm_main — narrative
         raw_response = ""
+        _mt_kwargs = {"max_tokens": max_tokens} if max_tokens else {}
         try:
             raw_response = await model_adapter.generate(
                 prompt, model=model or DEFAULT_MODEL,
                 user_id=user_id, session_id=session_id, label="llm_main",
+                **_mt_kwargs,
             )
         except Exception as e:
             logger.exception(f"llm_main generation failed: {e}")
@@ -621,6 +624,7 @@ class GameEngine:
                     retry_raw = await model_adapter.generate(
                         retry_prompt, model=model or DEFAULT_MODEL,
                         user_id=user_id, session_id=session_id, label="llm_main",
+                        **_mt_kwargs,
                     )
                     if retry_raw:
                         parsed = parse(retry_raw, worldview=worldview)
@@ -1001,11 +1005,32 @@ class GameEngine:
                     if sc.get("type") in ("location_change", "cultivation_change", "item_added", "item_removed"):
                         sc_lines.append(f"  [{sc['type']}] {sc.get('target', '?')}: {sc.get('value', '')}")
                 sc_block = "\n".join(sc_lines) if sc_lines else "（无关键状态变更）"
+
+                # 上一轮 shortmemory（供"行动/目标"描述进展，避免每轮从零概括）
+                prev_sm = ""
+                try:
+                    _prev = await _db.execute(
+                        select(Memory).where(
+                            Memory.session_id == sid,
+                            Memory.memory_type == "shortmemory",
+                            Memory.turn_number < tn,
+                        ).order_by(Memory.turn_number.desc()).limit(1)
+                    )
+                    _prev_row = _prev.scalar_one_or_none()
+                    if _prev_row:
+                        prev_sm = _prev_row.content.strip()
+                except Exception:
+                    pass
+                prev_block = (
+                    f"上一轮的行动/目标：\n{prev_sm}\n\n"
+                    if prev_sm else ""
+                )
+
                 prompt = (
                     "你是一个场景摘要和行动顾问。输出给玩家看的场景记忆摘要，同时给下一轮叙事引擎提供上下文。\n\n"
                     "输出格式（纯文本，不要JSON标记）：\n"
                     "当前地点：地名/场所 | 时间\n"
-                    "行动/目标：一句话概括玩家位置和当前意图\n"
+                    "行动/目标：一句话概括玩家位置和当前意图。注意对比上一轮，体现进展（若延续上轮行动，写明'继续/推进'而非重复描述）\n"
                     "持有物品中重要的变化：有则写，无则写无\n"
                     "交互npc：姓名 | 身份/修为 | 当前行为 | 互动态度\n"
                     "（每行一个，只列出有交互的NPC。本轮无交互NPC写无）\n"
@@ -1013,7 +1038,8 @@ class GameEngine:
                     "之前的世界事件：（无）\n"
                     f"本轮：[第{tn}轮]本轮叙事里发生的事（只写一条）\n"
                     "推荐行动：\n1.\n2.\n3.\n\n"
-                    f"玩家输入：{user_input}\n"
+                    + prev_block
+                    + f"玩家输入：{user_input}\n"
                     f"叙事内容：\n{narrative}\n\n"
                     f"本轮状态变更：\n{sc_block}\n\n"
                     "请按格式输出摘要："
@@ -1046,15 +1072,30 @@ class GameEngine:
                         )
                         compact_list = list(compact_entries.scalars().all())
                         if compact_list:
-                            # Build shortened content for each turn (strip header lines)
+                            # Build raw material from the 5 compact entries
                             turn_summaries = []
                             for ce in compact_list:
-                                lines = ce.content.strip().split("\n")
-                                # Take first 3 substantial lines per turn
-                                keep = [l for l in lines if l.strip() and not l.startswith("当前地点") and not l.startswith("推荐行动")]
-                                turn_summaries.append(f"Turn {ce.turn_number}: {' | '.join(keep[:3])}")
+                                turn_summaries.append(f"[第{ce.turn_number}轮]\n{ce.content.strip()}")
+                            raw_era = "\n\n".join(turn_summaries)
 
-                            era_text = "\n".join(turn_summaries)
+                            # LLM-compress the 5 turns into one coherent era summary
+                            era_prompt = (
+                                "你负责把连续5轮的游戏记忆压缩成一段连贯的纪元总结，供长期记忆使用。\n\n"
+                                "以下是第5轮的游戏记忆：\n"
+                                f"{raw_era}\n\n"
+                                "输出要求（纯文本，简洁，不要JSON）：\n"
+                                "1. 持续目标：玩家这5轮一直在追求的核心目标（若有变化说明演变）\n"
+                                "2. 关键事件：按时间顺序列出重要事件（谁/做了什么/结果），去重\n"
+                                "3. 关系变化：与主要NPC的关系进展\n"
+                                "4. 未决事项：悬而未决的线索、任务、威胁\n"
+                                "只保留对这5轮之后仍重要的信息，去掉重复和琐碎细节。控制在300字以内。"
+                            )
+                            from ane.modules.model_adapter import model_adapter as _ma
+                            era_text = (await _ma.generate(era_prompt, user_id=user_id, session_id=sid, label="llm_era")).strip()
+                            if not era_text:
+                                era_text = raw_era[:800]  # fallback: raw truncated
+                            logger.info(f"Era summary generated: turns {tn-5}-{tn-1} ({len(era_text)} chars)")
+
                             time_range = f"第{era_turn_start}轮—第{era_turn_end}轮"
                             await memory_manager.add_longmemory_entry(
                                 _db, sid, era_turn_start, era_turn_end, time_range, era_text,
