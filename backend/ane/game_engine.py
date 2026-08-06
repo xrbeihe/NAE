@@ -132,6 +132,9 @@ def _resolve_world_facts_for_timeline(world_facts: dict | None, timeline_id: str
     if variant.get("description"):
         merged["timeline_label"] = variant.get("label") or timeline_id
         merged["timeline_description"] = variant["description"]
+    # Expose the timeline's opening scene (预填充开场文案)
+    if variant.get("opening"):
+        merged["timeline_opening"] = variant["opening"]
     return merged
 
 

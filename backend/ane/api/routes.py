@@ -679,6 +679,16 @@ async def apply_character(
     )
 
 
+    # ── 开场场景：从所选时间线的 opening 字段读取（预填充，不调 LLM）──
+    llm_intro = ""
+    try:
+        from ane.game_engine import _resolve_world_facts_for_timeline
+        timeline_id = getattr(session, "timeline_id", "") or ""
+        wf = _resolve_world_facts_for_timeline(wv.world_facts, timeline_id)
+        llm_intro = (wf or {}).get("timeline_opening", "") or ""
+    except Exception:
+        llm_intro = ""
+
     return {
         "session_id": session_id,
         "player_name": player.name if player else "",
@@ -698,6 +708,7 @@ async def apply_character(
         "sect": attrs.get("sect", ""),
         "monthly_income": attrs.get("monthly_income", ""),
         "player_panel": player_panel_str,
+        "llm_introduction": llm_intro,
             }
 
 
