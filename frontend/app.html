@@ -1165,6 +1165,11 @@ async function applyCharacter() {
       addMsg('system', parts.join('\n'));
       if (data.player_panel) updateInfoPanel(data.player_panel);
     if (data.info_panel) addInfoPanel(data.info_panel);  // 刷新/切换后重建信息栏
+      // ── 加载预填推荐行动（创建后立即显示，无需重进聊天）──
+      try {
+        var recRes = await apiFetch('/sessions/' + sid);
+        if (recRes.ok) { var recData = await recRes.json(); updateRecs(recData.recommendations || []); }
+      } catch(e) { frontendLog('WARN', 'Load initial recs: ' + e.message); }
       // ── Show llm_introduction if present (world opening narration) ──
       if (data.llm_introduction) addMsg('system', data.llm_introduction);
       try { localStorage.setItem('ane_last_session', sessionId); } catch(e) {};
