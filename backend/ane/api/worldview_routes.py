@@ -302,6 +302,44 @@ async def unshare_worldview(
     return {"unshared": wv_id}
 
 
+# ── system_prompt.txt（世界观专门 prompt）文本读写 ────────────
+
+@router.get("/{worldview_id}/prompt")
+async def get_worldview_prompt(worldview_id: str):
+    """返回世界观的 system_prompt.txt 内容（文本，非 JSON）。"""
+    if not _is_valid_id(worldview_id):
+        raise HTTPException(status_code=400, detail=f"无效的世界观 ID: {worldview_id!r}")
+    p = WORLDVIEWS_DIR / worldview_id / "system_prompt.txt"
+    if not p.exists():
+        raise HTTPException(status_code=404, detail="该世界观没有 system_prompt.txt")
+    return {"worldview": worldview_id, "prompt": p.read_text(encoding="utf-8")}
+
+
+@router.put("/{worldview_id}/prompt")
+async def put_worldview_prompt(
+    worldview_id: str,
+    body: dict,
+    user = Depends(get_optional_user),
+):
+    """保存世界观的 system_prompt.txt（文本），并清 loader 缓存。"""
+    if not _is_valid_id(worldview_id):
+        raise HTTPException(status_code=400, detail=f"无效的世界观 ID: {worldview_id!r}")
+    prompt = body.get("prompt") if isinstance(body, dict) else None
+    if prompt is None:
+        raise HTTPException(status_code=400, detail="请求需包含 prompt 文本")
+    prompt = str(prompt)
+    if len(prompt) > 20000:
+        raise HTTPException(status_code=400, detail="prompt 过长（上限 20000 字符）")
+    pack_dir = WORLDVIEWS_DIR / worldview_id
+    if not pack_dir.is_dir():
+        raise HTTPException(status_code=404, detail=f"世界观 {worldview_id} 不存在")
+    (pack_dir / "system_prompt.txt").write_text(prompt, encoding="utf-8")
+    # 清 loader 缓存，让新 prompt 立即生效
+    from ane.worldview import clear_cache as _clear_cache
+    _clear_cache()
+    return {"ok": True, "worldview": worldview_id, "chars": len(prompt)}
+
+
 @router.delete("/{worldview_id}")
 async def delete_worldview(
     worldview_id: str,

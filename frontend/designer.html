@@ -225,6 +225,26 @@
   </div>
 </div>
 
+<!-- Prompt (system_prompt.txt) editor modal -->
+<div id="prompt-editor-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;width:min(760px,94vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border)">
+      <span id="prompt-editor-title" style="font-size:15px;color:var(--accent)">📝 编辑世界观 prompt</span>
+      <span onclick="closePromptEditor()" style="cursor:pointer;font-size:20px;color:var(--accent-dim)">✕</span>
+    </div>
+    <div style="padding:6px 18px;border-bottom:1px solid var(--border);font-size:12px;color:var(--accent-dim)">这是世界观外壳 prompt（system_prompt.txt），每轮注入叙事引擎。可自由定义世界的设定、规则、NPC行为约束。保存后立即生效（清缓存）。</div>
+    <div style="flex:1;overflow:hidden;padding:12px 18px;display:flex">
+      <textarea id="prompt-editor-text" spellcheck="false" style="flex:1;width:100%;height:100%;box-sizing:border-box;background:var(--input-bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:10px;font-size:12px;font-family:monospace;line-height:1.6;resize:none"></textarea>
+    </div>
+    <div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;align-items:center">
+      <span id="prompt-editor-chars" style="font-size:11px;color:var(--accent-dim);margin-right:auto"></span>
+      <button onclick="closePromptEditor()" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:8px 16px;border-radius:4px;cursor:pointer;font-size:13px">取消</button>
+      <button onclick="savePromptEditor()" style="background:var(--accent);color:var(--panel);border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:13px">💾 保存</button>
+    </div>
+    <div id="prompt-editor-msg" style="padding:0 18px 10px;font-size:12px;color:var(--accent-dim);white-space:pre-wrap"></div>
+  </div>
+</div>
+
 <!-- Open-source share modal -->
 <div id="share-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center">
   <div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;width:min(480px,94vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden">
@@ -314,6 +334,7 @@ async function loadWorldviewList() {
             '<button onclick="openRecEditor(\'' + _esc(w.id) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">💬 文案</button>' +
             '<button onclick="openOptEditor(\'' + _esc(w.id) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">📋 选项</button>' +
             '<button onclick="openFactsEditor(\'' + _esc(w.id) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">📖 设定</button>' +
+            '<button onclick="openPromptEditor(\'' + _esc(w.id) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">📝 prompt</button>' +
             (shared
               ? '<button onclick="unshareWorldview(\'' + _esc(w.id) + '\', \'' + _esc(shared.title || w.name) + '\')" style="background:none;border:1px solid var(--danger,#8a3a3a);color:#b06060;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">🚫 下架</button>'
               : '<button onclick="openShareModal(\'' + _esc(w.id) + '\', \'' + _esc(w.name) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">📤 开源</button>') +
@@ -1066,6 +1087,61 @@ function saveFactsEditor() {
   }).then(function(r) { return r.json().then(function(d) { return {ok:r.ok, d:d}; }); }).then(function(res) {
     if (res.ok) {
       msgEl.textContent = '✅ 已保存权威设定到 ' + _factsEditor.worldview + '。每轮叙事将遵守这些设定。';
+    } else {
+      msgEl.textContent = '保存失败: ' + (res.d.detail || '未知错误');
+    }
+  }).catch(function(e) {
+    msgEl.textContent = '保存失败: ' + e.message;
+  });
+}
+
+// ── Prompt (system_prompt.txt) editor ──
+var _promptEditor = { worldview: '' };
+function openPromptEditor(wvId) {
+  _promptEditor.worldview = wvId;
+  document.getElementById('prompt-editor-title').textContent = '📝 编辑世界观 prompt — ' + wvId;
+  var overlay = document.getElementById('prompt-editor-overlay');
+  var textEl = document.getElementById('prompt-editor-text');
+  var msgEl = document.getElementById('prompt-editor-msg');
+  overlay.style.display = 'flex';
+  textEl.value = '加载中…';
+  msgEl.textContent = '';
+  document.getElementById('prompt-editor-chars').textContent = '';
+  apiFetch('/worldviews/' + encodeURIComponent(wvId) + '/prompt')
+    .then(function(r) { return r.json().then(function(d) { return {ok:r.ok, d:d}; }); })
+    .then(function(res) {
+      if (res.ok) {
+        textEl.value = res.d.prompt || '';
+        updatePromptCharCount();
+      } else {
+        textEl.value = '';
+        msgEl.textContent = '加载失败: ' + (res.d.detail || '该世界观没有 system_prompt.txt');
+      }
+    })
+    .catch(function(e) { textEl.value = ''; msgEl.textContent = '加载失败: ' + e.message; });
+}
+function closePromptEditor() {
+  document.getElementById('prompt-editor-overlay').style.display = 'none';
+  _promptEditor.worldview = '';
+}
+function updatePromptCharCount() {
+  var el = document.getElementById('prompt-editor-chars');
+  if (el) el.textContent = document.getElementById('prompt-editor-text').value.length + ' 字符';
+}
+document.getElementById('prompt-editor-text').addEventListener('input', updatePromptCharCount);
+function savePromptEditor() {
+  var wvId = _promptEditor.worldview;
+  if (!wvId) return;
+  var prompt = document.getElementById('prompt-editor-text').value;
+  var msgEl = document.getElementById('prompt-editor-msg');
+  msgEl.textContent = '保存中…';
+  apiFetch('/worldviews/' + encodeURIComponent(wvId) + '/prompt', {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({prompt: prompt})
+  }).then(function(r) { return r.json().then(function(d) { return {ok:r.ok, d:d}; }); }).then(function(res) {
+    if (res.ok) {
+      msgEl.textContent = '✅ 已保存世界观 prompt（' + res.d.chars + ' 字符），立即生效。';
     } else {
       msgEl.textContent = '保存失败: ' + (res.d.detail || '未知错误');
     }
