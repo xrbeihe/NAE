@@ -247,8 +247,12 @@ class PlayerManager:
                 # Resolve the selected option dict from the template source
                 opt = self._find_option(templates, f.get("options_from"), raw)
                 custom_val = values.get(key + "_custom", "")
-                # Write the store value — the __custom__ marker stays in the store
-                self._write_field(player, attrs, store, raw)
+                # Write the store value — 自定义时用自定义文本替换 __custom__ 标记，
+                # 否则存 __custom__ 字面量会泄漏到主角面板
+                if is_custom:
+                    self._write_field(player, attrs, store, custom_val or raw)
+                else:
+                    self._write_field(player, attrs, store, raw)
                 # Derived fields from the option (e.g. identity → clothing/月入)
                 if opt:
                     for derive_key in f.get("derive", []) or []:

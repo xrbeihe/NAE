@@ -414,3 +414,37 @@ async def test_info_panel_persistence_across_turns(db, client_a, mock_llm):
     # 第2轮输出的新信息栏继续持久化（覆盖）
     stored2 = await memory_manager.get_latest_info_panel(db, session_id)
     assert "明日交任务" in stored2
+
+
+# ── 自定义性格/身份存储修复（__custom__ 不泄漏）───────────────
+
+@pytest.mark.asyncio
+async def test_custom_personality_not_leaking_marker(db, client_a):
+    """form 路径选「自定义性格」→ attrs.personality 存自定义文本而非 __custom__。"""
+    from ane.game_engine import game_engine
+    from ane.database.models import Player
+    from sqlalchemy import select
+    info = await game_engine.create_session(db, user_id=USER_A, name="自定义测试")
+    session_id = info["session_id"]
+
+    r = await client_a.post(
+        f"/sessions/{session_id}/character",
+        json={
+            "name": "测试角色",
+            "fields": {
+                "personality": "__custom__",
+                "personality_custom": "我的自定义性格：坚韧内敛",
+                "identity": "见习海贼",
+            },
+        },
+    )
+    assert r.status_code == 200, r.text
+
+    player = (await db.execute(
+        select(Player).where(Player.session_id == session_id)
+    )).scalar_one()
+    attrs = dict(player.attributes or {})
+    # 核心断言：personality 不再是 __custom__ 标记
+    assert attrs.get("personality") == "我的自定义性格：坚韧内敛"
+    assert attrs.get("personality_custom") == "我的自定义性格：坚韧内敛"
+    assert "__custom__" not in str(attrs.get("personality"))

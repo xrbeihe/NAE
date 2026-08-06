@@ -496,7 +496,8 @@ async def test_form_path_custom_identity(db):
         db, sid, values, worldview="xianxia_v1",
     )
     attrs = dict(player.attributes or {})
-    assert attrs.get("identity") == "__custom__"
+    # 自定义身份 → identity 存自定义文本（不再泄漏 __custom__ 标记）
+    assert attrs.get("identity") == "我是天命之女，身负异象"
     assert attrs.get("identity_desc") == "自定义身份"
     assert attrs.get("background_summary") == "我是天命之女，身负异象"
 
