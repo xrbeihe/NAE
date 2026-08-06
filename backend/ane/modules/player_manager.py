@@ -182,8 +182,9 @@ class PlayerManager:
             gf_info = next((g for g in gf_templates if g["id"] == golden_finger_id), None)
             if golden_finger_id == "custom":
                 attrs["golden_finger_id"] = "custom"
-                attrs["golden_finger_name"] = "自定义"
-                attrs["golden_finger_tagline"] = "你命由你不由天"
+                # 自定义能力：name 直接用自定义内容，避免"自定义"占位
+                attrs["golden_finger_name"] = golden_finger_custom or "自定义"
+                attrs["golden_finger_tagline"] = ""
                 attrs["golden_finger_desc"] = golden_finger_custom or "未填写"
             elif gf_info:
                 attrs["golden_finger_id"] = golden_finger_id
@@ -282,7 +283,8 @@ class PlayerManager:
                 if is_custom:
                     custom_val = values.get(key + "_custom", "")
                     attrs["golden_finger_id"] = "custom"
-                    attrs["golden_finger_name"] = "自定义"
+                    # 自定义能力：name 直接用自定义内容，避免"自定义"占位 + desc 双重展示
+                    attrs["golden_finger_name"] = custom_val or "自定义"
                     attrs["golden_finger_tagline"] = ""
                     attrs["golden_finger_desc"] = custom_val
                     attrs["golden_finger_custom"] = custom_val

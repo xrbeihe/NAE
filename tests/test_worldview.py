@@ -581,7 +581,8 @@ async def test_form_path_custom_golden_finger(db):
     )
     attrs = dict(player.attributes or {})
     assert attrs.get("golden_finger_id") == "custom"
-    assert attrs.get("golden_finger_name") == "自定义"
+    # 自定义能力：name 直接用自定义内容（不再用"自定义"占位）
+    assert attrs.get("golden_finger_name") == "系统面板：可查看自己与周围人的因果线"
     assert attrs.get("golden_finger_desc") == "系统面板：可查看自己与周围人的因果线"
     assert attrs.get("golden_finger_custom") == "系统面板：可查看自己与周围人的因果线"
 
