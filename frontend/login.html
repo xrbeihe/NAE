@@ -43,14 +43,6 @@
   #auth-page select {
     appearance: auto; -webkit-appearance: auto;
   }
-  #auth-adult-wrap { display: none; margin: 10px 0; text-align: left; font-size: 13px; color: var(--text); }
-  #auth-adult-wrap label { display: block; margin-bottom: 6px; color: var(--accent-dim); }
-  #auth-adult-hint, #auth-minor-hint {
-    margin-top: 8px; padding: 8px 10px;
-    background: var(--input-bg); border: 1px solid var(--border);
-    border-radius: 4px; font-size: 12px; color: var(--accent-dim);
-    line-height: 1.5; display: none;
-  }
   #auth-submit-btn {
     width: 100%; padding: 10px; margin-top: 10px;
     background: var(--accent); color: #1a1410;
@@ -70,18 +62,6 @@
     <p id="auth-error"></p>
     <input id="auth-username" type="text" placeholder="用户名" autocomplete="username">
     <input id="auth-password" type="password" placeholder="密码" autocomplete="current-password">
-    <div id="auth-adult-wrap">
-      <label>你是否已满18周岁？</label>
-      <select id="auth-adult" onchange="onAdultChange()">
-        <option value="no" selected>否，我未满18岁</option>
-        <option value="yes">是，我已成年</option>
-      </select>
-      <div id="auth-adult-hint">
-        你可以在发送内容的末尾添加 <strong>HO</strong>（H is Open）来标记该轮为特殊内容。
-        例如：<em>我要......HO</em>
-      </div>
-      <div id="auth-minor-hint">欢迎你，小朋友！🖐</div>
-    </div>
     <button id="auth-submit-btn" onclick="handleAuthSubmit()">登录</button>
     <p id="auth-toggle-text">
       没有账号？<a href="#" onclick="toggleAuthMode();return false" style="color:var(--accent)">注册</a>
@@ -122,7 +102,7 @@ async function handleRegister() {
   errEl.textContent = '';
   if (!un || !pw) { errEl.textContent = '请输入用户名和密码'; return; }
   if (pw.length < 4) { errEl.textContent = '密码至少4位'; return; }
-  const isAdult = document.getElementById('auth-adult').value === 'yes';
+  const isAdult = true;  // 默认成年，HO 功能可用
   try {
     const res = await fetch('/auth/register', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:un, password:pw, display_name:un, is_adult:isAdult})});
     if (!res.ok) { const d = await res.json(); errEl.textContent = d.detail || '注册失败'; return; }
@@ -141,25 +121,16 @@ function toggleAuthMode() {
   const btn = document.getElementById('auth-submit-btn');
   const toggle = document.getElementById('auth-toggle-text');
   const title = document.getElementById('auth-title');
-  const adultWrap = document.getElementById('auth-adult-wrap');
   const isLogin = btn.textContent === '登录';
   if (isLogin) {
     btn.textContent = '注册';
     toggle.innerHTML = '已有账号？<a href="#" onclick="toggleAuthMode();return false">登录</a>';
     title.textContent = '注册新账号';
-    adultWrap.style.display = 'block';
   } else {
     btn.textContent = '登录';
     toggle.innerHTML = '没有账号？<a href="#" onclick="toggleAuthMode();return false">注册</a>';
     title.textContent = '登录';
-    adultWrap.style.display = 'none';
   }
-}
-
-function onAdultChange() {
-  const val = document.getElementById('auth-adult').value;
-  document.getElementById('auth-adult-hint').style.display = val === 'yes' ? 'block' : 'none';
-  document.getElementById('auth-minor-hint').style.display = val === 'no' ? 'block' : 'none';
 }
 
 frontendLog('INFO', 'Login page loaded');
