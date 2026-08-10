@@ -380,6 +380,9 @@ class MemoryManager:
                 cleaned_lines.append(line)
         cleaned = "\n".join(cleaned_lines)
 
+        # 压缩字段间的空行（只保留行内内容，去掉多余空行使短记忆紧凑）
+        cleaned = "\n".join(l for l in cleaned.split("\n") if l.strip())
+
         db.add(Memory(
             session_id=session_id,
             memory_type="shortmemory",
@@ -470,8 +473,11 @@ class MemoryManager:
         session_id: str,
         from_turn: int = 0,
     ) -> list[Memory]:
-        """Fetch compact summaries for 📕 hover display around a given turn."""
-        limit = 3
+        """Fetch compact summaries for 📕 hover display around a given turn.
+
+        Returns the most recent SHORTMEMORY_WINDOW_SIZE (5) entries, newest last.
+        """
+        limit = SHORTMEMORY_WINDOW_SIZE
         result = await db.execute(
             select(Memory)
             .where(
@@ -479,10 +485,10 @@ class MemoryManager:
                 Memory.memory_type == "shortmemory",
                 Memory.turn_number >= from_turn,
             )
-            .order_by(Memory.turn_number.asc())
+            .order_by(Memory.turn_number.desc())
             .limit(limit)
         )
-        return list(result.scalars().all())
+        return list(reversed(result.scalars().all()))
 
 # Singleton
 memory_manager = MemoryManager()

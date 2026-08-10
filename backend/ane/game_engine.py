@@ -579,6 +579,19 @@ class GameEngine:
                     )
                 ctx.constraints.soft.append("\n".join(rel_lines))
 
+            # ── 注入全部已登记 NPC 名字，让 LLM 输出关系时用全名（避免简称导致重复）──
+            _all_npcs = await db.execute(
+                select(NPC).where(NPC.session_id == session_id)
+            )
+            _registered = [n.name for n in _all_npcs.scalars().all() if n.name]
+            if _registered:
+                ctx.constraints.soft.append(
+                    "【已登记人物名单】以下人物已登记在册，player_relationships 中提及他们时"
+                    "必须使用这里登记的全名（如已有「蒙奇·D·路飞」就写「蒙奇·D·路飞」，不要写简称「路飞」），"
+                    "避免把同一人物登记成两个名字：\n"
+                    + "、".join(_registered)
+                )
+
         # Assemble system prompt per worldview (defaults to the pack text)
         from ane.modules.prompt_builder import assemble_system as _assemble_system
         ctx.system = _assemble_system(worldview)
@@ -633,6 +646,37 @@ class GameEngine:
                         parsed = parse(retry_raw, worldview=worldview)
                 except Exception:
                     logger.exception("llm_main retry also failed — using first attempt's result")
+
+            # ── 短输出重试：narrative 低于字数下限 → 重试一次写充分 ──
+            # 计算实际中文字数（排除标点/空格/换行）
+            import re as _re
+            _narr = parsed.narrative or ""
+            _han_count = len(_re.findall(r'[一-鿿]', _narr))
+            _min = max(100, word_count_min)  # 下限至少 100，避免误重试
+            if parsed.is_valid_json and _narr and _han_count < _min and _han_count > 0:
+                logger.warning(
+                    f"Narrative too short ({_han_count} hanzi < {_min}) — retrying to reach word count"
+                )
+                retry_prompt2 = (
+                    f"你上一轮输出的正文只有约 {_han_count} 个汉字，远低于要求的 {word_count_min}-{word_count_max} 字。\n"
+                    f"请重新输出本轮叙事：在已有内容基础上扩展，充分描写环境、动作、心理、对话，"
+                    f"达到 {word_count_min}-{word_count_max} 汉字的完整篇幅。\n"
+                    f"要求：仍然只输出纯 JSON，结构完整。"
+                )
+                # 追加到原 prompt 尾部，保留全部上下文
+                retry_prompt2_full = prompt + "\n\n" + retry_prompt2
+                try:
+                    retry_raw2 = await model_adapter.generate(
+                        retry_prompt2_full, model=model or DEFAULT_MODEL,
+                        user_id=user_id, session_id=session_id, label="llm_main",
+                        **_mt_kwargs,
+                    )
+                    if retry_raw2:
+                        parsed2 = parse(retry_raw2, worldview=worldview)
+                        if parsed2.is_valid_json and (parsed2.narrative or ""):
+                            parsed = parsed2
+                except Exception:
+                    logger.exception("llm_main short-output retry failed — keeping first attempt")
         except Exception as e:
             logger.exception(f"Output parsing failed: {e}")
             parsed = ParsedOutput(
@@ -877,6 +921,33 @@ class GameEngine:
                 )
             )
             db_npc = existing_npc.scalar_one_or_none()
+            # ── 兜底：精确匹配失败时，尝试"包含匹配"归一化简称到已登记全名 ──
+            #   如 LLM 写「路飞」但已登记「蒙奇·D·路飞」→ 用全名，避免重复建档
+            if not db_npc:
+                _all_reg = await db.execute(
+                    select(NPC).where(NPC.session_id == session_id)
+                )
+                for _n in _all_reg.scalars().all():
+                    if not _n.name:
+                        continue
+                    # 归一化判断：去掉分隔符后，若"简称"是"全名"的**后缀**（且简称≥2字）
+                    # 则视为同一人（如「路飞」是「蒙奇·D·路飞」的后缀）。
+                    # 用后缀而非子串，避免「林星」误并入「林星如」（那是前缀，不是简称）。
+                    _a = rel_name.replace("·", "").replace("D·", "").replace(" ", "").strip()
+                    _b = _n.name.replace("·", "").replace("D·", "").replace(" ", "").strip()
+                    if not _a or not _b:
+                        continue
+                    if _a == _b:
+                        rel_name = _n.name; db_npc = _n; break
+                    if len(_a) < len(_b):
+                        short, long = _a, _b
+                    else:
+                        short, long = _b, _a
+                    if len(short) >= 2 and long.endswith(short):
+                        rel_name = _n.name
+                        db_npc = _n
+                        logger.info(f"Relationship name normalized: '{rel_name}' matched registered '{_n.name}'")
+                        break
             if not db_npc:
                 db_npc = await _npc_mgr.create(
                     db, session_id, name=rel_name,
@@ -1034,13 +1105,8 @@ class GameEngine:
                     "输出格式（纯文本，不要JSON标记）：\n"
                     "当前地点：地名/场所 | 时间\n"
                     "行动/目标：一句话概括玩家位置和当前意图。注意对比上一轮，体现进展（若延续上轮行动，写明'继续/推进'而非重复描述）\n"
-                    "持有物品中重要的变化：有则写，无则写无\n"
-                    "交互npc：姓名 | 身份/修为 | 当前行为 | 互动态度\n"
-                    "（每行一个，只列出有交互的NPC。本轮无交互NPC写无）\n"
-                    "世界事件：\n"
-                    "之前的世界事件：（无）\n"
-                    f"本轮：[第{tn}轮]本轮叙事里发生的事（只写一条）\n"
                     "推荐行动：\n1.\n2.\n3.\n\n"
+                    "注意：各字段之间不要留空行，紧凑排列。\n\n"
                     + prev_block
                     + f"玩家输入：{user_input}\n"
                     f"叙事内容：\n{narrative}\n\n"

@@ -474,3 +474,116 @@ async def test_max_tokens_passthrough(db, client_a, mock_llm):
         )
     assert r.status_code == 200, r.text
     assert captured.get("max_tokens") == 8192
+
+
+# ── 短输出自动重试 ──────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_short_narrative_triggers_retry(db, client_a, mock_llm):
+    """narrative 低于字数下限 → 重试一次写充分。"""
+    from ane.game_engine import game_engine
+    info = await game_engine.create_session(db, user_id=USER_A, name="短输出重试")
+    session_id = info["session_id"]
+
+    call_count = {"n": 0}
+    captured = {}
+
+    async def _fake(prompt, model=None, **kwargs):
+        if kwargs.get("label") != "llm_main":
+            return json.dumps({"narrative": "x", "state_changes": []}, ensure_ascii=False)
+        call_count["n"] += 1
+        if call_count["n"] == 1:
+            # 第一次：极短正文（低于 500 下限）
+            captured["first_has_retry_hint"] = "远低于要求的" in prompt
+            return json.dumps(
+                {"narrative": "晨雾未散。你站在码头边。", "state_changes": [], "nearby_characters": []},
+                ensure_ascii=False,
+            )
+        # 第二次（重试）：写充分
+        captured["retry_triggered"] = "重新输出本轮叙事" in prompt
+        return json.dumps(
+            {"narrative": "晨雾未散，海面泛着灰白的光。你蹲在码头木桩上攥着钓线，浪头拍在桩腿发出闷响。" * 20,
+             "state_changes": [], "nearby_characters": []},
+            ensure_ascii=False,
+        )
+
+    with patch.object(ModelAdapter, "generate", new_callable=AsyncMock, side_effect=_fake):
+        r = await client_a.post(
+            f"/sessions/{session_id}/turn",
+            json={"input": "等路飞等人到来", "word_count_min": 500, "word_count_max": 1200},
+        )
+    assert r.status_code == 200, r.text
+    # 重试被触发
+    assert call_count["n"] >= 2, "短输出应触发重试"
+    assert captured.get("retry_triggered") is True
+    # 最终正文达到要求（重试后的长文本被采用）
+    narrative = r.json()["narrative"]
+    assert len(narrative) > 300
+
+
+# ── 关系人名归一化（简称→全名防重复）─────────────────────────
+
+@pytest.mark.asyncio
+async def test_relationship_name_normalization(db, client_a, mock_llm):
+    """LLM 输出简称「路飞」时，归一化到已登记全名「蒙奇·D·路飞」，不重复建档。"""
+    from ane.game_engine import game_engine
+    from ane.database.models import NPC, NPC_Relationship
+    from sqlalchemy import select
+    info = await game_engine.create_session(db, user_id=USER_A, name="关系归一化")
+    session_id = info["session_id"]
+    # 预置已登记 NPC 全名
+    db.add(NPC(session_id=session_id, name="蒙奇·D·路飞", is_important=False))
+    await db.commit()
+
+    async def _fake(prompt, model=None, **kwargs):
+        if kwargs.get("label") == "llm_main":
+            # LLM 输出简称「路飞」的关系
+            return json.dumps(
+                {"narrative": "一段叙事。", "state_changes": [],
+                 "player_relationships": [{"name": "路飞", "description": "草帽小子，目标海贼王"}]},
+                ensure_ascii=False,
+            )
+        return json.dumps({"narrative": "x", "state_changes": []}, ensure_ascii=False)
+
+    with patch.object(ModelAdapter, "generate", new_callable=AsyncMock, side_effect=_fake):
+        r = await client_a.post(f"/sessions/{session_id}/turn", json={"input": "遇到路飞"})
+    assert r.status_code == 200, r.text
+
+    # 不应创建第二个 NPC
+    npcs = (await db.execute(select(NPC).where(NPC.session_id == session_id))).scalars().all()
+    assert len(npcs) == 1, f"应只有1个NPC, 实际 {len(npcs)}: {[n.name for n in npcs]}"
+    assert npcs[0].name == "蒙奇·D·路飞"
+    # 关系边应挂到全名
+    rels = (await db.execute(select(NPC_Relationship).where(NPC_Relationship.session_id == session_id))).scalars().all()
+    assert len(rels) == 1
+    assert rels[0].target_name == "蒙奇·D·路飞"
+
+
+@pytest.mark.asyncio
+async def test_relationship_no_prefix_confusion(db, client_a, mock_llm):
+    """「林星」不得误并入「林星如」（前缀≠简称）——各自独立建档。"""
+    from ane.game_engine import game_engine
+    from ane.database.models import NPC
+    from sqlalchemy import select
+    info = await game_engine.create_session(db, user_id=USER_A, name="前缀混淆")
+    session_id = info["session_id"]
+    db.add(NPC(session_id=session_id, name="林星如", is_important=False))
+    await db.commit()
+
+    async def _fake(prompt, model=None, **kwargs):
+        if kwargs.get("label") == "llm_main":
+            # LLM 输出「林星」——与「林星如」是前缀关系，不应合并
+            return json.dumps(
+                {"narrative": "一段叙事。", "state_changes": [],
+                 "player_relationships": [{"name": "林星", "description": "另一人"}]},
+                ensure_ascii=False,
+            )
+        return json.dumps({"narrative": "x", "state_changes": []}, ensure_ascii=False)
+
+    with patch.object(ModelAdapter, "generate", new_callable=AsyncMock, side_effect=_fake):
+        r = await client_a.post(f"/sessions/{session_id}/turn", json={"input": "遇到林星"})
+    assert r.status_code == 200, r.text
+
+    npcs = (await db.execute(select(NPC).where(NPC.session_id == session_id))).scalars().all()
+    names = sorted(n.name for n in npcs)
+    assert names == ["林星", "林星如"], f"不应合并前缀名字, 实际: {names}"

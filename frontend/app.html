@@ -1155,12 +1155,12 @@ async function applyCharacter() {
       var statusLabel = (worldviewState.ui && worldviewState.ui.labels && worldviewState.ui.labels.role) || '角色';
       var sr = await apiFetch('/sessions/' + sid);
       if (sr.ok) { var sd = await sr.json(); if (sd.world_time) addMsg('system', '已进入「' + wvName + '」\n时间: ' + sd.world_time + ' · ' + statusLabel + ': ' + data.player_name + ' · ' + data.cultivation + '\n'); }
-      var parts = ['📋 **角色创建成功**\n', '姓名：' + data.player_name, '性别：' + data.gender + ' ｜ 年龄：' + data.age + '岁', _wvLabel('cultivation','修为') + '：' + data.cultivation, '身份：' + data.identity + ' — ' + (data.identity_desc||''), '性格：' + data.personality, '出身：' + (data.background_summary||data.background), '衣物：' + (data.clothing||'未设定')];
+      var parts = ['📋 **角色创建成功**\n', '姓名：' + data.player_name, '性别：' + data.gender + ' ｜ 年龄：' + data.age + '岁', _wvLabel('cultivation','修为') + '：' + data.cultivation, '性格：' + data.personality, '出身：' + (data.background_summary||data.background)];
       var srLabel = _wvLabel('spiritual_root', '');
       if (srLabel && (data.spiritual_root||'')) parts.push(srLabel + '：' + data.spiritual_root);
       if (data.sect) parts.push(_wvLabel('sect','宗门') + '：' + data.sect);
       if (data.location) parts.push('初始位置：' + data.location);
-      if (data.golden_finger_name) { var gfTag = data.golden_finger_tagline || data.golden_finger_desc || ''; parts.push(_wvLabel('golden_finger','金手指') + '：' + data.golden_finger_name + (gfTag ? ' — ' + gfTag : '')); }
+      if (data.golden_finger_name) { var gfTag = data.golden_finger_tagline || data.golden_finger_desc || ''; if (gfTag === data.golden_finger_name) gfTag = ''; parts.push(_wvLabel('golden_finger','金手指') + '：' + data.golden_finger_name + (gfTag ? ' — ' + gfTag : '')); }
       if (data.monthly_income) parts.push('月入：' + data.monthly_income);
       addMsg('system', parts.join('\n'));
       if (data.player_panel) updateInfoPanel(data.player_panel);
@@ -1652,8 +1652,8 @@ function showLatestSummary() {
     if (!e_short.length && !e_long.length) return;
     var h = '<div style="margin-bottom:10px;font-weight:bold;color:var(--accent)">📖 短记忆</div>';
     if (e_short.length) {
-      for (var i = Math.max(0, e_short.length - 3); i < e_short.length; i++) {
-        var lines = e_short[i].content.split('\n').slice(0, 4).join('\n');
+      for (var i = 0; i < e_short.length; i++) {
+        var lines = e_short[i].content;
         h += '<div style="margin-bottom:6px;font-size:12px;color:var(--text);line-height:1.5">' +
           '<span style="color:var(--accent-dim);font-size:11px">第' + e_short[i].turn_number + '轮</span><br>' +
           lines.replace(/\n/g, '<br>') + '</div>';
@@ -1665,7 +1665,7 @@ function showLatestSummary() {
     h += '<div style="margin-bottom:10px;font-weight:bold;color:var(--accent)">📚 长记忆</div>';
     if (e_long.length) {
       for (var i = 0; i < e_long.length; i++) {
-        var lines = e_long[i].content.split('\n').slice(0, 4).join('\n');
+        var lines = e_long[i].content;
         h += '<div style="margin-bottom:6px;font-size:12px;color:var(--text);line-height:1.5">' +
           '<span style="color:var(--accent-dim);font-size:11px">第' + e_long[i].turn_number + '轮</span><br>' +
           lines.replace(/\n/g, '<br>') + '</div>';
