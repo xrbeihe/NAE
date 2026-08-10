@@ -587,3 +587,36 @@ async def test_relationship_no_prefix_confusion(db, client_a, mock_llm):
     npcs = (await db.execute(select(NPC).where(NPC.session_id == session_id))).scalars().all()
     names = sorted(n.name for n in npcs)
     assert names == ["林星", "林星如"], f"不应合并前缀名字, 实际: {names}"
+
+
+# ── temperature 透传（🛠 滑动条）────────────────────────────
+
+@pytest.mark.asyncio
+async def test_temperature_passthrough(db, client_a, mock_llm):
+    """turn 请求的 temperature 透传给 LLM 调用。"""
+    from ane.game_engine import game_engine
+    info = await game_engine.create_session(db, user_id=USER_A, name="温度测试")
+    session_id = info["session_id"]
+
+    captured = {}
+    async def _fake(prompt, model=None, **kwargs):
+        if kwargs.get("label") == "llm_main":
+            captured["temperature"] = kwargs.get("temperature")
+        return json.dumps(
+            {"narrative": "一段叙事。", "state_changes": [], "nearby_characters": []},
+            ensure_ascii=False,
+        )
+    with patch.object(ModelAdapter, "generate", new_callable=AsyncMock, side_effect=_fake):
+        r = await client_a.post(
+            f"/sessions/{session_id}/turn",
+            json={"input": "测试", "temperature": 1.0},
+        )
+    assert r.status_code == 200, r.text
+    assert captured.get("temperature") == 1.0
+
+    # 不传 temperature → 不透传（用全局默认）
+    captured.clear()
+    with patch.object(ModelAdapter, "generate", new_callable=AsyncMock, side_effect=_fake):
+        r = await client_a.post(f"/sessions/{session_id}/turn", json={"input": "测试"})
+    assert r.status_code == 200, r.text
+    assert "temperature" not in captured or captured.get("temperature") is None

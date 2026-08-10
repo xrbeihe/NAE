@@ -285,6 +285,7 @@ class GameEngine:
         word_count_max: int = 1200,
         prompt_ids: list[str] | None = None,
         max_tokens: int | None = None,
+        temperature: float | None = None,
     ) -> TurnResult:
         """Run the full turn pipeline.
 
@@ -608,7 +609,11 @@ class GameEngine:
 
         # Step 9: Call llm_main — narrative
         raw_response = ""
-        _mt_kwargs = {"max_tokens": max_tokens} if max_tokens else {}
+        _mt_kwargs = {}
+        if max_tokens:
+            _mt_kwargs["max_tokens"] = max_tokens
+        if temperature is not None:
+            _mt_kwargs["temperature"] = temperature
         try:
             raw_response = await model_adapter.generate(
                 prompt, model=model or DEFAULT_MODEL,
@@ -1149,15 +1154,17 @@ class GameEngine:
 
                             # LLM-compress the 5 turns into one coherent era summary
                             era_prompt = (
-                                "你负责把连续5轮的游戏记忆压缩成一段连贯的纪元总结，供长期记忆使用。\n\n"
-                                "以下是第5轮的游戏记忆：\n"
+                                "你负责把连续数轮的游戏记忆压缩成一段精炼的纪元总结，供长期记忆使用。\n"
+                                "不要逐轮罗列流水账，要提炼这期间的【实质进展与因果】。\n\n"
+                                "以下是这段时期的游戏记忆：\n"
                                 f"{raw_era}\n\n"
                                 "输出要求（纯文本，简洁，不要JSON）：\n"
-                                "1. 持续目标：玩家这5轮一直在追求的核心目标（若有变化说明演变）\n"
-                                "2. 关键事件：按时间顺序列出重要事件（谁/做了什么/结果），去重\n"
-                                "3. 关系变化：与主要NPC的关系进展\n"
-                                "4. 未决事项：悬而未决的线索、任务、威胁\n"
-                                "只保留对这5轮之后仍重要的信息，去掉重复和琐碎细节。控制在300字以内。"
+                                "1. 进展主线：这段时期真正发生了什么、走向如何（起因→关键转折→现状），用几句话讲清因果链。\n"
+                                "2. 主角动向：主角做了什么关键决定或行动，以及由此产生的影响。\n"
+                                "3. 核心人物变化：与主要NPC之间发生了什么、关系/立场是否变化，及对后续的影响。\n"
+                                "4. 遗留影响：对之后仍重要的未决事项、威胁、线索。\n"
+                                "只写对这之后仍重要的因果与影响，删掉过程细节和重复内容。控制在250字以内。\n"
+                                "有什么写什么，没有的维度可以不写，不必硬凑字数。"
                             )
                             from ane.modules.model_adapter import model_adapter as _ma
                             era_text = (await _ma.generate(era_prompt, user_id=user_id, session_id=sid, label="llm_era")).strip()

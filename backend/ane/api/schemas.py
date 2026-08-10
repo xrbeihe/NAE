@@ -84,6 +84,7 @@ class TurnRequest(BaseModel):
     word_count_max: int = Field(default=1200, ge=200, le=5000, description="最高字数")
     prompt_ids: list[str] = Field(default_factory=list, description="本轮启用的用户提示词 ID（可空）")
     max_tokens: int | None = Field(default=None, ge=512, le=8192, description="单轮输出 token 上限（可空，用全局默认）")
+    temperature: float | None = Field(default=None, ge=0.2, le=1.2, description="生成温度（可空，用全局默认 0.8）")
 
 
 class TurnResponse(BaseModel):

@@ -498,6 +498,7 @@ async def process_turn(
         word_count_max=req.word_count_max,
         prompt_ids=req.prompt_ids,
         max_tokens=req.max_tokens,
+        temperature=req.temperature,
     )
     return TurnResponse(
         narrative=turn_result.narrative,

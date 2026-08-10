@@ -561,6 +561,15 @@
       <input type="range" id="max-token-slider" min="512" max="8192" step="256" value="4096" oninput="maxTokenSlider(this.value)" style="width:100%;accent-color:var(--accent);cursor:pointer">
       <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--accent-dim)"><span>512</span><span>8192</span></div>
     </div>
+    <!-- 温度滑动条 -->
+    <div style="border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin-bottom:10px;background:var(--input-bg)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span style="font-size:11px;color:var(--accent-dim)">🌡 温度（低=稳定连贯，高=创意发散）</span>
+        <span id="temp-slider-label" style="font-size:12px;color:var(--accent);font-weight:bold">0.8</span>
+      </div>
+      <input type="range" id="temp-slider" min="0.2" max="1.2" step="0.1" value="0.8" oninput="tempSlider(this.value)" style="width:100%;accent-color:var(--accent);cursor:pointer">
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--accent-dim)"><span>0.2</span><span>1.2</span></div>
+    </div>
     <div id="prompt-lib-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
     <div id="prompt-lib-editor" style="display:none;border:1px solid var(--border);border-radius:6px;padding:8px;margin-bottom:8px">
       <input id="prompt-lib-name" placeholder="提示词名称" maxlength="50" oninput="promptLibMarkDirty()" style="width:100%;box-sizing:border-box;background:var(--input-bg);border:1px solid var(--border);color:var(--text);padding:6px;border-radius:4px;font-size:12px;font-family:inherit;margin-bottom:6px">
@@ -1236,7 +1245,7 @@ async function sendTurn() {
   var wcParts = wcVal.split('-');
   wcMin = parseInt(wcParts[0]) || 500;
   wcMax = parseInt(wcParts[1]) || 1200;
-  var tr = await apiFetch('/sessions/' + sessionId + '/turn', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({input: text, model: selectedModel, load_model_data: document.getElementById('load-model-check').checked, word_count_min: wcMin, word_count_max: wcMax, prompt_ids: getEnabledPromptIds(), max_tokens: getMaxTokens()}) });
+  var tr = await apiFetch('/sessions/' + sessionId + '/turn', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({input: text, model: selectedModel, load_model_data: document.getElementById('load-model-check').checked, word_count_min: wcMin, word_count_max: wcMax, prompt_ids: getEnabledPromptIds(), max_tokens: getMaxTokens(), temperature: getTemperature()}) });
     var td = await tr.json();
     if (td.detail) { addMsg('system', '天道运转出错: ' + td.detail); sb.disabled = false; ld.classList.remove('active'); return; }
     addMsg('ai', td.narrative, _currentTurnNumber); _currentTurnNumber++;
@@ -1337,9 +1346,31 @@ function initMaxTokenSlider() {
   sl.value = getMaxTokens();
   document.getElementById('max-token-label').textContent = getMaxTokens();
 }
+
+// ── 温度滑动条（🛠 弹窗）──
+var _tempDefault = 0.8;
+function getTemperature() {
+  var v = _tempDefault;
+  try { var saved = parseFloat(localStorage.getItem('ane_temperature')); if (saved >= 0.2 && saved <= 1.2) v = saved; } catch(e) {}
+  return v;
+}
+function tempSlider(v) {
+  var val = parseFloat(v);
+  if (isNaN(val)) val = _tempDefault;
+  val = Math.round(val * 10) / 10;
+  try { localStorage.setItem('ane_temperature', val); } catch(e) {}
+  document.getElementById('temp-slider-label').textContent = val.toFixed(1);
+}
+function initTempSlider() {
+  var sl = document.getElementById('temp-slider');
+  if (!sl) return;
+  sl.value = getTemperature();
+  document.getElementById('temp-slider-label').textContent = getTemperature().toFixed(1);
+}
 function showPromptLibPopup(e) {
   promptLibLoad();
   initMaxTokenSlider();
+  initTempSlider();
   document.getElementById('prompt-lib-overlay').style.display = 'block';
   document.getElementById('prompt-lib-popup').style.display = 'flex';
   if (e && e.stopPropagation) e.stopPropagation();
