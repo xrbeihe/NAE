@@ -144,8 +144,9 @@ def _clean_narrative_leakage(narrative: str) -> str:
 
     # 3) 剥离 "key": "value" / "key": value 残留
     narrative = _re.sub(r'"[^"]{1,40}"\s*:\s*("[^"]*"|[^\s,}\]]{1,60})', "", narrative)
-    # 剥离悬挂的字段名 "key"（若独立成词）
-    narrative = _re.sub(r'"[a-zA-Z_]{1,40}"', "", narrative)
+    # 剥离悬挂的字段名 "key"：仅当它后面跟逗号/冒号/花括号（JSON 结构位置），
+    # 避免误删正文里的英文引用（如 他说："Hello"，然后…）。
+    narrative = _re.sub(r'"[a-zA-Z_]{1,40}"\s*(?=[,}:])', "", narrative)
 
     # 4) 清理：多余空行、行尾逗号/冒号
     narrative = _re.sub(r"\n{3,}", "\n\n", narrative)
@@ -237,7 +238,7 @@ def parse(raw_response: str, worldview: str | None = None) -> ParsedOutput:
     # Fallback: treat whole response as narrative
     logger.warning("No JSON found in LLM output — falling back to plain text")
     return ParsedOutput(
-        narrative=raw_response.strip(),
+        narrative=_clean_narrative_leakage(raw_response.strip()),
         state_changes=[],
         is_valid_json=False,
         parse_error="No JSON structure found in response",
