@@ -529,18 +529,16 @@ class TestOutputParserExtended:
         assert result.is_valid_json is True
         assert result.nearby_characters == []
 
-    def test_offstage_and_recommendations_cleaned(self):
-        """offstage_npcs / player_relationships / recommendations all guarded."""
+    def test_relationships_and_recommendations_cleaned(self):
+        """player_relationships / recommendations both guarded."""
         from ane.modules.output_parser import parse
         raw = '''{
           "narrative": "测试",
-          "offstage_npcs": [{"name": "路人甲"}, "坏片段"],
           "player_relationships": ["also bad", {"name": "张三"}],
           "recommendations": ["好建议", "", "   "]
         }'''
         result = parse(raw)
         assert result.is_valid_json is True
-        assert result.offstage_npcs == [{"name": "路人甲"}]
         assert result.player_relationships == [{"name": "张三"}]
         assert result.recommendations == ["好建议"]
 

@@ -23,7 +23,6 @@ class ParsedOutput:
     parse_error: str | None = None
     character_model: dict | None = None  # llm_modeling data from llm_main (only when marking important)
     recommendations: list[str] = field(default_factory=list)  # 10 recs from llm_main
-    offstage_npcs: list[dict] = field(default_factory=list)   # NPCs named in narrative but not revealed to player
     player_relationships: list[dict] = field(default_factory=list)  # named NPCs with player relationship
     info_panel: str = ""  # 独立信息区：主角信息 + 附近人物等，一整个区别于正文的文本区域
 
@@ -31,7 +30,7 @@ class ParsedOutput:
 # ── Robust list-of-dicts cleaning ──────────────────────────────
 
 def _coerce_dict(item) -> dict | None:
-    """Best-effort coerce a nearby/offstage/relationship item into a dict.
+    """Best-effort coerce a nearby/relationship item into a dict.
 
     Handles the LLM failure mode where json_repair recovers a list of
     *string fragments* instead of objects (e.g. `'name": "卖炊饼老汉'`).
@@ -289,7 +288,6 @@ def _parse_json(json_str: str, fallback_raw: str, event_types: set[str] | None =
     logger.info("nearby_characters from LLM: %d items", len(raw_nearby) if isinstance(raw_nearby, list) else -1)
     character_model = data.get("character_model", None)
     raw_recs = data.get("recommendations", [])
-    raw_offstage = data.get("offstage_npcs", [])
     raw_player_rels = data.get("player_relationships", [])
 
     # ── 泄漏清洗：剥离 narrative 里混入的 JSON 结构 / 结构化标记 ──
@@ -345,7 +343,6 @@ def _parse_json(json_str: str, fallback_raw: str, event_types: set[str] | None =
         is_valid_json=True,
         character_model=character_model if isinstance(character_model, dict) else None,
         recommendations=_as_str_list(raw_recs),
-        offstage_npcs=_as_dict_list(raw_offstage),
         player_relationships=_as_dict_list(raw_player_rels),
         info_panel=_as_str(data.get("info_panel", "")),
     )

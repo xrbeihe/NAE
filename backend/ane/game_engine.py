@@ -878,38 +878,6 @@ class GameEngine:
             if change.get("type") == "npc_nearby":
                 await self._handle_npc_nearby(db, session_id, change)
 
-        # ── Process offstage_npcs (named NPCs in narrative, not revealed to player) ──
-        offstage_npcs_added = 0
-        for offn in (parsed.offstage_npcs or []):
-            if not isinstance(offn, dict):
-                continue
-            off_name = (offn.get("name") or "").strip()
-            if not off_name:
-                continue
-            # Check if already exists in DB
-            existing = await db.execute(
-                select(NPC).where(
-                    NPC.session_id == session_id,
-                    NPC.name == off_name,
-                )
-            )
-            if existing.scalar_one_or_none():
-                continue  # already known
-            # Create basic NPC record (no relationship — name unknown to player)
-            new_npc = NPC(
-                session_id=session_id,
-                name=off_name,
-                identity=(offn.get("identity") or "").strip(),
-                gender=(offn.get("gender") or "").strip(),
-                location=player.location or "",
-                npc_type="named",
-            )
-            db.add(new_npc)
-            offstage_npcs_added += 1
-        if offstage_npcs_added:
-            await db.flush()
-            logger.info(f"Offstage NPCs created: {offstage_npcs_added} for session {session_id[:12]}")
-
         # ── Process player_relationships: write/update NPC_Relationship table ──
         player_rels_added = 0
         for rel in (parsed.player_relationships or []):
