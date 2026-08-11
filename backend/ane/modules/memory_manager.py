@@ -192,50 +192,6 @@ class MemoryManager:
         )
         return list(result.scalars().all())
 
-    # ── HTEM Directory ──────────────────────────────────────────
-
-    async def save_htem_directory(
-        self,
-        db: AsyncSession,
-        session_id: str,
-        htem_text: str,
-    ):
-        """Persist the AI-generated character directory for this session.
-
-        Only the latest version is kept — older entries are overwritten.
-        Stored as memory_type="htem_directory" with turn_number=0.
-        """
-        # Delete any existing HTEM directory for this session
-        await db.execute(
-            delete(Memory).where(
-                Memory.session_id == session_id,
-                Memory.memory_type == "htem_directory",
-            )
-        )
-        entry = Memory(
-            session_id=session_id,
-            memory_type="htem_directory",
-            content=htem_text,
-            turn_number=0,
-        )
-        db.add(entry)
-        await db.flush()
-        logger.info(f"HTEM directory saved for session {session_id} ({len(htem_text)} chars)")
-
-    async def get_htem_directory(
-        self, db: AsyncSession, session_id: str
-    ) -> str | None:
-        """Return the cached HTEM directory, or None if none exists."""
-        result = await db.execute(
-            select(Memory)
-            .where(
-                Memory.session_id == session_id,
-                Memory.memory_type == "htem_directory",
-            )
-            .limit(1)
-        )
-        entry = result.scalar_one_or_none()
-        return entry.content if entry else None
 
     async def _trim_conversation(
         self, db: AsyncSession, session_id: str, memory_type: str, keep: int

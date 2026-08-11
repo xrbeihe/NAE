@@ -147,7 +147,6 @@ class TurnResult:
     time_delta: int = 0
     npc_updates: list[dict] = field(default_factory=list)
     nearby_characters: list[dict] = field(default_factory=list)
-    htem_directory: str = ""
     is_system_command: bool = False
     system_response: str | None = None
     player_panel: str = ""
@@ -1029,7 +1028,6 @@ class GameEngine:
             time_delta=time_delta,
             npc_updates=npc_updates,
             nearby_characters=parsed.nearby_characters,
-            htem_directory="",  # HTEM removed
             prompt=prompt,
             player_panel=player_panel_str,
             important_npcs_panel="",
@@ -1716,8 +1714,6 @@ class GameEngine:
             items.append(f"{target}的{relation}（不在现场）")
             return items
         return items
-
-    # ── (duplicate removed — see the full implementations above) ──
 
     # ── NPC name extraction helper ──────────────────────────────
 

@@ -67,8 +67,6 @@ async def test_full_turn_loop(db, mock_llm):
     assert result.is_system_command is False
 
     assert mock_llm.call_count >= 1
-    # HTEM has been removed — NPC_MODELING replaces it only on marking turns
-    assert result.htem_directory == ""
 
 
 @pytest.mark.asyncio

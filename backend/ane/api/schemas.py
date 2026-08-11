@@ -59,7 +59,6 @@ class SessionSummary(BaseModel):
     travel_log: list[dict] = []
     conversation: list[ConversationEntry] = []
     npc_names: list[str] = []
-    htem_directory: str = ""
     map_data: dict | None = None
     world_intro: str = ""
     prompts: list[ConversationEntry] = []
@@ -94,7 +93,6 @@ class TurnResponse(BaseModel):
     time_delta: int
     npc_updates: list[dict]
     nearby_characters: list[dict] = []
-    htem_directory: str = ""
     is_system_command: bool = False
     system_response: str | None = None
     prompt: str = ""
