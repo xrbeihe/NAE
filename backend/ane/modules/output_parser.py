@@ -93,6 +93,72 @@ def _as_str(value) -> str:
     return ""
 
 
+def _clean_narrative_leakage(narrative: str) -> str:
+    """Strip leaked JSON structures / structured markers from narrative.
+
+    LLM 偶发会把 nearby_characters、JSON 片段、字段名等写进 narrative 字段，
+    导致前端渲染出数据结构。这里剥离这些泄漏，只保留纯正文。
+    """
+    import re as _re
+
+    if not narrative:
+        return narrative
+
+    original = narrative
+
+    # 1) 剥离【附近人物】等标记行（只删该行，后续 JSON 由第 2 步平衡括号处理）
+    narrative = _re.sub(r"【附近人物】[^\n]*\n?", "", narrative)
+
+    # 2) 剥离独立的 JSON 对象 {…} / 数组 […]（平衡括号；仅当内容含 JSON 特征才剥离）
+    def _strip_balanced(text: str, open_ch: str, close_ch: str) -> str:
+        out = []
+        depth = 0
+        open_idx = -1
+        i = 0
+        while i < len(text):
+            c = text[i]
+            if c == open_ch:
+                if depth == 0:
+                    open_idx = len(out)
+                depth += 1
+                out.append(c)
+            elif c == close_ch and depth > 0:
+                depth -= 1
+                if depth == 0:
+                    # 成对闭合：检查内容是否像 JSON（含引号或键值冒号）
+                    block = "".join(out[open_idx + 1:])
+                    looks_json = ('"' in block) or (':' in block)
+                    if looks_json:
+                        del out[open_idx:]
+                        out.append(" ")
+                    else:
+                        out.append(c)  # 正常文字花括号（如 {好}）保留闭合符
+                else:
+                    out.append(c)
+            else:
+                out.append(c)
+            i += 1
+        return "".join(out)
+
+    narrative = _strip_balanced(narrative, "{", "}")
+    narrative = _strip_balanced(narrative, "[", "]")
+
+    # 3) 剥离 "key": "value" / "key": value 残留
+    narrative = _re.sub(r'"[^"]{1,40}"\s*:\s*("[^"]*"|[^\s,}\]]{1,60})', "", narrative)
+    # 剥离悬挂的字段名 "key"（若独立成词）
+    narrative = _re.sub(r'"[a-zA-Z_]{1,40}"', "", narrative)
+
+    # 4) 清理：多余空行、行尾逗号/冒号
+    narrative = _re.sub(r"\n{3,}", "\n\n", narrative)
+    narrative = _re.sub(r"[,\s:]+$", "", narrative)
+    narrative = narrative.strip()
+
+    # 5) 若清洗后空（说明正文全是泄漏），回退原始，避免全丢
+    if not narrative:
+        return original
+    return narrative
+
+
 # ── Balanced brace JSON extraction ──────────────────────────────
 
 def _extract_balanced_json(text: str) -> list[str]:
@@ -226,10 +292,39 @@ def _parse_json(json_str: str, fallback_raw: str, event_types: set[str] | None =
     raw_offstage = data.get("offstage_npcs", [])
     raw_player_rels = data.get("player_relationships", [])
 
+    # ── 泄漏清洗：剥离 narrative 里混入的 JSON 结构 / 结构化标记 ──
+    #   偶发时 LLM 把 nearby_characters、JSON 片段等写进了 narrative 字段，
+    #   这里检测并剥离，只保留纯正文。
+    if narrative:
+        narrative = _clean_narrative_leakage(narrative)
+
     # ── Ensure minimum narrative length for quality ──
     if narrative and len(narrative) < 300:
         logger.info(f"Narrative too short ({len(narrative)} chars), ignoring word count constraint")
         # Don't cap or pad — the LLM will see the length requirement next turn
+
+    # ── 偶发不分段兜底：narrative 较长且无换行 → 按句末标点分组分段 ──
+    if narrative and len(narrative) > 200 and "\n" not in narrative:
+        import re as _re
+        # 按句末标点切句（保留标点）
+        sentences = _re.findall(r"[^。！？]*[。！？]", narrative)
+        leftover = _re.sub(r"[^。！？]*[。！？]", "", narrative).strip()
+        if leftover:
+            sentences.append(leftover)
+        # 每 2-3 句一组（约 60-80 字一段），段落间用空行分隔
+        paragraphs = []
+        buf = ""
+        for s in sentences:
+            if not s.strip():
+                continue
+            buf += s
+            if len(buf) >= 60:
+                paragraphs.append(buf)
+                buf = ""
+        if buf.strip():
+            paragraphs.append(buf)
+        narrative = "\n\n".join(paragraphs) if paragraphs else narrative
+        logger.info(f"Narrative had no newlines — auto-paragraphed into {len(paragraphs)} paragraphs")
 
     # Validate each state_change
     valid_changes = []

@@ -620,3 +620,23 @@ async def test_temperature_passthrough(db, client_a, mock_llm):
         r = await client_a.post(f"/sessions/{session_id}/turn", json={"input": "测试"})
     assert r.status_code == 200, r.text
     assert "temperature" not in captured or captured.get("temperature") is None
+
+
+# ── narrative 泄漏清洗（JSON/附近人物混入正文）───────────────
+
+def test_clean_narrative_leakage_strips_json_and_markers():
+    """正文混入 JSON + 【附近人物】 → 剥离泄漏，保留前后正文。"""
+    from ane.modules.output_parser import _clean_narrative_leakage
+    leaked = ('晨雾未散。你站在码头边。{"name": "老渔夫", "action": "整理渔网"}\n'
+              '【附近人物】[{"name": "老渔夫"}, {"name": "卖菜妇人"}]\n你转身走向镇子。')
+    clean = _clean_narrative_leakage(leaked)
+    assert "你转身走向镇子" in clean
+    assert "{" not in clean and "【附近人物" not in clean
+    assert "晨雾未散" in clean
+
+
+def test_clean_narrative_leakage_keeps_normal():
+    """正常正文不受影响。"""
+    from ane.modules.output_parser import _clean_narrative_leakage
+    normal = "晨雾未散。你站在码头边，看着海面。浪头拍岸，海风很冷。"
+    assert _clean_narrative_leakage(normal) == normal

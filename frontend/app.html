@@ -1697,8 +1697,8 @@ function showLatestSummary() {
     if (e_long.length) {
       for (var i = 0; i < e_long.length; i++) {
         var lines = e_long[i].content;
+        // 长记忆头部已含【纪元记录】区间，不再显示多余的 turn_number 小标签
         h += '<div style="margin-bottom:6px;font-size:12px;color:var(--text);line-height:1.5">' +
-          '<span style="color:var(--accent-dim);font-size:11px">第' + e_long[i].turn_number + '轮</span><br>' +
           lines.replace(/\n/g, '<br>') + '</div>';
       }
     } else {
