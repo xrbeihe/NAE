@@ -40,11 +40,12 @@
 │       ├── main.py                # FastAPI 入口
 │       ├── auth.py                # JWT 认证 + 密码哈希 + FastAPI 鉴权依赖
 │       ├── game_engine.py         # 核心编排器（turn 处理管线）
+│       ├── companion_engine.py    # 1v1 陪伴对话引擎（/chat 子系统）
 │       ├── migrate_users.py       # 数据库迁移脚本
 │       ├── database/
 │       │   ├── engine.py          # 异步 SQLAlchemy 引擎
-│       │   └── models.py          # ORM 模型（12 张表：users + 11 业务表，含开源共享/评分/角色卡）
-│       ├── modules/               # 15 个独立模块（全部单例）
+│       │   └── models.py          # ORM 模型（15 张表：users + 14 业务表，含开源共享/评分/角色卡）
+│       ├── modules/               # 16 个独立模块（全部单例）
 │       │   ├── input_validator.py # 安全检查 + 意图分类 + 中文数字解析
 │       │   ├── time_manager.py    # 时间推进 + Phase 1 内联 Scheduler
 │       │   ├── narrative_constraints.py
@@ -58,7 +59,9 @@
 │       │   ├── npc_manager.py      # NPC CRUD（无初始生成，按需创建）
 │       │   ├── npc_modeler.py      # 结构化人物档案建模（90+字段，替代 HTEM）
 │       │   ├── world_manager.py    # 世界区域 CRUD + 初始生成
-│       │   └── pack_generator.py   # 一键生成世界观包 zip
+│       │   ├── pack_generator.py   # 一键生成世界观包 zip
+│       │   ├── card_schema.py      # 角色卡字段树（恋爱向）
+│       │   └── card_from_novel.py  # 小说 → 角色卡（候选提取 + 抽样填卡）
 │       ├── content/               # JSON 模板数据
 │       │   ├── world_templates.json  # 宗门/城市模板
 │       │   ├── player_templates.json # 角色创建选项
@@ -68,6 +71,8 @@
 │       │   ├── routes.py          # Session/Turn/NPC/记忆 API（认证保护）
 │       │   ├── auth_routes.py     # 注册/登录/改密 API
 │       │   ├── worldview_routes.py# 世界观工具链 + 开源共享/评分 API
+│       │   ├── chat_routes.py     # 1v1 陪伴对话 API（/chat）
+│       │   ├── card_routes.py     # 角色卡 API（/cards，含小说→角色卡）
 │       │   └── schemas.py
 │       └── tools/                 # 工具脚本
 │           ├── nsfw_harvest.py     # NSFW 素材收割
@@ -77,10 +82,12 @@
 │   ├── login.html         # 登录/注册
 │   ├── settings.html      # 用户设置（头像/密码/清空日志/设计器入口）
 │   ├── designer.html      # 世界观设计器（/designer 路由）
+│   ├── chat.html          # 1v1 陪伴对话（/chat 路由）
+│   ├── card_editor.html   # 角色卡编辑器（/card-editor 路由）
 │   └── public/
 │       ├── common.js      # 共享工具函数（JWT、日志、颜色、NPC 格式化）
 │       └── character.js   # 角色创建 + 世界观选择逻辑
-├── tests/                 # 测试（pytest，208 个用例）
+├── tests/                 # 测试（pytest，263 个用例）
 │   ├── conftest.py        # engine + db fixtures
 │   ├── test_modules.py    # 单元测试
 │   └── test_turn.py       # 集成测试

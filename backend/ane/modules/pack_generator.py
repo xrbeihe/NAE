@@ -361,11 +361,6 @@ def _build_ui(author: dict) -> dict:
             "without_golden_finger": [],
             "tail": ["检查随身物品，清点积蓄", "向遇到的人打听附近的风土人情", "寻找能提升自己能力的机会"],
         },
-        "suggestion_groups": {
-            fields["cultivation_label"]: [],
-            "身份": list((author.get("professions") or []) if isinstance(author.get("professions"), list) else []),
-            "场景": author.get("places") if isinstance(author.get("places"), list) else [],
-        },
         "npc_archetypes": [
             {"name": "路人甲", "desc": "路过的普通人"},
             {"name": "店主", "desc": "常去的店铺老板"},

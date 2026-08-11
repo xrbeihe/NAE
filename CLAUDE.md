@@ -1,7 +1,7 @@
 # AI Narrative Engine (ANE)
 
 修仙叙事引擎 — Phase 1 MVP。FastAPI 后端 + 前端多页面 SPA。
-约 38 个 Python 源文件 / ~4500 行代码。
+约 46 个 Python 源文件 / ~16600 行代码。
 
 ## 快速导航
 
@@ -38,7 +38,7 @@ backend/          → 后端源码
     config.py        配置（JSON + env 覆盖）
     config.json      服务器/数据库/LLM 配置
     database/        ORM 模型 + 异步引擎（含世界观列无损迁移）
-    modules/         15 个独立模块（含 npc_modeler、pack_generator）
+    modules/         16 个独立模块（含 npc_modeler、pack_generator、card_schema、card_from_novel）
     content/         7 个 JSON 模板库 + 2 个 Python 封装层
     worldviews/      世界观包目录（xianxia_v1/modern_city/fantasy_kingdom/naruto_shippuden）
     tools/           NSFW 收割 + GUI 工具
@@ -53,7 +53,7 @@ frontend/         → 前端 SPA
   public/
     common.js        共享工具函数（JWT、日志、颜色、NPC 格式化等）
     character.js     角色创建 + 世界观选择逻辑（ES5 共享）
-tests/            → 测试（pytest，208 个用例）
+tests/            → 测试（pytest，263 个用例）
 data/             → SQLite 数据库文件
 docs/             → 文档
 ```
@@ -70,7 +70,7 @@ ane.bat
 # 仅后端（带热重载 ANE_RELOAD=1）
 cd backend && ANE_RELOAD=1 .venv\Scripts\python -m ane.main
 
-# 测试（152 个用例全通过）
+# 测试（263 个用例全通过）
 .venv\Scripts\pytest tests/ -v
 
 # 设计器页

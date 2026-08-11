@@ -79,7 +79,7 @@
   <div style="max-width:560px">
 <!-- Worldviews -->
     <h3 style="color:var(--accent);font-size:15px;margin-bottom:12px">🌍 便捷开发板块</h3>
-    <p style="font-size:12px;color:var(--accent-dim);margin-bottom:10px">一键生成新世界观，或编辑已有世界观的角色创建表单、初始推荐行动。默认世界观（修仙世界）不可删除。</p>
+    <p style="font-size:12px;color:var(--accent-dim);margin-bottom:10px">一键生成或上传安装新世界观；每个世界观可可视化编辑角色创建表单、文案、选项数据、权威设定与系统 prompt，支持开源共享。默认世界观（修仙世界）不可删除。</p>
     <button onclick="showGenerator()" style="background:var(--accent);color:var(--panel);border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:13px;margin-bottom:12px">✨ 一键生成新世界观</button>
 
     <!-- Generator form (hidden by default) -->
@@ -124,6 +124,16 @@
       <input type="text" id="gen-factions" placeholder="如：灰烬骑士团、术士议会、自由港商会" style="width:100%;padding:8px 12px;margin-bottom:8px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px;box-sizing:border-box">
       <label style="display:block;margin-bottom:2px;font-size:11px;color:var(--accent-dim)">世界禁忌 / 规则（顿号分隔，写入叙事硬约束）</label>
       <input type="text" id="gen-taboos" placeholder="如：严禁复活亡者、古战场遗迹不得擅入" style="width:100%;padding:8px 12px;margin-bottom:8px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px;box-sizing:border-box">
+
+      <div style="font-size:13px;color:var(--accent);margin:16px 0 8px;border-top:1px solid var(--border);padding-top:12px">🎬 IP 世界观（可选，基于既有作品时勾选）</div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--accent-dim);margin-bottom:8px;cursor:pointer">
+        <input type="checkbox" id="gen-ip-based" style="width:auto;margin:0"> 基于既有作品（如动漫/小说/游戏）—— 自动生成权威设定文件（world_facts.json），约束 LLM 遵守原作设定
+      </label>
+      <div id="gen-ip-work-wrap" style="display:none">
+        <label style="display:block;margin-bottom:2px;font-size:11px;color:var(--accent-dim)">作品名（将写入「故事基于作品《…》展开」）</label>
+        <input type="text" id="gen-ip-work" placeholder="如：海贼王" style="width:100%;padding:8px 12px;margin-bottom:8px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px;box-sizing:border-box">
+      </div>
+
 
       <div style="font-size:13px;color:var(--accent);margin:16px 0 8px;border-top:1px solid var(--border);padding-top:12px">🧬 角色与内容（可选）</div>
 
@@ -501,6 +511,17 @@ function showGenerator() {
   document.getElementById('generator-form').style.display = 'block';
 }
 
+// ── IP 世界观开关联动：勾选时显示作品名输入 ──
+document.addEventListener('DOMContentLoaded', function() {
+  var ipCheck = document.getElementById('gen-ip-based');
+  var ipWrap = document.getElementById('gen-ip-work-wrap');
+  if (ipCheck && ipWrap) {
+    ipCheck.addEventListener('change', function() {
+      ipWrap.style.display = ipCheck.checked ? 'block' : 'none';
+    });
+  }
+});
+
 async function generateWorldview() {
   var resultEl = document.getElementById('generator-result');
   var body = {
@@ -521,6 +542,8 @@ async function generateWorldview() {
     npc_names: (document.getElementById('gen-npc-names') || {}).value || '',
     golden_fingers: (document.getElementById('gen-golden-fingers') || {}).value || '',
     event_theme: (document.getElementById('gen-event-theme') || {}).value || '',
+    ip_based: !!(document.getElementById('gen-ip-based') || {}).checked,
+    ip_work: (document.getElementById('gen-ip-work') || {}).value.trim(),
   };
   if (!body.id || !body.name) { resultEl.textContent = '请至少填写「世界 ID」和「世界观名称」'; return; }
   resultEl.textContent = '正在生成…';
@@ -686,7 +709,94 @@ function saveFormEditor() {
 }
 
 // ── Copy editor (ui.json: buttons/labels/titles + initial recommendations) ──
-var _recEditor = { worldview: '', ui: null };
+var _recEditor = { worldview: '', ui: null, cardRows: [] };
+
+/* 把 character_card 的 lines+conditional 展开为统一行数组（用于卡片行编辑器）。
+   每行：cond(普通/条件) / label / key / composite / tag_field */
+function _cardRowsFromSpec(cc) {
+  cc = cc || {};
+  var rows = [];
+  (cc.lines || []).forEach(function(l) {
+    rows.push({ cond: false, label: l.label || '', key: l.key || '', composite: l.composite || '', tag_field: l.tag_field || '' });
+  });
+  (cc.conditional || []).forEach(function(l) {
+    rows.push({ cond: true, label: l.label || '', key: l.key || '', composite: l.composite || '', tag_field: l.tag_field || '' });
+  });
+  return rows;
+}
+
+/* 行内容编辑：单个输入框，含花括号 → composite 模板，否则 key */
+function _cardRowContent(row) { return row.composite || row.key || ''; }
+
+function renderCardEditor() {
+  var cc = (_recEditor.ui && _recEditor.ui.character_card) || {};
+  if (!_recEditor.cardRows.length) _recEditor.cardRows = _cardRowsFromSpec(cc);
+  var title = (cc.title || '').trim() || '📋 **角色创建成功**';
+  var html = '<div style="border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:14px;background:var(--input-bg)">' +
+    '<div style="font-size:13px;color:var(--accent);margin-bottom:8px">📋 角色创建成功卡片</div>' +
+    '<div style="margin-bottom:8px"><label style="display:block;font-size:11px;color:var(--accent-dim);margin-bottom:2px">卡片标题</label>' +
+    '<input id="card-title-input" value="' + _esc(title) + '" placeholder="📋 **角色创建成功**" style="width:100%;padding:6px 10px;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px"></div>' +
+    '<div style="font-size:11px;color:var(--accent-dim);margin-bottom:6px">内容行（普通行总是显示；条件行仅在对应数据存在时显示）。内容填数据键（如 name）或带花括号的模板（如 性别：{gender} ｜ 年龄：{age}岁）。</div>';
+  _recEditor.cardRows.forEach(function(row, idx) {
+    html += '<div data-card-row="' + idx + '" style="border:1px solid var(--border);border-radius:4px;padding:8px 10px;margin-bottom:6px;background:var(--panel)">' +
+      '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">' +
+        '<span style="font-size:12px;color:var(--accent-dim);width:26px">' + (idx+1) + '</span>' +
+        '<select data-cr="cond" style="padding:4px 6px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px">' +
+          '<option value="0"' + (!row.cond ? ' selected' : '') + '>普通行</option>' +
+          '<option value="1"' + (row.cond ? ' selected' : '') + '>条件行</option>' +
+        '</select>' +
+        '<input data-cr="label" value="' + _esc(row.label) + '" placeholder="标签（如：姓名）" style="flex:1;min-width:0;padding:5px 8px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px">' +
+        '<button onclick="moveCardRow(' + idx + ',-1)" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:2px 7px;border-radius:4px;cursor:pointer;font-size:11px">↑</button>' +
+        '<button onclick="moveCardRow(' + idx + ',1)" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:2px 7px;border-radius:4px;cursor:pointer;font-size:11px">↓</button>' +
+        '<button onclick="removeCardRow(' + idx + ')" style="background:none;border:1px solid var(--danger,#8a3a3a);color:#b06060;padding:2px 7px;border-radius:4px;cursor:pointer;font-size:11px">✕</button>' +
+      '</div>' +
+      '<input data-cr="content" value="' + _esc(_cardRowContent(row)) + '" placeholder="数据键 或 模板（如：性别：{gender} ｜ 年龄：{age}岁）" style="width:100%;padding:5px 8px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px;box-sizing:border-box">' +
+      '<div data-cr-tagfield style="margin-top:4px;display:' + (row.cond && row.composite ? 'block' : 'none') + '">' +
+        '<input data-cr="tag_field" value="' + _esc(row.tag_field || '') + '" placeholder="tag_field（可选，金手指尾注字段，如 golden_finger_tagline）" style="width:100%;padding:5px 8px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px;box-sizing:border-box">' +
+      '</div>' +
+    '</div>';
+  });
+  html += '<button onclick="addCardRow()" style="margin-top:4px;padding:6px 14px;background:none;border:1px dashed var(--border);color:var(--accent-dim);border-radius:4px;cursor:pointer;font-size:12px;width:100%">＋ 添加一行</button>';
+  return html;
+}
+
+function addCardRow() { _recEditor.cardRows.push({ cond: false, label: '新行', key: '', composite: '', tag_field: '' }); renderRecEditor(); }
+function moveCardRow(idx, dir) {
+  var arr = _recEditor.cardRows;
+  var ni = idx + dir;
+  if (ni < 0 || ni >= arr.length) return;
+  var t = arr[idx]; arr[idx] = arr[ni]; arr[ni] = t;
+  renderRecEditor();
+}
+function removeCardRow(idx) { _recEditor.cardRows.splice(idx, 1); renderRecEditor(); }
+
+/* 收集卡片行编辑器状态 → 写回 ui.character_card（title/lines/conditional） */
+function _collectCardEditor() {
+  var title = (document.getElementById('card-title-input') || {}).value.trim() || '📋 **角色创建成功**';
+  var lines = [], conditional = [];
+  var rowEls = document.querySelectorAll('[data-card-row]');
+  _recEditor.cardRows.forEach(function(row, idx) {
+    var el = rowEls[idx];
+    if (!el) return;
+    var vals = {};
+    el.querySelectorAll('input[data-cr]').forEach(function(inp) { vals[inp.dataset.cr] = inp.value.trim(); });
+    var condSel = el.querySelector('select[data-cr="cond"]');
+    var isCond = condSel && condSel.value === '1';
+    var line = { label: vals.label || row.label || '' };
+    var c = vals.content || '';
+    if (c.indexOf('{') > -1) line.composite = c;
+    else if (c) line.key = c;
+    if (isCond) {
+      if (vals.tag_field) line.tag_field = vals.tag_field;
+      if (line.key) line.show_if = 'truthy';
+      conditional.push(line);
+    } else {
+      lines.push(line);
+    }
+  });
+  return { title: title, lines: lines, conditional: conditional };
+}
+
 
 var _REC_GROUPS = [
   ['base', '基础推荐（总是显示，前 3 条）', ['四处走走，熟悉周围的环境', '找当地人打听本地的消息', '去坊市看看有没有合适的装备或丹药']],
@@ -707,6 +817,7 @@ var _UI_TEXT_FIELDS = [
 function openRecEditor(wvId) {
   _recEditor.worldview = wvId;
   _recEditor.ui = null;
+  _recEditor.cardRows = [];
   document.getElementById('rec-editor-title').textContent = '💬 编辑文案 — ' + wvId;
   document.getElementById('rec-editor-msg').textContent = '加载中…';
   document.getElementById('rec-editor-overlay').style.display = 'flex';
@@ -750,6 +861,9 @@ function renderRecEditor() {
   });
   html += '</div>';
 
+  // 创建成功卡片 section
+  html += renderCardEditor();
+
   // Recommendations section
   html += '<div style="font-size:13px;color:var(--accent);margin-bottom:8px">初始推荐行动</div>';
   _REC_GROUPS.forEach(function(g) {
@@ -768,6 +882,12 @@ function saveRecEditor() {
     recs[g[0]] = lines;
   });
   ui.initial_recommendations = recs;
+  // Save character card (title + lines + conditional)
+  var cc = _collectCardEditor();
+  if (!ui.character_card) ui.character_card = {};
+  ui.character_card.title = cc.title;
+  ui.character_card.lines = cc.lines;
+  ui.character_card.conditional = cc.conditional;
   // Save general copy fields
   _UI_TEXT_FIELDS.forEach(function(f) {
     var key = f[0];
@@ -816,7 +936,9 @@ var _OPT_TABS = {
   npc_body_types:{ file: 'npc_templates.json', label: '体型池', cols: [['name','体型']], kind: 'str_list', list_key: 'body_types' },
   npc_attires:   { file: 'npc_templates.json', label: '衣着池', cols: [['name','衣着']], kind: 'str_list', list_key: 'attires' },
   npc_constitutions:{file: 'npc_templates.json', label: '体质/天赋池', cols: [['name','体质']], kind: 'str_list', list_key: 'constitutions' },
-  npc_archetypes:{ file: 'npc_templates.json', label: 'NPC原型', list_key: 'core_archetypes', cols: [['identity','身份'],['personality','性格'],['cultivation','修为'],['behavior_note','行为特征']] }
+  npc_archetypes:{ file: 'npc_templates.json', label: 'NPC原型', list_key: 'core_archetypes', cols: [['identity','身份'],['personality','性格'],['cultivation','修为'],['behavior_note','行为特征']] },
+  npc_devil_fruits:{file: 'npc_templates.json', label: '恶魔果实池', cols: [['name','果实']], kind: 'str_list', list_key: 'devil_fruits' },
+  npc_haki:{file: 'npc_templates.json', label: '霸气池', cols: [['name','霸气']], kind: 'str_list', list_key: 'haki' }
 };
 
 function openOptEditor(wvId) {
@@ -1056,7 +1178,115 @@ function renderFactsEditor() {
       if (typeof c === 'string') return c;
       return c.name + '｜' + (c.desc || '');
     }).join('\n')) + '</textarea></div>';
+  html += renderTimelinesEditor(f.timelines || []);
   document.getElementById('facts-editor-body').innerHTML = html;
+}
+
+/* ── 时间线编辑器（world_facts.json 的 timelines）── */
+var _factsTimelineIdx = -1;
+
+function _timelineField(idx, key, label, value, placeholder) {
+  var multiline = (key === 'description');
+  var input = multiline
+    ? '<textarea data-tl="' + idx + '" data-tlkey="' + key + '" placeholder="' + _esc(placeholder || '') + '" style="width:100%;padding:6px 10px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px;font-family:inherit;resize:vertical;min-height:56px;box-sizing:border-box;line-height:1.5">' + _esc(value || '') + '</textarea>'
+    : '<input data-tl="' + idx + '" data-tlkey="' + key + '" value="' + _esc(value || '') + '" placeholder="' + _esc(placeholder || '') + '" style="width:100%;padding:6px 10px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px;box-sizing:border-box">';
+  return '<div style="margin-bottom:6px"><label style="display:block;font-size:11px;color:var(--accent-dim);margin-bottom:2px">' + label + '</label>' + input + '</div>';
+}
+
+function _timelineListField(idx, key, label, arr) {
+  var joined = (arr || []).join('\n');
+  return '<div style="margin-bottom:6px"><label style="display:block;font-size:11px;color:var(--accent-dim);margin-bottom:2px">' + label + '（每行一条）</label>' +
+    '<textarea data-tl="' + idx + '" data-tlkey="' + key + '" style="width:100%;padding:6px 10px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px;font-family:inherit;resize:vertical;min-height:60px;box-sizing:border-box;line-height:1.5">' + _esc(joined) + '</textarea></div>';
+}
+
+function renderTimelinesEditor(timelines) {
+  var html = '<div style="border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:14px;background:var(--input-bg)">' +
+    '<div style="font-size:13px;color:var(--accent);margin-bottom:4px">⏳ 起始时间线</div>' +
+    '<div style="font-size:11px;color:var(--accent-dim);margin-bottom:10px">玩家创建会话时可选择的起始时间线节点。每条含 id/label/描述/必须遵守/禁止出现/关键角色，覆盖该时间线的世界状态。</div>';
+  if (!timelines.length) {
+    html += '<div style="font-size:12px;color:var(--accent-dim);margin-bottom:8px">（暂无时间线 —— 不设置则所有会话从默认时间开始）</div>';
+  }
+  timelines.forEach(function(t, idx) {
+    var chars = (t.characters || []).map(function(c) {
+      if (typeof c === 'string') return c;
+      return c.name + '｜' + (c.desc || '');
+    }).join('\n');
+    html += '<div style="border:1px solid var(--border);border-radius:4px;padding:10px;margin-bottom:8px;background:var(--panel)">' +
+      '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">' +
+        '<span style="font-size:12px;color:var(--accent-dim)">' + (idx+1) + '</span>' +
+        '<span style="font-size:12px;color:var(--text);font-weight:bold">' + _esc(t.label || t.id || '') + '</span>' +
+        '<span style="margin-left:auto"></span>' +
+        '<button onclick="moveTimeline(' + idx + ',-1)" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:2px 7px;border-radius:4px;cursor:pointer;font-size:11px">↑</button>' +
+        '<button onclick="moveTimeline(' + idx + ',1)" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:2px 7px;border-radius:4px;cursor:pointer;font-size:11px">↓</button>' +
+        '<button onclick="removeTimeline(' + idx + ')" style="background:none;border:1px solid var(--danger,#8a3a3a);color:#b06060;padding:2px 7px;border-radius:4px;cursor:pointer;font-size:11px">✕</button>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+        _timelineField(idx, 'id', 'ID（唯一）', t.id, '如：wave_arc') +
+        _timelineField(idx, 'label', '标签', t.label, '如：波之国任务') +
+      '</div>' +
+      _timelineField(idx, 'description', '描述', t.description, '该时间点的世界状态') +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+        _timelineListField(idx, 'must_follow', '必须遵守', t.must_follow) +
+        _timelineListField(idx, 'forbidden', '禁止出现', t.forbidden) +
+      '</div>' +
+      _timelineListField(idx, 'characters', '关键角色（名字｜设定）', chars) +
+    '</div>';
+  });
+  html += '<button onclick="addTimeline()" style="padding:6px 14px;background:none;border:1px dashed var(--border);color:var(--accent-dim);border-radius:4px;cursor:pointer;font-size:12px;width:100%">＋ 添加时间线</button>';
+  return html;
+}
+
+function addTimeline() {
+  if (!_factsEditor.facts.timelines) _factsEditor.facts.timelines = [];
+  _factsEditor.facts.timelines.push({ id: 'new_timeline', label: '新时间线', description: '', must_follow: [], forbidden: [], characters: [] });
+  renderFactsEditor();
+}
+function moveTimeline(idx, dir) {
+  var arr = _factsEditor.facts.timelines;
+  if (!arr) return;
+  var ni = idx + dir;
+  if (ni < 0 || ni >= arr.length) return;
+  var t = arr[idx]; arr[idx] = arr[ni]; arr[ni] = t;
+  renderFactsEditor();
+}
+function removeTimeline(idx) {
+  var arr = _factsEditor.facts.timelines;
+  if (!arr) return;
+  arr.splice(idx, 1);
+  renderFactsEditor();
+}
+
+/* 收集时间线编辑状态 → 写回 f.timelines */
+function _collectTimelines() {
+  var f = _factsEditor.facts;
+  if (!Array.isArray(f.timelines)) f.timelines = [];
+  var els = document.querySelectorAll('[data-tl]');
+  var byIdx = {};
+  els.forEach(function(el) {
+    var idx = parseInt(el.dataset.tl, 10);
+    if (!byIdx[idx]) byIdx[idx] = {};
+    byIdx[idx][el.dataset.tlkey] = el.value.trim();
+  });
+  var rebuilt = [];
+  f.timelines.forEach(function(t, idx) {
+    var v = byIdx[idx] || {};
+    var rebuiltTl = {
+      id: v.id || t.id || '',
+      label: v.label || t.label || '',
+      description: v.description || t.description || '',
+    };
+    ['must_follow', 'forbidden'].forEach(function(k) {
+      rebuiltTl[k] = (v[k] !== undefined ? v[k] : (t[k] || [])).split('\n').map(function(s){ return s.trim(); }).filter(Boolean);
+    });
+    var charsRaw = v.characters !== undefined ? v.characters : ((t.characters || []).map(function(c){ return typeof c === 'string' ? c : (c.name + '｜' + (c.desc||'')); }).join('\n'));
+    rebuiltTl.characters = charsRaw.split('\n').map(function(line) {
+      line = line.trim(); if (!line) return null;
+      var p = line.split('｜');
+      return p.length >= 2 ? { name: p[0].trim(), desc: p.slice(1).join('｜').trim() } : line;
+    }).filter(Boolean);
+    rebuilt.push(rebuiltTl);
+  });
+  return rebuilt;
 }
 
 function saveFactsEditor() {
@@ -1078,6 +1308,8 @@ function saveFactsEditor() {
     if (parts.length >= 2) return { name: parts[0].trim(), desc: parts.slice(1).join('｜').trim() };
     return line; // plain string
   }).filter(Boolean);
+  // timelines: 从时间线编辑器收集
+  f.timelines = _collectTimelines();
   var msgEl = document.getElementById('facts-editor-msg');
   msgEl.textContent = '保存中…';
   apiFetch('/worldviews/' + encodeURIComponent(_factsEditor.worldview) + '/data/world_facts.json', {
