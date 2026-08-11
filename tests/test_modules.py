@@ -789,33 +789,6 @@ class TestPromptBuilder:
         assert "叶辰" in prompt
         assert "内门大长老嫡孙" in prompt
 
-    def test_build_related_absent_block(self):
-        """Build prompt with related-absent characters."""
-        from ane.modules.prompt_builder import (
-            prompt_builder, PromptContext, NPCContext,
-            AgenticContext, WorldContext, PlayerContext, SceneContext,
-        )
-        related = NPCContext(
-            id="npc_r",
-            name="慕清瑶",
-            identity="武汉主城城主之女",
-            cultivation="金丹期",
-            location="武汉城",
-            lifestyle_summary="天灵根绝世天才",
-        )
-        ctx = PromptContext(
-            world=WorldContext(name="测试"),
-            player=PlayerContext(name="许睿", cultivation="炼气期"),
-            agentic=AgenticContext(),
-            scene=SceneContext(),
-            related_absent=[related],
-            user_input="你好",
-        )
-        prompt = prompt_builder.build(ctx)
-        assert "【相关的未登场人物】" in prompt
-        assert "慕清瑶" in prompt
-        assert "武汉主城城主之女" in prompt
-
     def test_build_suggestions_block(self):
         """Build prompt with action suggestions."""
         from ane.modules.prompt_builder import (

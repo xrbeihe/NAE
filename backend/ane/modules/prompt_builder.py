@@ -674,7 +674,6 @@ class PromptContext:
     summary: str = ""
     conversation: list[Memory] = field(default_factory=list)
     longmemory_entries: list[Memory] = field(default_factory=list)
-    related_absent: list[NPCContext] = field(default_factory=list)
     suggestions: list[str] = field(default_factory=list)
     user_input: str = ""
 
@@ -808,11 +807,6 @@ class PromptBuilder:
         conv_block = self._build_conversation_block(ctx)
         if conv_block:
             blocks.append(conv_block)
-
-        # P4: Related absent characters
-        related_block = self._build_related_block(ctx)
-        if related_block:
-            blocks.append(related_block)
 
         # P4: Action suggestions
         suggestions_block = self._build_suggestions_block(ctx)
@@ -1466,20 +1460,6 @@ class PromptBuilder:
         era_block = ("\n\n".join(era_lines) + "\n\n") if era_lines else ""
 
         return f"{era_block}💾短记忆区 {current_count}/{CONVERSATION_WINDOW_SIZE}：\n{conv_text}"
-
-    def _build_related_block(self, ctx: PromptContext) -> str:
-        """Build the [相关的未登场人物] block."""
-        if not ctx.related_absent:
-            return ""
-
-        lines = ["【相关的未登场人物】"]
-        for npc in ctx.related_absent:
-            relevance = npc.lifestyle_summary or npc.identity or ""
-            lines.append(
-                f"- {npc.name}｜{npc.identity}｜{npc.cultivation}｜"
-                f"{relevance}｜当前位置：{npc.location}"
-            )
-        return "\n".join(lines)
 
     def _build_suggestions_block(self, ctx: PromptContext) -> str:
         """Build the [推荐行动] block."""

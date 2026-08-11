@@ -19,7 +19,6 @@ logger = logging.getLogger(__name__)
 class ActiveSet:
     present_npcs: list[NPCModel] = field(default_factory=list)
     location_context: dict = field(default_factory=dict)
-    related_absent: list[NPCModel] = field(default_factory=list)
 
 
 class RetrievalEngine:
@@ -60,18 +59,13 @@ class RetrievalEngine:
             db, session_id, player_location
         )
 
-        # Related but absent — disabled (Fact table removed)
-        related_absent = []
-
         logger.info(
-            f"Active Set: {len(present_npcs)} present + "
-            f"{len(related_absent)} related-absent @ {player_location}"
+            f"Active Set: {len(present_npcs)} present @ {player_location}"
         )
 
         return ActiveSet(
             present_npcs=present_npcs,
             location_context=location_context,
-            related_absent=related_absent,
         )
 
 # Singleton

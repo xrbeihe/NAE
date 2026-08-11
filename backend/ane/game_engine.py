@@ -535,9 +535,6 @@ class GameEngine:
         # Era entries: inject all longmemory records for long-term context
         ctx.longmemory_entries = await memory_manager.get_longmemory_entries(db, session_id)
 
-        # Related absent characters
-        ctx.related_absent = [npc_to_context(n) for n in active_set.related_absent]
-
         # NSFW material injection
         if intent == "nsfw":
             nsfw_prompt = await self._build_nsfw_material(db, session_id, active_set.present_npcs)
