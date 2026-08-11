@@ -17,6 +17,9 @@ node_modules/
 .idea/
 .vscode/
 
+# Claude Code — local machine config (launch.json stays tracked)
+.claude/settings.local.json
+
 # Testing
 .pytest_cache/
 

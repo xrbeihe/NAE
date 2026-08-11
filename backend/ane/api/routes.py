@@ -21,8 +21,12 @@ from ane.api.schemas import (
 )
 
 import logging
+import re
 from datetime import datetime
 logger = logging.getLogger(__name__)
+
+# composite 行内 "{field}" 占位符匹配（角色创建卡片渲染用）
+_re_composite_tokens = re.compile(r"\{(\w+)\}")
 
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
@@ -52,6 +56,91 @@ def _worldview_world_templates(worldview: str | None) -> dict:
         return wv.world_templates
     from ane.content.json_loader import load_json
     return load_json("world_templates.json")
+
+
+def _render_character_card(wv, player, attrs: dict) -> str:
+    """Render the character-creation card from the pack's ui.json spec.
+
+    ``title``/``lines``/``conditional`` come from the pack's ``ui.json``
+    (author-editable); ``lines`` render unconditionally (skipping all-empty
+    composites), ``conditional`` entries render only when their value is
+    present. Falls back to the legacy xianxia title when the pack ships no
+    ``character_card`` config.
+    """
+    def _value(key):
+        if key == "name":
+            return player.name
+        if key == "location":
+            return player.location
+        if key == "cultivation":
+            return player.cultivation
+        return attrs.get(key)
+
+    def _composite_fields():
+        fields = {"name": player.name, "location": player.location or "",
+                  "cultivation": player.cultivation or ""}
+        for k, v in (attrs or {}).items():
+            fields.setdefault(k, v)
+        return fields
+
+    spec = (wv.ui or {}).get("character_card") or {}
+    title = spec.get("title") or "📋 **角色创建成功**"
+    parts = [title]
+    fields = _composite_fields()
+    for line in spec.get("lines") or []:
+        if line.get("key"):
+            value = _value(line["key"])
+            if value is None or (isinstance(value, str) and not value.strip()):
+                value = line.get("default", "")
+                if not value:
+                    continue
+            parts.append(f"{line.get('label', '')}：{value}")
+        elif line.get("composite"):
+            tokens = _re_composite_tokens.findall(line["composite"])
+            if tokens and not any(str(fields.get(t, "")).strip() for t in tokens):
+                continue  # 占位字段全空，只剩标签 —— 跳过该行
+            try:
+                parts.append(line["composite"].format(**fields))
+            except Exception:
+                continue
+
+    for line in spec.get("conditional") or []:
+        # 支持两种形态：
+        #   {"key": ...}                — 带 key 的传统行
+        #   {"composite": ..., "tag_field": ...} — 金手指模板行（无 key，仅当 golden_finger_name 有值时渲染）
+        if not line.get("key"):
+            if line.get("composite"):
+                gf_name = attrs.get("golden_finger_name", "") or ""
+                if not gf_name:
+                    continue
+                tag_field = line.get("tag_field") or ""
+                tag = attrs.get(tag_field, "") or "" if tag_field else ""
+                if tag == gf_name:
+                    tag = ""
+                parts.append(line["composite"].format(
+                    golden_finger_name=gf_name,
+                    tag=(" — " + tag) if tag else "",
+                ))
+            continue
+        key = line.get("key")
+        value = _value(key)
+        if line.get("show_if") == "truthy" and not value:
+            continue
+        if not value:
+            continue
+        if key == "golden_finger_name":
+            tag = attrs.get("golden_finger_tagline", "") or attrs.get("golden_finger_desc", "")
+            if tag == value:
+                tag = ""
+            parts.append(f"金手指：{value}{' — ' + tag if tag else ''}")
+        elif key == "location":
+            parts.append(f"初始位置：{value}")
+        elif key == "monthly_income":
+            parts.append(f"月入：{value}")
+        else:
+            parts.append(f"{line.get('label', key)}：{value}")
+
+    return "\n".join(parts)
 
 
 def _is_reject_by_keywords(name: str, entry: dict, filters: list[str] | None = None) -> bool:
@@ -596,30 +685,7 @@ async def apply_character(
     # ── Persist a character-creation card into conversation (survives refresh) ──
     from ane.database.models import Memory as _Memory
     attrs = dict(player.attributes or {}) if player and player.attributes else {}
-    card_parts = [
-        "📋 **角色创建成功**",
-        f"姓名：{player.name}",
-        f"性别：{attrs.get('gender', '男')} ｜ 年龄：{attrs.get('age', 19)}岁",
-        f"修为：{player.cultivation}",
-        f"身份：{attrs.get('identity', '')} — {attrs.get('identity_desc', '')}",
-        f"性格：{attrs.get('personality', '')}",
-        f"出身：{attrs.get('background_summary', '')}",
-        f"灵根：{attrs.get('spiritual_root', '未知')}",
-        f"衣物：{attrs.get('clothing', '未设定')}",
-    ]
-    if attrs.get("sect"):
-        card_parts.append(f"宗门：{attrs['sect']}")
-    if player.location:
-        card_parts.append(f"初始位置：{player.location}")
-    if attrs.get("golden_finger_name"):
-        tag = attrs.get("golden_finger_tagline", "")
-        # 自定义金手指：tagline 为空但 desc 有值（自定义内容），用 desc 兜底显示
-        if not tag:
-            tag = attrs.get("golden_finger_desc", "")
-        card_parts.append(f"金手指：{attrs['golden_finger_name']}{' — ' + tag if tag else ''}")
-    if attrs.get("monthly_income"):
-        card_parts.append(f"月入：{attrs['monthly_income']}")
-    card_content = "\n".join(card_parts)
+    card_content = _render_character_card(wv, player, attrs)
     db.add(_Memory(
         session_id=session_id,
         memory_type="conversation",
@@ -710,6 +776,7 @@ async def apply_character(
         "monthly_income": attrs.get("monthly_income", ""),
         "player_panel": player_panel_str,
         "llm_introduction": llm_intro,
+        "card_content": card_content,
             }
 
 

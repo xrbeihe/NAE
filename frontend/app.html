@@ -1164,14 +1164,18 @@ async function applyCharacter() {
       var statusLabel = (worldviewState.ui && worldviewState.ui.labels && worldviewState.ui.labels.role) || '角色';
       var sr = await apiFetch('/sessions/' + sid);
       if (sr.ok) { var sd = await sr.json(); if (sd.world_time) addMsg('system', '已进入「' + wvName + '」\n时间: ' + sd.world_time + ' · ' + statusLabel + ': ' + data.player_name + ' · ' + data.cultivation + '\n'); }
-      var parts = ['📋 **角色创建成功**\n', '姓名：' + data.player_name, '性别：' + data.gender + ' ｜ 年龄：' + data.age + '岁', _wvLabel('cultivation','修为') + '：' + data.cultivation, '性格：' + data.personality, '出身：' + (data.background_summary||data.background)];
-      var srLabel = _wvLabel('spiritual_root', '');
-      if (srLabel && (data.spiritual_root||'')) parts.push(srLabel + '：' + data.spiritual_root);
-      if (data.sect) parts.push(_wvLabel('sect','宗门') + '：' + data.sect);
-      if (data.location) parts.push('初始位置：' + data.location);
-      if (data.golden_finger_name) { var gfTag = data.golden_finger_tagline || data.golden_finger_desc || ''; if (gfTag === data.golden_finger_name) gfTag = ''; parts.push(_wvLabel('golden_finger','金手指') + '：' + data.golden_finger_name + (gfTag ? ' — ' + gfTag : '')); }
-      if (data.monthly_income) parts.push('月入：' + data.monthly_income);
-      addMsg('system', parts.join('\n'));
+      if (data.card_content) addMsg('system', data.card_content);
+      else {
+        // 后端未返回卡片时（旧后端），回退到本地拼装
+        var parts = ['📋 **角色创建成功**\n', '姓名：' + data.player_name, '性别：' + data.gender + ' ｜ 年龄：' + data.age + '岁', _wvLabel('cultivation','修为') + '：' + data.cultivation, '性格：' + data.personality, '出身：' + (data.background_summary||data.background)];
+        var srLabel = _wvLabel('spiritual_root', '');
+        if (srLabel && (data.spiritual_root||'')) parts.push(srLabel + '：' + data.spiritual_root);
+        if (data.sect) parts.push(_wvLabel('sect','宗门') + '：' + data.sect);
+        if (data.location) parts.push('初始位置：' + data.location);
+        if (data.golden_finger_name) { var gfTag = data.golden_finger_tagline || data.golden_finger_desc || ''; if (gfTag === data.golden_finger_name) gfTag = ''; parts.push(_wvLabel('golden_finger','金手指') + '：' + data.golden_finger_name + (gfTag ? ' — ' + gfTag : '')); }
+        if (data.monthly_income) parts.push('月入：' + data.monthly_income);
+        addMsg('system', parts.join('\n'));
+      }
       if (data.player_panel) updateInfoPanel(data.player_panel);
     if (data.info_panel) addInfoPanel(data.info_panel);  // 刷新/切换后重建信息栏
       // ── 加载预填推荐行动（创建后立即显示，无需重进聊天）──
