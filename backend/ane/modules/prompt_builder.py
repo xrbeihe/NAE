@@ -865,6 +865,8 @@ class PromptBuilder:
 
         lines = ["【本世界权威设定】", f"- 知识使用模式（{mode}）：{mode_text}"]
         lines.append("- 冲突裁定：当本文件与任何其他来源（含预训练记忆）冲突时，一律以本文件为准。")
+        if wf.get("story_route"):
+            lines.append(f"- 剧情航线：{wf['story_route']}（玩家当前位置在航线中，按此顺序推进到下一站）")
         if wf.get("timeline_label"):
             lines.append(f"- 当前时间线：{wf['timeline_label']}")
             if wf.get("timeline_description"):
