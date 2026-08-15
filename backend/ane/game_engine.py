@@ -230,8 +230,8 @@ class GameEngine:
         # Generate world regions
         regions = await world_manager.generate_initial_world(db, session.id, worldview=wv_id)
 
-        # Create player stub
-        player = await pm.create(db, session.id, worldview=wv_id)
+        # Create player stub — timeline's start_location anchors the player's town
+        player = await pm.create(db, session.id, worldview=wv_id, timeline=(timeline or "").strip())
 
         logger.info(f"Session created: {session.id} — {name}")
         await db.commit()
@@ -753,6 +753,11 @@ class GameEngine:
                 if change_target == "player" and change_value:
                     logger.info(f"step15: {player.name} location {player.location}→{change_value}")
                     player.location = change_value
+                    # 同步 location_hierarchy，避免 prompt 里【用户扮演角色】块
+                    # 仍显示旧层级（与 /move 接口行为对齐）
+                    p_attrs = dict(player.attributes or {})
+                    p_attrs["location_hierarchy"] = change_value
+                    player.attributes = p_attrs
 
             # ── Player inventory ──
             elif change_type == "item_added":

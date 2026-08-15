@@ -18,13 +18,24 @@ _WORLD_DATA = load_json("world_templates.json")
 _START_LOCATIONS: list[str] = [s["name"] for s in _WORLD_DATA.get("settlements", [])]
 
 
-def _pick_start_location(wv) -> str:
+def _pick_start_location(wv, timeline_id: str = "") -> str:
     """Choose a player start location from the worldview pack's geography.
 
-    Priority: regions → settlements (xianxia-style cities) → legacy pool.
-    For IP worldviews the first region is usually the intended home village.
+    Priority:
+      1. The selected timeline's `start_location` (world_facts.json timelines[],
+         e.g. 娜美加入前（橘子镇）→ 橘子镇) — IP worlds anchor the player to
+         the story's starting town.
+      2. regions → settlements (xianxia-style cities) → legacy pool.
     """
     import random
+    # Timeline start location — highest priority for IP worldviews
+    if timeline_id:
+        wf = getattr(wv, "world_facts", None) or {}
+        for tl in (wf.get("timelines") or []):
+            if isinstance(tl, dict) and tl.get("id") == timeline_id and tl.get("start_location"):
+                loc = str(tl["start_location"]).strip()
+                if loc:
+                    return loc
     wt = wv.world_templates or {}
     regions = wt.get("regions") or []
     settlements = wt.get("settlements") or []
@@ -62,6 +73,7 @@ class PlayerManager:
 
     async def create(
         self, db: AsyncSession, session_id: str, worldview: str | None = None,
+        timeline: str = "",
     ) -> Player:
         """Create a bare-minimum player stub. Character details come from apply_character()."""
         from ane.worldview import get as get_worldview, DEFAULT_WORLDVIEW_ID
@@ -70,7 +82,8 @@ class PlayerManager:
 
         # Prefer the pack's own geography for the start location, so an IP world
         # (e.g. naruto) starts in its own village rather than a xianxia city.
-        location = _pick_start_location(wv)
+        # A selected timeline's `start_location` anchors the player to its town.
+        location = _pick_start_location(wv, timeline)
 
         player = Player(
             session_id=session_id,
