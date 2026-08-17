@@ -152,9 +152,9 @@ class PlayerManager:
             attrs["monthly_income"] = ""
             attrs["spiritual_root"] = ""
             attrs["talent_note"] = ""
-            attrs["background_summary"] = identity_custom
-            attrs["identity_desc"] = "自定义身份"
+            attrs["identity_desc"] = ""  # 自定义身份：无预设 desc，不留「自定义身份」标签
             attrs["identity_custom"] = identity_custom
+            # 注意：不覆写 background_summary —— 出身是独立选择，不能被身份文本覆盖
         else:
             attrs["clothing"] = id_data.get("clothing", "")
             attrs["monthly_income"] = id_data.get("monthly_income", "")
@@ -276,8 +276,8 @@ class PlayerManager:
                 if is_custom:
                     attrs[key + "_custom"] = custom_val
                     if key == "identity":
-                        attrs["identity_desc"] = "自定义身份"
-                        attrs["background_summary"] = custom_val or "自定义出身"
+                        attrs["identity_desc"] = ""  # 自定义身份：无预设 desc，不留「自定义身份」标签
+                        # 注意：不覆写 background_summary —— 出身是独立选择，不能被身份文本覆盖
                 if key == "sect":
                     sect_chosen = raw
             elif kind == "card_grid":

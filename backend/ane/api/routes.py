@@ -27,6 +27,8 @@ logger = logging.getLogger(__name__)
 
 # composite 行内 "{field}" 占位符匹配（角色创建卡片渲染用）
 _re_composite_tokens = re.compile(r"\{(\w+)\}")
+# composite 渲染后，空 token 留下的悬挂分隔符（如「身份：x — 」的「 — 」）
+_re_trailing_sep = re.compile(r"[\s｜|—\-、,，。]+$")
 
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
@@ -100,7 +102,10 @@ def _render_character_card(wv, player, attrs: dict) -> str:
             if tokens and not any(str(fields.get(t, "")).strip() for t in tokens):
                 continue  # 占位字段全空，只剩标签 —— 跳过该行
             try:
-                parts.append(line["composite"].format(**fields))
+                rendered = line["composite"].format(**fields)
+                # 裁剪空 token 留下的悬挂分隔符（如「身份：普通砂忍中忍 — 」）
+                rendered = _re_trailing_sep.sub("", rendered).strip()
+                parts.append(rendered)
             except Exception:
                 continue
 
