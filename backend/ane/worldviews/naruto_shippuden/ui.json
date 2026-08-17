@@ -24,7 +24,6 @@
       {"label": "出身", "key": "background_summary"}
     ],
     "conditional": [
-      {"label": "初始位置", "key": "location"},
       {"label": "月入", "key": "monthly_income", "show_if": "truthy"}
     ]
   },
