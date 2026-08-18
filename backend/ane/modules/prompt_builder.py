@@ -1050,6 +1050,9 @@ class PromptBuilder:
             location = p.location_hierarchy or p.location
             if location:
                 lines.append(f"具体位置：{location}")
+            else:
+                # 位置未设定：第一轮由 LLM 根据世界观/角色/时间线决定玩家所在位置
+                lines.append("具体位置：未设定（由你根据角色身份与世界观决定本轮所在位置，并在 state_changes 中输出 location_change 确立）")
 
             # ── Travel log (last 3 entries for prompt, with world_time) ──
             if p.travel_log and isinstance(p.travel_log, list) and len(p.travel_log) > 0:

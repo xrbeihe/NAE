@@ -44,7 +44,7 @@ async def test_create_session(db):
     assert result["name"] == "测试世界"
     assert result["region_count"] > 0
     assert result["player_name"] == "无名修士"
-    assert result["player_location"]  # random from player start locations
+    assert result["player_location"] == ""  # 初始无位置，由第一轮 LLM 决定
 
 
 @pytest.mark.asyncio

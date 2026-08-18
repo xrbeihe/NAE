@@ -13,46 +13,16 @@ logger = logging.getLogger(__name__)
 
 # Pick a random location from world templates for player start
 # Loaded dynamically from world_templates.json to avoid hardcoded name lists.
-from ane.content.json_loader import load_json
-_WORLD_DATA = load_json("world_templates.json")
-_START_LOCATIONS: list[str] = [s["name"] for s in _WORLD_DATA.get("settlements", [])]
 
 
 def _pick_start_location(wv, timeline_id: str = "") -> str:
-    """Choose a player start location from the worldview pack's geography.
+    """Player starts with no fixed location — the first turn's LLM decides.
 
-    Priority:
-      1. The selected timeline's `start_location` (world_facts.json timelines[],
-         e.g. 娜美加入前（橘子镇）→ 橘子镇) — IP worlds anchor the player to
-         the story's starting town.
-      2. regions → settlements (xianxia-style cities) → legacy pool.
+    Returning "" means the player has no anchor until narrative sets one
+    (via location_change). This avoids mismatches like a 砂忍 character
+    being spawned in 木叶 by the template's first-city rule.
     """
-    import random
-    # Timeline start location — highest priority for IP worldviews
-    if timeline_id:
-        wf = getattr(wv, "world_facts", None) or {}
-        for tl in (wf.get("timelines") or []):
-            if isinstance(tl, dict) and tl.get("id") == timeline_id and tl.get("start_location"):
-                loc = str(tl["start_location"]).strip()
-                if loc:
-                    return loc
-    wt = wv.world_templates or {}
-    regions = wt.get("regions") or []
-    settlements = wt.get("settlements") or []
-
-    if regions:
-        # Prefer the first city/area as home base; fall back to any region
-        for r in regions:
-            if r.get("type") in ("city", "settlement", "area") and r.get("name"):
-                return r["name"]
-        first = regions[0].get("name") if regions else ""
-        if first:
-            return first
-    if settlements:
-        names = [s["name"] for s in settlements if s.get("name")]
-        if names:
-            return random.choice(names)
-    return random.choice(_START_LOCATIONS) if _START_LOCATIONS else "未知"
+    return ""
 
 # Load player creation templates
 _templates_path = Path(__file__).resolve().parent.parent / "content" / "player_templates.json"
