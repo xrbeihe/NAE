@@ -24,6 +24,7 @@
       {"label": "出身", "key": "background_summary"}
     ],
     "conditional": [
+      {"label": "血继限界", "key": "golden_finger_name"},
       {"label": "月入", "key": "monthly_income", "show_if": "truthy"}
     ]
   },

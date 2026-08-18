@@ -498,8 +498,10 @@ async def test_form_path_custom_identity(db):
     attrs = dict(player.attributes or {})
     # 自定义身份 → identity 存自定义文本（不再泄漏 __custom__ 标记）
     assert attrs.get("identity") == "我是天命之女，身负异象"
-    assert attrs.get("identity_desc") == "自定义身份"
-    assert attrs.get("background_summary") == "我是天命之女，身负异象"
+    # identity_desc 不再硬编码「自定义身份」
+    assert attrs.get("identity_desc") == ""
+    # background_summary 不被身份文本覆写（保持用户选的出身）
+    assert attrs.get("background_summary") != "我是天命之女，身负异象"
 
 
 @pytest.mark.asyncio

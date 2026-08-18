@@ -137,11 +137,11 @@ def _render_character_card(wv, player, attrs: dict) -> str:
             tag = attrs.get("golden_finger_tagline", "") or attrs.get("golden_finger_desc", "")
             if tag == value:
                 tag = ""
-            parts.append(f"金手指：{value}{' — ' + tag if tag else ''}")
+            parts.append(f"{line.get('label', '金手指')}：{value}{' — ' + tag if tag else ''}")
         elif key == "location":
-            parts.append(f"初始位置：{value}")
+            parts.append(f"{line.get('label', '初始位置')}：{value}")
         elif key == "monthly_income":
-            parts.append(f"月入：{value}")
+            parts.append(f"{line.get('label', '月入')}：{value}")
         else:
             parts.append(f"{line.get('label', key)}：{value}")
 
