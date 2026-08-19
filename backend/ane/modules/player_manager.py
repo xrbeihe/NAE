@@ -272,6 +272,11 @@ class PlayerManager:
                     attrs["golden_finger_desc"] = custom_val
                     attrs["golden_finger_custom"] = custom_val
             elif kind == "number":
+                # number 字段存 int（前端传的是字符串，避免下游 str/int 比较报错）
+                try:
+                    raw = int(float(raw))
+                except (TypeError, ValueError):
+                    raw = 0
                 self._write_field(player, attrs, store, raw)
             else:  # text
                 self._write_field(player, attrs, store, raw)

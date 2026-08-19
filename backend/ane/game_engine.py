@@ -1419,16 +1419,25 @@ class GameEngine:
         _rnd = random.Random()
 
         # Detect underage participants
-        underage_npcs = [
-            n for n in core_npcs
-            if n.age is not None and n.age < 18
-        ]
+        underage_npcs = []
+        for n in core_npcs:
+            try:
+                n_age = int(n.age)
+            except (TypeError, ValueError):
+                n_age = 0
+            if n_age and n_age < 18:
+                underage_npcs.append(n)
 
         # Also check player age
         player_underage = False
         from ane.modules.player_manager import player_manager as pm
         player = await pm.get_by_session(db, session_id)
         player_age = (player.attributes or {}).get("age", 0) if player else 0
+        # age 可能存成字符串（表单 number 字段），比较前转 int
+        try:
+            player_age = int(player_age)
+        except (TypeError, ValueError):
+            player_age = 0
         if player_age and player_age < 18:
             player_underage = True
 
