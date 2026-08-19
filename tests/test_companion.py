@@ -164,12 +164,11 @@ async def test_nudge_opening_line(db, companion_session, mock_llm):
     assert result["kind"] == "开场白"
     assert "这么久没来" in result["reply"]
 
-    # 开场白已存为一条 AI 消息（1 轮 = user占位 + assistant 两条记录）
+    # 开场白已存为一条 AI 消息（主动搭话轮：只有 assistant，无假玩家消息）
     history = await companion_engine.get_history(db, companion_session["session_id"])
-    assert len(history) == 2
-    assert history[0]["role"] == "user"
-    assert history[0]["content"] == "（角色主动开口）"
-    assert history[1]["role"] == "assistant"
+    assert len(history) == 1
+    assert history[0]["role"] == "assistant"
+    assert "这么久没来" in history[0]["content"]
 
 
 @pytest.mark.asyncio

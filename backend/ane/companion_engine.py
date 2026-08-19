@@ -494,6 +494,11 @@ class CompanionEngine:
             content = m.content
             if "\n\n【附近人物】" in content:
                 content = content.split("\n\n【附近人物】")[0]
+            # 主动搭话轮：玩家侧是占位文本，标注为角色主动开口，避免 LLM 误当玩家消息
+            if content.startswith("【玩家】（角色主动开口）"):
+                content = content.replace(
+                    "【玩家】（角色主动开口）", "【角色主动开口】", 1
+                )
             lines.append(content)
         return "\n".join(lines)
 
@@ -576,8 +581,13 @@ class CompanionEngine:
             if "\n【AI】" in content:
                 user_part, ai_part = content.split("\n【AI】", 1)
                 user_part = user_part.replace("【玩家】", "").strip()
-                out.append({"role": "user", "content": user_part})
-                out.append({"role": "assistant", "content": ai_part.strip()})
+                ai_part = ai_part.strip()
+                if user_part == "（角色主动开口）":
+                    # 角色主动搭话轮：只输出 AI 消息，不渲染成假玩家消息
+                    out.append({"role": "assistant", "content": ai_part})
+                else:
+                    out.append({"role": "user", "content": user_part})
+                    out.append({"role": "assistant", "content": ai_part})
         return out
 
 
