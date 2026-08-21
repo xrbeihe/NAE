@@ -82,6 +82,17 @@ watch_backup.bat
 
 ## 功能变更记录
 
+### 🎯 位置体系重构 + 卡片渲染修复 + 1v1 历史修复（v1.3+）
+- **初始无位置**：`_pick_start_location` 改为返回空，玩家初始无固定位置；第一轮 prompt 渲染「具体位置：未设定」，LLM 按角色身份/世界观/时间线自主决定位置（输出 location_change 确立）。解决砂忍角色被生成在木叶等身份-位置错配
+- **剧情航线注入**：world_facts.json 支持 `story_route` 字段（极简箭头链），每轮【本世界权威设定】注入；LLM 从航线定位当前位置并推下一站。one_piece 已配 21 地完整航线（东海篇+伟大航路+新世界）
+- **时间线锚定**（one_piece）：14 条时间线加 `start_location`，`_pick_start_location` 优先读它（初始无位置改动后保留字段但 create 不再使用）
+- **location_change 同步层级**：turn 管线 step15 更新 `player.location` 时同步 `location_hierarchy`（与 `/move` 接口对齐），避免移动后 prompt 位置显示旧层级
+- **卡片按包渲染**：角色创建成功卡片改为读各包 `ui.json` 的 `character_card`（title/lines/conditional），删除硬编码字段清单（修为/灵根/衣物等）；conditional 金手指标签跟随包配置（火影=血继限界/海贼=恶魔果实）
+- **自定义身份不再覆写出身**：自定义身份时 `identity_desc` 留空（不再硬编码「自定义身份」）、不再覆写 `background_summary`（出身保持独立选择）；composite 渲染裁剪空 token 悬挂分隔符
+- **age 类型修复**：表单 number 字段转 int 存储（age 字符串导致第二轮 `str/int` 比较崩）
+- **1v1 主动搭话历史修复**：`get_history` 对主动搭话轮只输出 assistant 消息（不再显示假玩家消息「（角色主动开口）」）；`_get_conversation` 注入时标注为「【角色主动开口】」
+- 测试：全量 262 通过
+
 ### 🧠 记忆系统优化 + 短输出重试 + 姓名归一化
 - **短记忆精简**：llm_summary 输出只保留「当前地点 / 行动/目标 / 推荐行动」，删除「交互npc / 持有物品变化 / 世界事件」三部分；存储时压缩字段间空行
 - **短记忆显示 5 轮**：📘 弹窗显示全部 5 轮短记忆 + 完整内容（原只显示 3 轮且每轮截 4 行）；修复 `get_summaries_since` 的 `asc+limit` 错配（原取最早 3 条）

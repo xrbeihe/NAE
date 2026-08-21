@@ -87,7 +87,7 @@
 │   └── public/
 │       ├── common.js      # 共享工具函数（JWT、日志、颜色、NPC 格式化）
 │       └── character.js   # 角色创建 + 世界观选择逻辑
-├── tests/                 # 测试（pytest，263 个用例）
+├── tests/                 # 测试（pytest，262 个用例）
 │   ├── conftest.py        # engine + db fixtures
 │   ├── test_modules.py    # 单元测试
 │   └── test_turn.py       # 集成测试

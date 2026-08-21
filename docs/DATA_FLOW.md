@@ -51,8 +51,7 @@
   ▼
 ┌─ Step 6: Retrieval Engine ────────────────────────────────────┐
 │ 构建 Active Set：核心 NPC + 同位置 NPC + 位置层级上下文        │
-│ 输出: ActiveSet(core_npcs, nearby_npcs, location_context,     │
-│                 related_absent)                                │
+│ 输出: ActiveSet(core_npcs, nearby_npcs, location_context)      │
 └───────────────────────────────────────────────────────────────┘
   │
   ▼
@@ -76,8 +75,7 @@
 │ 组装 PromptContext 结构化数据（Htem格式）：                      │
 │  World → Player → core_npcs → nearby_npcs → Scene →           │
 │  Constraints → Agentic State → LongMemory →                   │
-│  ShortMemory(5轮) → related_absent                            │
-│  → user_input                                                  │
+│  ShortMemory(5轮) → user_input                                │
 │                                                               │
 │ 特殊注入：                                                     │
 │  ├─ Step 3a: mark_important_npc 处理（仅勾选⭐时）:
@@ -467,7 +465,6 @@ class ActiveSet:
     core_npcs: list[NPCModel]
     nearby_npcs: list[NPCModel]
     location_context: dict
-    related_absent: list[NPCModel]
 ```
 
 ### `TurnResult`（game_engine.py）
@@ -560,7 +557,6 @@ GameEngine 注册以下 handler（当前全部为日志级别，DB 写入在主�
 | `npc_status` / `character_status` | 日志记录 |
 | `player_name_change` | 日志记录 |
 | `relationship_change` | 日志记录 |
-| `offstage_npcs` | NPC 创建 + `NPC.relations` + 关系网 |
 | `npc_important` | 日志记录（DB 由 Step 15 写） |
 | `npc_nearby` | NPCManager.create (background npc) |
 
