@@ -30,7 +30,7 @@
 | 重载 | 清 loader 缓存（改文件后调用；重载某世界会后默认选中它） | — |
 | 删除 | 删除包（默认包 xianxia_v1 受保护） | — |
 
-> 📋 选项支持字符串数组（姓名池等，`kind: str_list`）与对象数组（NPC原型等）两种数据形态的增删改保存；NPC 原型的 identity/personality/cultivation/behavior_note 可可视化编辑，写回 `npc_templates.json` 的 `core_archetypes`。世界观特有的池（如海贼王的恶魔果实池/霸气池）也会按包内字段自动显示为 tab。
+> 📋 选项支持字符串数组（姓名池等，`kind: str_list`）与对象数组（NPC原型等）两种数据形态的增删改保存；NPC 原型的 identity/personality/cultivation/behavior_note 可可视化编辑，写回 `npc_templates.json` 的 `core_archetypes`。池 tab 按包数据过滤显示：包内实际存在该池（如海贼王的恶魔果实池/霸气池在 `npc_templates.json` 定义）才显示，不存在的池自动隐藏。
 > 💬 文案编辑器的「角色创建成功卡片」可编辑标题与内容行（普通行/条件行、标签、数据键或模板、金手指尾注 tag_field）。
 > 📖 设定编辑器的时间线区可创建/编辑/排序/删除起始时间线节点（id/标签/描述/必须遵守/禁止出现/关键角色）。
 

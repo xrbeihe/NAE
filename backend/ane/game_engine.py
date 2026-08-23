@@ -345,7 +345,9 @@ class GameEngine:
         # Step 3a: Handle mark_important_npc from turn (not stand-alone /npc-modeling)
         if validation.mark_important_npc:
             from ane.modules.npc_manager import npc_manager as _npc_mgr
-            names = await self._llm_nameget_multi(user_input, user_id=user_id, session_id=session_id)
+            names = await self._llm_nameget_multi(
+                user_input, user_id=user_id, session_id=session_id, worldview=worldview,
+            )
             if names:
                 for npc_name in names:
                     existing = await db.execute(
@@ -451,8 +453,11 @@ class GameEngine:
             getattr(session_row, "timeline_id", "") or "",
         )
 
-        # World context
-        ctx.world = WorldContext(name="青云界")
+        # World context — name comes from the pack (never hardcoded, so
+        # non-xianxia worldviews don't render the wrong world name). The
+        # other dimensions (calendar/era/law/factions/spiritual_rules) are
+        # intentionally left empty: they render only when a data source exists.
+        ctx.world = WorldContext(name=_wv_obj.name or "青云界")
 
         # Player context
         if player:
@@ -460,7 +465,8 @@ class GameEngine:
 
         # NPC contexts: convert ORM models to NPCContext
         ctx.core_npcs = [npc_to_context(n) for n in active_set.present_npcs]
-        ctx.nearby_npcs = []
+        # nearby_npcs intentionally left empty — the active set already
+        # provides present NPCs via core_npcs; the field stays for future use.
 
         # 📦 Load model data: if load_model_data is on, scan input for names of
         # already-modeled important NPCs and pull their full data into context.
@@ -532,8 +538,10 @@ class GameEngine:
         # Conversation
         ctx.conversation = conversation
 
-        # Era entries: inject all longmemory records for long-term context
-        ctx.longmemory_entries = await memory_manager.get_longmemory_entries(db, session_id)
+        # Era entries: inject only the most recent 3 records for long-term
+        # context — older eras are superseded by newer summaries, so keeping
+        # them all would make the prompt grow unboundedly.
+        ctx.longmemory_entries = await memory_manager.get_longmemory_entries(db, session_id, limit=3)
 
         # NSFW material injection
         if intent == "nsfw":
@@ -1129,8 +1137,7 @@ class GameEngine:
                                 "输出要求（纯文本，简洁，不要JSON）：\n"
                                 "进展：这段时期真正发生了什么、主角做了什么关键决定、与核心人物关系的实质变化，"
                                 "以及由此对后续的影响——用几句话讲清因果链，不要分条罗列。\n"
-                                "遗留：对之后仍重要的未决事项、威胁、线索。\n"
-                                "只写对这之后仍重要的因果与影响，删掉过程细节和重复内容。控制在250字以内。\n"
+                                "只写对这之后仍重要的因果与影响，删掉过程细节和重复内容。控制在200字以内。\n"
                                 "有什么写什么，没有的维度可以不写，不必硬凑字数。"
                             )
                             from ane.modules.model_adapter import model_adapter as _ma
@@ -1154,7 +1161,7 @@ class GameEngine:
 
     async def do_npc_modeling(
         self, db: AsyncSession, session_id: str, user_input: str,
-        user_id: str = "",
+        user_id: str = "", worldview: str | None = None,
     ) -> dict:
         """Pre-check: extract ALL names, classify known vs new.
         Does NOT call LLM or write DB — all modeling deferred to confirm step.
@@ -1165,7 +1172,9 @@ class GameEngine:
         from ane.modules.npc_manager import npc_manager as npc_mgr
         from ane.database.models import NPC
 
-        names = await self._llm_nameget_multi(user_input, user_id=user_id, session_id=session_id)
+        names = await self._llm_nameget_multi(
+            user_input, user_id=user_id, session_id=session_id, worldview=worldview,
+        )
         if not names:
             return {"updated": [], "new_names": []}
 
@@ -1583,12 +1592,30 @@ class GameEngine:
     # ── Multi-name extraction via LLM ───────────────────
 
     async def _llm_nameget_multi(
-        self, user_input, user_id="", session_id="",
+        self, user_input, user_id="", session_id="", worldview: str | None = None,
     ) -> list[str]:
         """Extract ALL character names from user input.
+
+        Names are always returned in Chinese: when a worldview is supplied
+        (e.g. an IP pack like naruto_shippuden), the prompt requires foreign
+        names to be transliterated into their common Chinese translation
+        (Naruto → 鸣人, うずまきナルト → 漩涡鸣人). The validator only
+        accepts pure-CJK 2-4 char names, so English/kana output is rejected
+        even for IP worldviews.
         Returns a list of proper name strings, or empty list.
         """
         from ane.modules.model_adapter import model_adapter
+
+        # ── Language rule: names must come back in Chinese ──
+        # IP/western worldviews contain foreign (kana/romaji/English) names;
+        # the model must translate them to the standard Chinese reading.
+        lang_rule = ""
+        if worldview:
+            lang_rule = (
+                f"3. 当前世界观为「{worldview}」。如果角色名是外文（日文/英文等），"
+                "必须输出其常用中文译名（如 Naruto → 鸣人，うずまきナルト → 漩涡鸣人），"
+                "禁止输出外文原名或罗马音\n"
+            )
 
         prompt = (
             "从以下文本中列出所有被提到的人物姓名（中文名）。\n"
@@ -1596,8 +1623,9 @@ class GameEngine:
             "1. 如果文本中明确说出了姓名（如'我叫陆青棠'、'她是白慕彩'）→ 输出那个姓名\n"
             "2. 如果文本中没有姓名只有描述（如'佩剑少女'、'卖糖葫芦的'），"
             "则根据其身份和场景赋予一个符合世界观的中文姓名（姓+名，2-3字）\n"
-            "3. 每行只输出一个名字，不要输出任何其他文字\n"
-            "4. 如果没有任何人物姓名也输出空\n\n"
+            + lang_rule +
+            "4. 每行只输出一个中文姓名，不要输出任何其他文字\n"
+            "5. 如果没有任何人物姓名也输出空\n\n"
             f"文本：\n{user_input}"
         )
 
@@ -1605,7 +1633,9 @@ class GameEngine:
             if not name:
                 return False
             cjk_count = sum(1 for c in name if '一' <= c <= '鿿')
-            return cjk_count == len(name) and 2 <= len(name) <= 3
+            # 2-4 chars: allows compound surnames and 4-char translations
+            # (e.g. 漩涡鸣人) while still rejecting foreign/romaji output.
+            return cjk_count == len(name) and 2 <= len(name) <= 4
 
         def _parse_names(text: str) -> list[str]:
             if not text or not text.strip():
@@ -1634,12 +1664,20 @@ class GameEngine:
                     return names
                 if attempt == 0:
                     # Retry with stronger instruction
-                    prompt = (
+                    retry = (
                         "你是一个姓名提取助手。\n"
-                        "从文本中提取所有人物姓名（中文名，每个姓名2-3个字）。\n"
-                        "每行只输出一个姓名，不要其他文字。\n"
+                        "从文本中提取所有人物姓名（中文名，每个姓名2-4个字）。\n"
+                    )
+                    if worldview:
+                        retry += (
+                            f"当前世界观为「{worldview}」，外文角色名必须输出常用中文译名"
+                            "（如 Naruto → 鸣人，うずまきナルト → 漩涡鸣人），禁止输出英文/日文。\n"
+                        )
+                    retry += (
+                        "每行只输出一个中文姓名，不要其他文字。\n"
                         f"文本：\n{user_input}"
                     )
+                    prompt = retry
             except Exception as e:
                 logger.warning(f"_llm_nameget_multi attempt {attempt + 1} failed: {e}")
 

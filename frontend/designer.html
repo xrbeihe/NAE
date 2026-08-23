@@ -875,7 +875,9 @@ function renderRecEditor() {
 
 function saveRecEditor() {
   var ui = _recEditor.ui;
-  var recs = {};
+  // Start from the existing recommendations so pack-specific groups not in
+  // _REC_GROUPS are preserved instead of being wiped on save.
+  var recs = ui.initial_recommendations || {};
   _REC_GROUPS.forEach(function(g) {
     var el = document.getElementById('rec-' + g[0]);
     var lines = (el ? el.value : '').split('\n').map(function(s) { return s.trim(); }).filter(Boolean);
@@ -926,7 +928,7 @@ var _OPT_TABS = {
   identities:   { file: 'player_templates.json', label: '身份', cols: [['label','显示名'],['desc','说明'],['clothing','衣物'],['monthly_income','月入']] },
   golden_fingers:{file: 'player_templates.json', label: '特殊能力', cols: [['id','ID'],['name','名称'],['tagline','一句话'],['desc','详细说明'],['icon','图标']] },
   places:       { file: 'world_templates.json', label: '地点', cols: [['name','名称'],['type','类型'],['description','描述']] },
-  npc_identities:{file: 'npc_templates.json', label: 'NPC身份池', cols: [['identity','身份']], kind: 'str_list', list_key: 'identities' },
+  npc_identities:{file: 'npc_templates.json', label: 'NPC身份池', cols: [['name','身份']], kind: 'str_list', list_key: 'identities' },
   // ── NPC 随机生成池（npc_templates.json）──
   npc_surnames:   { file: 'npc_templates.json', label: '姓氏池', cols: [['name','姓氏']], kind: 'str_list', list_key: 'surnames' },
   npc_male_names: { file: 'npc_templates.json', label: '男名池', cols: [['name','男名']], kind: 'str_list', list_key: 'given_names_male' },
@@ -955,6 +957,18 @@ function closeOptEditor() {
   document.getElementById('opt-editor-overlay').style.display = 'none';
 }
 
+function _tabDataKey(tabKey) {
+  var t = _OPT_TABS[tabKey];
+  return t.list_key || (tabKey === 'places' ? 'regions' : tabKey);
+}
+
+// A pool tab is shown only when the pack's loaded data actually contains
+// its data key — worldview-specific pools (e.g. one_piece's devil_fruits /
+// haki) appear for packs that define them and are hidden for others.
+function _tabPresent(tabKey, data) {
+  return data && data[_tabDataKey(tabKey)] !== undefined;
+}
+
 function _optLoadTab() {
   var tab = _OPT_TABS[_optEditor.tab];
   var f = tab.file;
@@ -962,6 +976,12 @@ function _optLoadTab() {
   apiFetch('/worldviews/' + encodeURIComponent(_optEditor.worldview) + '/data/' + f).then(function(r) { return r.json(); }).then(function(d) {
     _optEditor.file = f;
     _optEditor.data = d.data || {};
+    // If the current tab's pool is absent in this pack, fall back to the
+    // first tab that actually has data for this pack.
+    if (!_tabPresent(_optEditor.tab, _optEditor.data)) {
+      var firstKey = Object.keys(_OPT_TABS).find(function(k) { return _tabPresent(k, _optEditor.data); });
+      _optEditor.tab = firstKey || 'cultivations';
+    }
     renderOptTabs();
     renderOptBody();
     document.getElementById('opt-editor-msg').textContent = '';
@@ -972,7 +992,9 @@ function _optLoadTab() {
 
 function renderOptTabs() {
   var tabsEl = document.getElementById('opt-tabs');
-  tabsEl.innerHTML = Object.keys(_OPT_TABS).map(function(k) {
+  tabsEl.innerHTML = Object.keys(_OPT_TABS).filter(function(k) {
+    return _tabPresent(k, _optEditor.data);
+  }).map(function(k) {
     var t = _OPT_TABS[k];
     var active = k === _optEditor.tab;
     return '<button onclick="optSwitchTab(\'' + k + '\')" style="padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-family:inherit;background:' + (active ? 'var(--accent)' : 'none') + ';color:' + (active ? 'var(--panel)' : 'var(--accent-dim)') + ';border:1px solid var(--border)">' + t.label + '</button>';
@@ -1083,14 +1105,26 @@ function saveOptEditor() {
     });
     data[listKey] = strArr;
   } else if (_optEditor.tab === 'identities') {
-    // rebuild dict from rows (value column = key)
+    // Rebuild dict from rows (value column = key), MERGING with the original
+    // entry so fields not rendered in the table (identity_desc, background,
+    // …) survive the save instead of being silently dropped.
+    var originalIdentities = _optEditor.data.identities || {};
     var rebuilt = {};
     document.querySelectorAll('#opt-editor-body tr').forEach(function(tr, i) {
       var row = {};
       tr.querySelectorAll('input').forEach(function(inp) {
         if (inp.dataset.row === String(i)) row[inp.dataset.col] = inp.value.trim();
       });
-      if (row.value) rebuilt[row.value] = { label: row.label || row.value, desc: row.desc || '', clothing: row.clothing || '', monthly_income: row.monthly_income || '', background: '' };
+      if (row.value) {
+        var base = (typeof originalIdentities[row.value] === 'object' && originalIdentities[row.value]) ? originalIdentities[row.value] : {};
+        var merged = Object.assign({}, base);
+        merged.label = row.label || row.value;
+        if (row.desc !== undefined) merged.desc = row.desc;
+        if (row.clothing !== undefined) merged.clothing = row.clothing;
+        if (row.monthly_income !== undefined) merged.monthly_income = row.monthly_income;
+        if (row.background !== undefined) merged.background = row.background;
+        rebuilt[row.value] = merged;
+      }
     });
     data.identities = rebuilt;
   } else {
@@ -1108,7 +1142,12 @@ function saveOptEditor() {
       });
     });
     var rebuiltRows = [];
-    for (var i = 0; i < rows.length; i++) rebuiltRows.push(idxMap[i] || rows[i]);
+    for (var i = 0; i < rows.length; i++) {
+      // Merge with the original row so fields not rendered in the table
+      // (e.g. typical_sect_path, background_summary) are preserved.
+      var origRow = (typeof rows[i] === 'object' && rows[i]) ? rows[i] : {};
+      rebuiltRows.push(idxMap[i] ? Object.assign({}, origRow, idxMap[i]) : rows[i]);
+    }
     data[key] = rebuiltRows;
   }
 
@@ -1194,7 +1233,20 @@ function _timelineField(idx, key, label, value, placeholder) {
 }
 
 function _timelineListField(idx, key, label, arr) {
-  var joined = (arr || []).join('\n');
+  // Accept a pre-joined string (characters arrive as "name｜desc" lines)
+  // OR a plain/object array (must_follow / forbidden). Object entries
+  // become "name｜desc"; a string is used verbatim — never call .join on it.
+  var joined;
+  if (typeof arr === 'string') {
+    joined = arr;
+  } else if (Array.isArray(arr)) {
+    joined = arr.map(function(x) {
+      if (x && typeof x === 'object') return x.name + '｜' + (x.desc || '');
+      return x;
+    }).join('\n');
+  } else {
+    joined = '';
+  }
   return '<div style="margin-bottom:6px"><label style="display:block;font-size:11px;color:var(--accent-dim);margin-bottom:2px">' + label + '（每行一条）</label>' +
     '<textarea data-tl="' + idx + '" data-tlkey="' + key + '" style="width:100%;padding:6px 10px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px;font-family:inherit;resize:vertical;min-height:60px;box-sizing:border-box;line-height:1.5">' + _esc(joined) + '</textarea></div>';
 }
@@ -1270,11 +1322,13 @@ function _collectTimelines() {
   var rebuilt = [];
   f.timelines.forEach(function(t, idx) {
     var v = byIdx[idx] || {};
-    var rebuiltTl = {
-      id: v.id || t.id || '',
-      label: v.label || t.label || '',
-      description: v.description || t.description || '',
-    };
+    // Start from the ORIGINAL entry so fields not rendered in the editor
+    // (opening, start_location, …) survive the save — game_engine reads
+    // them for the session-opening scene and the player's start town.
+    var rebuiltTl = Object.assign({}, t);
+    rebuiltTl.id = v.id || t.id || '';
+    rebuiltTl.label = v.label || t.label || '';
+    rebuiltTl.description = v.description || t.description || '';
     ['must_follow', 'forbidden'].forEach(function(k) {
       rebuiltTl[k] = (v[k] !== undefined ? v[k] : (t[k] || [])).split('\n').map(function(s){ return s.trim(); }).filter(Boolean);
     });

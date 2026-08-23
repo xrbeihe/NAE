@@ -1873,13 +1873,29 @@ function showRelationshipGraph() {
           return d.type && d.type !== '关系' ? d.type : '';
         }).style('pointer-events', 'none').attr('textLength', '');
 
-      // Node groups
+      // Node groups — track drags so clicks don't fire after dragging
+      var dragged = false;
       var nodeG = g.append('g').selectAll('g').data(nodes).join('g')
         .call(d3.drag()
-          .on('start', function(ev, d) { if (!ev.active) sim.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
-          .on('drag', function(ev, d) { d.fx = ev.x; d.fy = ev.y; })
+          .on('start', function(ev, d) { dragged = false; if (!ev.active) sim.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+          .on('drag', function(ev, d) { dragged = true; d.fx = ev.x; d.fy = ev.y; })
           .on('end', function(ev, d) { if (!ev.active) sim.alphaTarget(0); d.fx = null; d.fy = null; })
         );
+
+      // Click a person node to delete ALL their relationship edges.
+      // The player node is protected; dragged nodes never trigger a click.
+      nodeG.on('click', function(ev, d) {
+        if (dragged) return;
+        if (d.id === playerId) return; // protect the player
+        ev.stopPropagation();
+        if (!confirm('确定删除与「' + d.id + '」的所有关系吗？该人物将从关系网中移除。')) return;
+        apiFetch('/sessions/' + sessionId + '/relationship-graph/entity/' + encodeURIComponent(d.id), {method: 'DELETE'}).then(function(r) {
+          if (!r.ok) { alert('删除失败'); return; }
+          var wrap = document.getElementById('rg-svg-wrap');
+          if (wrap) { wrap.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--accent-dim);font-size:13px">⏳ 刷新关系网...</div>'; }
+          renderGraph();
+        }).catch(function() { alert('删除请求失败'); });
+      });
 
       // Node circles — player gets gold
       nodeG.append('circle')
@@ -1929,6 +1945,14 @@ function showRelationshipGraph() {
         tooltip.style('opacity', 0);
         d3.select(this).select('circle').attr('stroke', function(d) { return d.id === playerId ? '#fff' : 'var(--border)'; }).attr('stroke-width', 2);
       });
+
+      // Hint bar (bottom-right): discoverable delete interactions
+      d3.select(wrap).append('div')
+        .style('position', 'absolute').style('right', '12px').style('bottom', '12px')
+        .style('font-size', '11px').style('color', 'var(--accent-dim)')
+        .style('background', 'rgba(0,0,0,0.35)').style('padding', '4px 8px')
+        .style('border-radius', '4px').style('pointer-events', 'none')
+        .text('点击连线删除单条关系 · 点击人物删除其全部关系');
 
       sim.on('tick', function() {
         link.attr('x1', function(d) { return d.source.x; }).attr('y1', function(d) { return d.source.y; })

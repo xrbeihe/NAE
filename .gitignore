@@ -16,6 +16,7 @@ node_modules/
 # IDE
 .idea/
 .vscode/
+.codebuddy/
 
 # Claude Code — local machine config (launch.json stays tracked)
 .claude/settings.local.json

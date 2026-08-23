@@ -1,6 +1,6 @@
 """FastAPI routes for the ANE API — all require authentication."""
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ane.auth import get_current_user
@@ -797,7 +797,7 @@ async def npc_modeling(
     """
     session = await _get_users_session(db, session_id, user.id)
     result = await game_engine.do_npc_modeling(
-        db, session_id, req.input, user_id=user.id,
+        db, session_id, req.input, user_id=user.id, worldview=session.worldview,
     )
     return result
 
@@ -1106,6 +1106,68 @@ async def delete_relationship_edge(
     return {"deleted": True, "target": target_name}
 
 
+# ── Relationship Graph: DELETE ALL edges for an entity ──
+@router.delete("/{session_id}/relationship-graph/entity/{entity_name}")
+async def delete_relationship_entity(
+    session_id: str,
+    entity_name: str,
+    db: AsyncSession = Depends(get_db),
+    user = Depends(get_current_user),
+):
+    """Delete every relationship edge involving entity_name (as source or
+    target), including model-declared relations stored on NPCs, so the
+    person disappears from the graph entirely."""
+    from ane.database.models import NPC_Relationship as _Rel, NPC as _NPC
+    await _get_users_session(db, session_id, user.id)
+
+    # 1. Remove edges from the relationship table
+    result = await db.execute(
+        select(_Rel).where(
+            _Rel.session_id == session_id,
+            or_(_Rel.source_name == entity_name, _Rel.target_name == entity_name),
+        )
+    )
+    rels = result.scalars().all()
+    for rel in rels:
+        await db.delete(rel)
+
+    # 2. Prune model-declared relations pointing at entity_name so they
+    #    don't "respawn" on the next graph render.
+    npc_result = await db.execute(
+        select(_NPC).where(_NPC.session_id == session_id)
+    )
+    relations_pruned = False
+    for npc in npc_result.scalars().all():
+        rel_json = npc.relations
+        entries = []
+        if isinstance(rel_json, dict):
+            entries = rel_json.get("entries", []) or []
+        elif isinstance(rel_json, list):
+            entries = rel_json
+        new_entries = [
+            e for e in entries
+            if not (isinstance(e, dict) and (e.get("target") or "") == entity_name)
+        ]
+        if len(new_entries) != len(entries):
+            if isinstance(rel_json, dict):
+                # Assign a NEW dict so SQLAlchemy's JSON column change
+                # detection fires (mutating the same object in place is
+                # seen as "unchanged" and never written to the DB).
+                npc.relations = {**rel_json, "entries": new_entries}
+            else:
+                npc.relations = new_entries
+            relations_pruned = True
+
+    if rels or relations_pruned:
+        await db.commit()
+    return {
+        "deleted": True,
+        "entity": entity_name,
+        "edges_removed": len(rels),
+        "relations_pruned": relations_pruned,
+    }
+
+
 # ── Important NPCs Library (😘) ─────────────────────────────────
 
 @router.get("/{session_id}/important-npcs")
@@ -1178,7 +1240,7 @@ async def create_npc_library(
     from ane.modules.player_manager import player_manager as pm
 
     # 1. Extract name from input
-    names = await game_engine._llm_nameget_multi(req.input, user_id=user.id)
+    names = await game_engine._llm_nameget_multi(req.input, user_id=user.id, worldview=worldview)
     if not names:
         raise HTTPException(status_code=400, detail="未能从输入中提取NPC姓名")
     npc_name = names[0]

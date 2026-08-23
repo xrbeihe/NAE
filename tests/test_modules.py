@@ -588,6 +588,34 @@ class TestMemoryManager:
             earliest = min(c.turn_number for c in conv)
             assert earliest >= total - CONVERSATION_WINDOW_SIZE
 
+    async def test_get_longmemory_entries_limit(self, engine):
+        """limit= keeps only the most recent eras, still in chronological order;
+        no limit returns the full history (for the /memories display)."""
+        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+        from ane.modules.memory_manager import memory_manager
+        from ane.database.models import WorldSession
+        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with factory() as db:
+            session = WorldSession(user_id='test_user', name="记忆", time_epoch=0)
+            db.add(session)
+            await db.flush()
+            sid = session.id
+
+            for i in range(5):
+                await memory_manager.add_longmemory_entry(
+                    db, sid, i * 5 + 1, i * 5 + 5, f"第{i}纪", f"纪元{i}内容",
+                )
+
+            full = await memory_manager.get_longmemory_entries(db, sid)
+            assert len(full) == 5
+            assert full[0].turn_number < full[-1].turn_number  # chronological
+
+            recent = await memory_manager.get_longmemory_entries(db, sid, limit=3)
+            assert len(recent) == 3
+            # oldest-first among the most recent three (turns 15/20/25)
+            assert [e.turn_number for e in recent] == [15, 20, 25]
+            assert recent[0].content == "【纪元记录】第2纪\n纪元2内容"
+
     async def todo_facts_removed(self, engine):
         """Facts table has been removed — this test is deprecated."""
         pass

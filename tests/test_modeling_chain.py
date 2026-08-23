@@ -150,10 +150,47 @@ async def test_llm_nameget_extracts_names():
 async def test_llm_nameget_retries_then_empty():
     """Invalid/non-name output on both attempts → empty list, no crash."""
     async def _fake(prompt, model=None, **kwargs):
-        return "这些不是姓名"   # fails the 2-3 char CJK check
+        return "这些不是姓名"   # fails the 2-4 char CJK check
     with patch.object(ModelAdapter, "generate", new_callable=AsyncMock, side_effect=_fake):
         names = await game_engine._llm_nameget_multi("随便一句话", user_id=USER_ID)
     assert names == []
+
+
+@pytest.mark.asyncio
+async def test_llm_nameget_transliterates_foreign_names():
+    """IP worldviews: prompt demands Chinese transliterations, so 2-4 char
+    CJK readings (鸣人 / 漩涡鸣人) pass the validator."""
+    async def _fake(prompt, model=None, **kwargs):
+        return "鸣人\n漩涡鸣人\n"
+    with patch.object(ModelAdapter, "generate", new_callable=AsyncMock, side_effect=_fake):
+        names = await game_engine._llm_nameget_multi(
+            "请创建角色 Naruto", user_id=USER_ID, worldview="naruto_shippuden",
+        )
+    assert set(names) == {"鸣人", "漩涡鸣人"}
+
+
+@pytest.mark.asyncio
+async def test_llm_nameget_ip_rejects_non_chinese_output():
+    """Even for IP worldviews, English/kana output is rejected → empty list."""
+    async def _fake(prompt, model=None, **kwargs):
+        return "Naruto\nうずまきナルト\n"
+    with patch.object(ModelAdapter, "generate", new_callable=AsyncMock, side_effect=_fake):
+        names = await game_engine._llm_nameget_multi(
+            "请创建角色 Naruto", user_id=USER_ID, worldview="naruto_shippuden",
+        )
+    assert names == []
+
+
+@pytest.mark.asyncio
+async def test_llm_nameget_chinese_worldview_filters_foreign():
+    """Chinese-style worldviews keep strict CJK validation: only 张海 passes."""
+    async def _fake(prompt, model=None, **kwargs):
+        return "Naruto\n张海\n"
+    with patch.object(ModelAdapter, "generate", new_callable=AsyncMock, side_effect=_fake):
+        names = await game_engine._llm_nameget_multi(
+            "张海是 Naruto 的朋友", user_id=USER_ID, worldview="xianxia_v1",
+        )
+    assert set(names) == {"张海"}
 
 
 # ── game_engine._run_npc_modeling ─────────────────────────────
@@ -208,6 +245,41 @@ async def test_run_npc_modeling_invalid_response_keeps_npc(db):
     lts = dict(npc.long_term_state or {})
     assert "model" not in lts
     assert npc.identity == ""
+
+
+# ── Relationship graph: delete ALL edges for an entity ────────
+
+@pytest.mark.asyncio
+async def test_delete_relationship_entity_removes_all_edges(db):
+    """删除某人时：关系表涉及该人的边（玩家↔该人、该人↔其他NPC）全部删除，
+    NPC 档案 relations 中 target==该人的条目同步清理，避免图谱渲染时复活。"""
+    from types import SimpleNamespace
+    from ane.game_engine import game_engine
+    from ane.database.models import NPC, NPC_Relationship
+    from ane.api.routes import delete_relationship_entity
+    from sqlalchemy import select
+
+    info = await game_engine.create_session(db, user_id=USER_ID, name="删关系")
+    session_id = info["session_id"]
+    # 预置：玩家→佐助、佐助→鸣人 两条边 + 鸣人档案中指向佐助的关系
+    db.add(NPC_Relationship(session_id=session_id, source_name="陆青棠",
+                            target_name="佐助", rel_type="同伴", affinity=30))
+    db.add(NPC_Relationship(session_id=session_id, source_name="佐助",
+                            target_name="鸣人", rel_type="羁绊", affinity=60))
+    db.add(NPC(session_id=session_id, name="鸣人", is_important=True,
+               relations={"entries": [{"target": "佐助", "type": "同伴"}]}))
+    await db.commit()
+
+    user = SimpleNamespace(id=USER_ID)
+    resp = await delete_relationship_entity(session_id, "佐助", db, user)
+    assert resp["deleted"] is True
+    assert resp["edges_removed"] == 2
+
+    rels = (await db.execute(select(NPC_Relationship).where(
+        NPC_Relationship.session_id == session_id))).scalars().all()
+    assert len(rels) == 0
+    npcs = (await db.execute(select(NPC).where(NPC.session_id == session_id))).scalars().all()
+    assert all((n.relations or {}).get("entries", []) == [] for n in npcs)
 
 
 # ── game_engine._llm_cover + _deep_merge ──────────────────────

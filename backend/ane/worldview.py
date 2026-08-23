@@ -270,11 +270,12 @@ def _check_name_pools(nt: dict, errors: list, warnings: list) -> None:
     _dups(gm, "given_names_male")
     _dups(gf, "given_names_female")
 
-    # Surnames should be 1-4 chars (clan/family names); flag anything longer
-    # or entries that look like full given names (e.g. "我爱罗" is a given name).
+    # Surnames are normally 1-2 chars (clan/family names), but IP packs carry
+    # character names as surnames (e.g. one_piece's 特拉法尔加/波鲁萨利诺 are
+    # 5-char names). Only 6+ chars is a safe "likely a full name" signal.
     for s in surn:
-        if len(s) > 4:
-            warnings.append(f"姓氏「{s}」超过 4 字，疑似不是姓氏")
+        if len(s) > 6:
+            warnings.append(f"姓氏「{s}」超过 6 字，疑似不是姓氏")
 
     # Male/female given-name pools should not overlap
     overlap = set(gm) & set(gf)

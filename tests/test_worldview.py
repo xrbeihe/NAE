@@ -110,7 +110,7 @@ def test_assemble_system_matches_legacy_verbatim():
     assert "东方玄幻修仙世界" in new
     assert "不要让角色表现出超出其修为的能力" in new
     assert "cultivation_change" in new          # xianxia state_change type
-    assert "藏经阁" in new                       # xianxia sect recommendation
+    assert "拜访管事" in new                     # xianxia sect recommendation
     # Generic kernel content present (engine-owned, now shared)
     assert "严禁向玩家反问" in new
     assert "state_changes 用于记录数据库需要持久化的状态变更" in new
@@ -124,6 +124,45 @@ def test_default_assemble_matches_legacy():
     # Default (no pack / xianxia) still resolves to a valid system prompt
     assert assemble_system()
     assert "东方玄幻修仙世界" in assemble_system()
+
+
+def test_shell_fallback_does_not_duplicate_kernel(monkeypatch):
+    """When a shell+kernel pack is missing its system_prompt.txt, the
+    fallback must be the xianxia SHELL, not the legacy full prompt —
+    otherwise the narrative kernel would be joined twice."""
+    import ane.worldview as _wv
+
+    class _MissingShellWv:
+        assembly = "shell+kernel"
+        system_prompt = ""
+
+    monkeypatch.setattr(_wv, "get", lambda wid: _MissingShellWv())
+    from ane.modules import prompt_builder as _pb
+    system = _pb.assemble_system("xianxia_v1")
+    assert system.count("【叙事原则】") == 1   # kernel appears exactly once
+    assert "东方玄幻修仙世界" in system        # shell fallback content present
+    assert "breakthrough" in system            # shell fallback lists pack extras
+
+
+def test_effective_system_prompt_matches_assemble():
+    """_EFFECTIVE_SYSTEM_PROMPT must equal assemble_system("xianxia_v1")
+    so PromptContext defaults stay in sync with the turn pipeline."""
+    assert _EFFECTIVE_SYSTEM_PROMPT == assemble_system("xianxia_v1")
+
+
+def test_xianxia_shell_lists_breakthrough():
+    # The pack shell tells the LLM about every extra event type the parser whitelists
+    wv = get_worldview("xianxia_v1")
+    assert "breakthrough" in (wv.system_prompt or "")
+
+
+def test_player_context_default_savings_unit():
+    # Regression: the duplicated field definition used to override the
+    # default with "" — now it stays "块下品灵石".
+    from ane.modules.prompt_builder import PlayerContext
+    p = PlayerContext()
+    assert p.savings_amount == 0
+    assert p.savings_unit == "块下品灵石"
 
 
 # ── Intent classification via pack keywords ──────────────────
@@ -297,6 +336,18 @@ def test_naruto_timelines_pass_validator():
     assert report["ok"] is True
     # no duplicate/missing timeline warnings
     assert not any("timeline" in w or "timelines" in w for w in report["warnings"])
+
+
+def test_validate_one_piece_pack():
+    """The one_piece pack validates clean: no errors, no timeline warnings,
+    and its 4-5 char character surnames (特拉法尔加 etc.) no longer false-positive."""
+    from ane.worldview import validate_pack
+    report = validate_pack("one_piece")
+    assert report["ok"] is True
+    assert not report["errors"]
+    assert not any("timeline" in w or "timelines" in w for w in report["warnings"])
+    # 6+ char threshold keeps IP character surnames as non-warnings
+    assert not any("超过" in w for w in report["warnings"])
 
 
 @pytest.mark.asyncio

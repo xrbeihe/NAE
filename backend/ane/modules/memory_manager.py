@@ -411,17 +411,27 @@ class MemoryManager:
         self,
         db: AsyncSession,
         session_id: str,
+        limit: int | None = None,
     ) -> list[Memory]:
-        """Fetch all era entries in chronological order."""
-        result = await db.execute(
+        """Fetch era entries in chronological order (oldest first).
+
+        With `limit` set, only the most recent `limit` entries are returned
+        (still oldest-first). The /memories endpoint passes no limit to show
+        the full history; prompt injection passes a small limit so the
+        long-term context stays bounded instead of growing forever.
+        """
+        query = (
             select(Memory)
             .where(
                 Memory.session_id == session_id,
                 Memory.memory_type == "longmemory",
             )
-            .order_by(Memory.turn_number.asc())
+            .order_by(Memory.turn_number.desc())
         )
-        return list(result.scalars().all())
+        if limit is not None:
+            query = query.limit(limit)
+        result = await db.execute(query)
+        return list(reversed(result.scalars().all()))
 
     async def get_summaries_since(
         self,

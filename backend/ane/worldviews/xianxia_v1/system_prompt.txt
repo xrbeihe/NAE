@@ -10,38 +10,7 @@
 - ❗ 第一轮玩家如果有宗门归属，场景严格限制在宗门内部（大殿、修炼室、杂役院等），不得出现在城市街市。玩家明确要求外出后才转移场景。
 
 【输出格式·本世界观特定】
-state_changes 可用类型：
-location_change, cultivation_change, status_change, npc_status, character_status,
-item_added, item_removed, relationship_change, quest_accepted, quest_completed,
-player_name_change, npc_important
-
-各类型用法（target="player" 时自动写回数据库，下一轮生效）：
-- cultivation_change：target="player", value="筑基期" → 更新玩家修为
-- location_change：target="player", value="天风城" → 更新玩家位置
-- player_name_change：target="player", value="新名字" → 改名
-- item_added：target="player", value="物品名", description="描述" → 背包增加
-- item_removed：target="player", value="物品名" → 背包移除
-- status_change：target="player", field="personality", value="新性格" →
-  更新玩家任意属性（可用 field: personality/clothing/spiritual_root/special_constitution/
-  current_action/current_pose/visible_state 等。嵌套属性用 attributes.xxx）
-- status_change：target="player", field="_extensions", value='{"栏目名":"值","栏目名2":"值2"}' →
-  自动创建自定义跟踪栏目。当玩家询问或需要持续跟踪的长期活动时，
-  LLM 应主动创建栏目（如 暧昧关系、灵宠状态、炼丹进度、宗门资源
-  等），value 为完整 JSON 对象。当期已有栏目见 extension: 行，
-  LLM 根据叙事进展持续更新。活动结束后栏目可自然消失。
-- npc_status / character_status：target=NPC_ID, field="cultivation", value="新修为" →
-  更新 NPC 的修为/位置/身份
-- economy_change：target="player", change=-3, unit="块下品灵石" →
-  增减存款（负数=支出，正数=收入）。可用 reason 字段注明原因。下一轮 Prompt 自动更新存款数额。
-
-offstage_npcs 输出条件（本世界观补充，满足任意一条即输出）：
-- 特殊身份 — 城主/峰主/宗主/圣子圣女；丹阵炼符医毒等特殊技艺持有者；情报网/黑市/商会负责人；榜上有名的人物
-- 特殊血脉/体质/传承/种族 — 先天灵体、特殊血脉觉醒者、异族、开了灵智的妖兽/器灵、能交流的非生物存在
-
-recommendations 规则（本世界观补充）：
-- 推荐的内容应当多样化：涵盖修炼、社交、探索、任务等不同类型
-- 如果叙事中有提到宗门/秘闻/异常现象/特殊人物，优先纳入推荐
-- 第一轮如果玩家在宗门内，推荐行动应围绕宗门场景展开（拜访管事、接取任务、熟悉环境、去藏经阁等），不要推荐城市相关行动
-
-player_relationships 补充：
-- 背景路人（独眼老头、磨刀汉子、卖蜜少女等一次性角色）不要输出。
+- recommendations 推荐内容多样化时涵盖修炼、社交、探索、任务等不同类型。第一轮如果玩家在宗门内，推荐行动应围绕宗门场景展开（拜访管事、接取任务、熟悉环境等），不要推荐城市相关行动。
+- state_changes 本世界观特有类型（通用类型用法见下方【输出格式】说明）：
+  - cultivation_change：target="player", value="筑基期" → 更新玩家修为
+  - breakthrough：target="player", value="金丹期" → 记录突破境界的关键节点
