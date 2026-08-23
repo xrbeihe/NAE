@@ -538,6 +538,10 @@ class GameEngine:
         # Conversation
         ctx.conversation = conversation
 
+        # Action suggestions: previous turn's recommendations feed the
+        # 【推荐行动】 block so the model continues/revisits them.
+        ctx.suggestions = await memory_manager.get_latest_recommendations(db, session_id)
+
         # Era entries: inject only the most recent 3 records for long-term
         # context — older eras are superseded by newer summaries, so keeping
         # them all would make the prompt grow unboundedly.
@@ -1176,6 +1180,10 @@ class GameEngine:
             user_input, user_id=user_id, session_id=session_id, worldview=worldview,
         )
         if not names:
+            logger.warning(
+                f"do_npc_modeling: no names extracted "
+                f"(session={session_id[:12]}, worldview={worldview})"
+            )
             return {"updated": [], "new_names": []}
 
         updated = []
@@ -1599,12 +1607,20 @@ class GameEngine:
         Names are always returned in Chinese: when a worldview is supplied
         (e.g. an IP pack like naruto_shippuden), the prompt requires foreign
         names to be transliterated into their common Chinese translation
-        (Naruto → 鸣人, うずまきナルト → 漩涡鸣人). The validator only
-        accepts pure-CJK 2-4 char names, so English/kana output is rejected
-        even for IP worldviews.
+        (Naruto → 鸣人, うずまきナルト → 漩涡鸣人). The validator accepts
+        pure-CJK 1-4 char names — single-char IP names like 白 (Haku in
+        Naruto) are valid — while still rejecting English/kana output.
         Returns a list of proper name strings, or empty list.
         """
         from ane.modules.model_adapter import model_adapter
+
+        # Words that are never names — guards the 1-char relaxation from
+        # admitting generic tokens the model might emit.
+        _NAME_NOISE = {
+            "男", "女", "无", "未知", "谁", "他", "她", "我", "你", "它",
+            "姓名", "名字", "角色", "主角", "路人", "少年", "少女", "小孩",
+            "忍者", "武士", "村民", "npc", "NPC", "name", "Name",
+        }
 
         # ── Language rule: names must come back in Chinese ──
         # IP/western worldviews contain foreign (kana/romaji/English) names;
@@ -1624,23 +1640,27 @@ class GameEngine:
             "2. 如果文本中没有姓名只有描述（如'佩剑少女'、'卖糖葫芦的'），"
             "则根据其身份和场景赋予一个符合世界观的中文姓名（姓+名，2-3字）\n"
             + lang_rule +
-            "4. 每行只输出一个中文姓名，不要输出任何其他文字\n"
-            "5. 如果没有任何人物姓名也输出空\n\n"
+            "4. 原作角色的单字名要保留原样（如『白』『蝎』），不要添加姓氏或前缀\n"
+            "5. 每行只输出一个中文姓名，不要输出任何其他文字\n"
+            "6. 如果没有任何人物姓名也输出空\n\n"
             f"文本：\n{user_input}"
         )
 
         def _is_valid_chinese_name(name: str) -> bool:
             if not name:
                 return False
+            if name in _NAME_NOISE:
+                return False
             cjk_count = sum(1 for c in name if '一' <= c <= '鿿')
-            # 2-4 chars: allows compound surnames and 4-char translations
-            # (e.g. 漩涡鸣人) while still rejecting foreign/romaji output.
-            return cjk_count == len(name) and 2 <= len(name) <= 4
+            # 1-4 chars: allows single-char IP names (e.g. 白 in Naruto) up
+            # to 4-char translations (漩涡鸣人); still rejects foreign/romaji.
+            return cjk_count == len(name) and 1 <= len(name) <= 4
 
         def _parse_names(text: str) -> list[str]:
             if not text or not text.strip():
                 return []
             names = set()
+            rejected = []
             for line in text.strip().split('\n'):
                 raw = line.strip().rstrip("。，, .!\n、；：:；，、 ")
                 if not raw:
@@ -1650,6 +1670,11 @@ class GameEngine:
                     token = token.strip()
                     if _is_valid_chinese_name(token):
                         names.add(token)
+                    else:
+                        rejected.append(token)
+            if rejected:
+                # Diagnosability: which candidates were dropped and why
+                logger.debug(f"_llm_nameget rejected[{len(rejected)}]: {rejected[:10]}")
             return list(names)
 
         for attempt in range(2):
@@ -1657,6 +1682,13 @@ class GameEngine:
                 result = await model_adapter.generate(
                     prompt,
                     user_id=user_id, session_id=session_id, label="_llm_nameget",
+                )
+                # Diagnosability: always record what the model actually returned
+                # (truncated) so a later 400 can be traced to the raw output.
+                logger.info(
+                    f"_llm_nameget raw[{attempt + 1}]: {result[:200]!r} "
+                    f"(worldview={worldview})" if result else
+                    f"_llm_nameget raw[{attempt + 1}]: (empty) (worldview={worldview})"
                 )
                 names = _parse_names(result) if result else []
                 if names:
@@ -1666,7 +1698,7 @@ class GameEngine:
                     # Retry with stronger instruction
                     retry = (
                         "你是一个姓名提取助手。\n"
-                        "从文本中提取所有人物姓名（中文名，每个姓名2-4个字）。\n"
+                        "从文本中提取所有人物姓名（中文名，1-4个字；单字名如『白』『蝎』要保留原样）。\n"
                     )
                     if worldview:
                         retry += (
@@ -1681,6 +1713,10 @@ class GameEngine:
             except Exception as e:
                 logger.warning(f"_llm_nameget_multi attempt {attempt + 1} failed: {e}")
 
+        logger.warning(
+            f"_llm_nameget_multi FAILED: empty after 2 attempts; "
+            f"input={user_input[:80]!r} worldview={worldview}"
+        )
         return []
 
     async def _llm_cover(

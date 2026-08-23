@@ -193,6 +193,31 @@ async def test_llm_nameget_chinese_worldview_filters_foreign():
     assert set(names) == {"张海"}
 
 
+@pytest.mark.asyncio
+async def test_llm_nameget_accepts_single_char_name():
+    """Single-char IP names (e.g. 白 in Naruto) pass the relaxed 1-4 CJK check
+    — previously rejected by the 2-char minimum, causing the 400."""
+    async def _fake(prompt, model=None, **kwargs):
+        return "白\n"
+    with patch.object(ModelAdapter, "generate", new_callable=AsyncMock, side_effect=_fake):
+        names = await game_engine._llm_nameget_multi(
+            "人物是白，桃地再不斩的随从", user_id=USER_ID, worldview="naruto_shippuden",
+        )
+    assert set(names) == {"白"}
+
+
+@pytest.mark.asyncio
+async def test_llm_nameget_filters_noise_words():
+    """Generic tokens like 男/少女 are rejected even with the 1-char relaxation."""
+    async def _fake(prompt, model=None, **kwargs):
+        return "白\n男\n少女\n"
+    with patch.object(ModelAdapter, "generate", new_callable=AsyncMock, side_effect=_fake):
+        names = await game_engine._llm_nameget_multi(
+            "人物是白", user_id=USER_ID, worldview="naruto_shippuden",
+        )
+    assert set(names) == {"白"}
+
+
 # ── game_engine._run_npc_modeling ─────────────────────────────
 
 @pytest.mark.asyncio

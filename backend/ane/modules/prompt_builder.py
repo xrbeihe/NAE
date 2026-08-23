@@ -66,7 +66,9 @@ SYSTEM_PROMPT = """你是一个修仙世界的叙事引擎。你的职责是讲�
   "recommendations": [
     "推荐行动1（贴合当前场景和玩家身份，简洁一句话）",
     "推荐行动2",
-    "推荐行动3"
+    "推荐行动3",
+    "推荐行动4",
+    "推荐行动5"
   ],
   "state_changes": [
     {"type": "事件类型", "target": "目标NPC ID或player", "field": "字段", "value": "新值"}
@@ -184,7 +186,9 @@ NARRATIVE_KERNEL_PROMPT = """【叙事原则】
   "recommendations": [
     "推荐行动1（贴合当前场景和玩家身份，简洁一句话）",
     "推荐行动2",
-    "推荐行动3"
+    "推荐行动3",
+    "推荐行动4",
+    "推荐行动5"
   ],
   "state_changes": [
     {"type": "事件类型", "target": "目标NPC ID或player", "field": "字段", "value": "新值"}

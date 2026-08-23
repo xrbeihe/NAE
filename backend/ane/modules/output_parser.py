@@ -22,7 +22,7 @@ class ParsedOutput:
     is_valid_json: bool = True
     parse_error: str | None = None
     character_model: dict | None = None  # llm_modeling data from llm_main (only when marking important)
-    recommendations: list[str] = field(default_factory=list)  # 10 recs from llm_main
+    recommendations: list[str] = field(default_factory=list)  # 5 recs from llm_main
     player_relationships: list[dict] = field(default_factory=list)  # named NPCs with player relationship
     info_panel: str = ""  # 独立信息区：主角信息 + 附近人物等，一整个区别于正文的文本区域
 

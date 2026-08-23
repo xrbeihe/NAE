@@ -1242,6 +1242,12 @@ async def create_npc_library(
     # 1. Extract name from input
     names = await game_engine._llm_nameget_multi(req.input, user_id=user.id, worldview=worldview)
     if not names:
+        # Diagnosability: record the failing request so a 400 can be traced
+        # (nameget_multi already logs the raw LLM output + rejected candidates).
+        logger.warning(
+            f"[npc-lib] CREATE name-extract failed: user={user.id[:12]} "
+            f"worldview={worldview or 'xianxia_v1'} input={req.input[:80]!r}"
+        )
         raise HTTPException(status_code=400, detail="未能从输入中提取NPC姓名")
     npc_name = names[0]
 
