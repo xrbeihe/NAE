@@ -23,10 +23,6 @@
         "composite": "性别：{gender} ｜ 年龄：{age}岁"
       },
       {
-        "label": "忍者等级",
-        "key": "cultivation"
-      },
-      {
         "label": "身份",
         "composite": "身份：{identity} — {identity_desc}"
       },
@@ -42,7 +38,8 @@
     "conditional": [
       {
         "label": "血继限界",
-        "key": "golden_finger_name"
+        "key": "golden_finger_name",
+        "show_if": "truthy"
       }
     ]
   },
