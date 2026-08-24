@@ -1,0 +1,19 @@
+{
+  "seclusion_threshold": 2160,
+  "seclusion_event": {
+    "type": "adventure_progress",
+    "description": "{npc_name}在静修/闭关后有所精进。"
+  },
+  "idle_threshold": 2160,
+  "idle_probability": 0.2,
+  "idle_events": [
+    {
+      "type": "adventure_progress",
+      "description": "听闻{npc_name}近日有所进展。"
+    },
+    {
+      "type": "random_encounter",
+      "description": "{npc_name}似乎经历了一些事，但详情不明。"
+    }
+  ]
+}

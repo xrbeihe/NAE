@@ -1,0 +1,86 @@
+{
+  "genders": [
+    {
+      "value": "男",
+      "label": "男"
+    },
+    {
+      "value": "女",
+      "label": "女"
+    }
+  ],
+  "cultivations": [],
+  "personalities": [
+    {
+      "value": "随和",
+      "label": "随和",
+      "desc": "好相处，情绪稳定。"
+    },
+    {
+      "value": "外向",
+      "label": "外向开朗",
+      "desc": "爱交朋友，自来熟。"
+    },
+    {
+      "value": "谨慎",
+      "label": "谨慎多疑",
+      "desc": "凡事留三分。"
+    },
+    {
+      "value": "理想主义",
+      "label": "理想主义",
+      "desc": "相信努力能改变世界。"
+    }
+  ],
+  "backgrounds": [
+    {
+      "value": "普通出身",
+      "label": "普通出身（无名之辈）",
+      "desc": "出生在平凡环境中，一步步靠自己的努力走到今天。",
+      "initial_resource": "微薄的积蓄和一身孤勇。",
+      "personality_tendency": "踏实、坚韧，偶尔略显保守。",
+      "typical_sect_path": "从底层开始，慢慢积累名声。"
+    },
+    {
+      "value": "显赫家世",
+      "label": "显赫家世（名门之后）",
+      "desc": "出身望族，人脉与资源天然多于常人，但也背负家族期望。",
+      "initial_resource": "充足的家底和一张熟悉的人脉网。",
+      "personality_tendency": "自信、松弛，偶尔不食人间烟火。",
+      "typical_sect_path": "家族安排的道路，或自己另辟蹊径。"
+    }
+  ],
+  "identities": {
+    "武将": {
+      "label": "武将",
+      "desc": "三国演义世界中的武将",
+      "clothing": "",
+      "background": ""
+    },
+    "谋士": {
+      "label": "谋士",
+      "desc": "三国演义世界中的谋士",
+      "clothing": "",
+      "background": ""
+    },
+    "君主": {
+      "label": "君主",
+      "desc": "三国演义世界中的君主",
+      "clothing": "",
+      "background": ""
+    },
+    "商贾": {
+      "label": "商贾",
+      "desc": "三国演义世界中的商贾",
+      "clothing": "",
+      "background": ""
+    },
+    "农夫": {
+      "label": "农夫",
+      "desc": "三国演义世界中的农夫",
+      "clothing": "",
+      "background": ""
+    }
+  },
+  "golden_fingers": []
+}

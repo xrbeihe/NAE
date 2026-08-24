@@ -1,0 +1,79 @@
+{
+  "labels": {
+    "role": "豪杰",
+    "cultivation": "",
+    "spiritual_root": "",
+    "sect": "",
+    "golden_finger": ""
+  },
+  "create_button": "踏入乱世",
+  "modal_title": "创建你的豪杰（三国演义）",
+  "default_session_name": "三国演义",
+  "welcome_prefix": "已进入「",
+  "welcome_suffix": "」",
+  "character_card": {
+    "title": "📋 **角色创建成功**",
+    "lines": [
+      {
+        "label": "姓名",
+        "key": "name"
+      },
+      {
+        "label": "性别",
+        "composite": "性别：{gender} ｜ 年龄：{age}岁"
+      },
+      {
+        "label": "身份",
+        "composite": "身份：{identity} — {identity_desc}"
+      },
+      {
+        "label": "性格",
+        "key": "personality"
+      },
+      {
+        "label": "出身",
+        "key": "background_summary"
+      },
+      {
+        "label": "衣物",
+        "key": "clothing",
+        "default": "未设定"
+      }
+    ],
+    "conditional": [
+      {
+        "label": "初始位置",
+        "key": "location"
+      }
+    ]
+  },
+  "initial_recommendations": {
+    "base": [
+      "四处走走，熟悉周围的环境",
+      "找当地人打听本地的消息",
+      "去市集或商店看看有没有合适的装备"
+    ],
+    "with_sect": [],
+    "with_golden_finger": [],
+    "without_golden_finger": [],
+    "tail": [
+      "检查随身物品，清点积蓄",
+      "向遇到的人打听附近的风土人情",
+      "寻找能提升自己能力的机会"
+    ]
+  },
+  "npc_archetypes": [
+    {
+      "name": "路人甲",
+      "desc": "路过的普通人"
+    },
+    {
+      "name": "店主",
+      "desc": "常去的店铺老板"
+    },
+    {
+      "name": "同路人",
+      "desc": "与玩家同行的旅伴"
+    }
+  ]
+}

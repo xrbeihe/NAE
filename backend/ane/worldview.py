@@ -319,6 +319,7 @@ def _check_panel_sources(panel: dict, pt: dict, errors: list, warnings: list) ->
         "sexual_knowledge", "fertility", "lifestyle_summary",
         "current_action", "current_pose", "visible_state",
         "height", "weight", "location_hierarchy",
+        "courtesy_name",  # 字（表字）——历史题材玩家自填字段
     }
     for f in panel.get("fields", []):
         src = f.get("source")

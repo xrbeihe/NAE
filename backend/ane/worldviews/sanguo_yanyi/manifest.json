@@ -1,0 +1,23 @@
+{
+  "worldview_id": "sanguo_yanyi",
+  "name": "三国演义",
+  "version": "0.1.0",
+  "author": "ANE 作者",
+  "description": "东汉末年群雄逐鹿，魏蜀吴三国鼎立，英雄辈出的乱世。",
+  "base_map": "historical",
+  "maturity_rating": "adult",
+  "tags": [
+    "历史",
+    "IP改编",
+    "战争",
+    "谋略"
+  ],
+  "assembly": "shell+kernel",
+  "player_defaults": {
+    "name": "无名旅人",
+    "cultivation": "",
+    "status_label": "豪杰"
+  },
+  "extra_event_types": [],
+  "owner_user_id": "a076e986e205"
+}

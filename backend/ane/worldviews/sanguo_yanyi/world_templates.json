@@ -1,0 +1,52 @@
+{
+  "regions": [
+    {
+      "name": "洛阳",
+      "type": "city",
+      "description": "洛阳——三国演义世界中的一处地点。"
+    },
+    {
+      "name": "许昌",
+      "type": "area",
+      "description": "许昌——三国演义世界中的一处地点。"
+    },
+    {
+      "name": "成都",
+      "type": "area",
+      "description": "成都——三国演义世界中的一处地点。"
+    },
+    {
+      "name": "官渡",
+      "type": "area",
+      "description": "官渡——三国演义世界中的一处地点。"
+    },
+    {
+      "name": "赤壁",
+      "type": "area",
+      "description": "赤壁——三国演义世界中的一处地点。"
+    },
+    {
+      "name": "桃园",
+      "type": "area",
+      "description": "桃园——三国演义世界中的一处地点。"
+    },
+    {
+      "name": "曹魏",
+      "type": "faction",
+      "description": "曹魏——三国演义世界中的主要势力，有自己的利益与地盘。"
+    },
+    {
+      "name": "蜀汉",
+      "type": "faction",
+      "description": "蜀汉——三国演义世界中的主要势力，有自己的利益与地盘。"
+    },
+    {
+      "name": "东吴",
+      "type": "faction",
+      "description": "东吴——三国演义世界中的主要势力，有自己的利益与地盘。"
+    }
+  ],
+  "sects": [],
+  "settlements": [],
+  "sect_filters": []
+}

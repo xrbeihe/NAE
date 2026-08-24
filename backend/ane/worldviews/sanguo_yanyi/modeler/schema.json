@@ -1,0 +1,43 @@
+{
+  "basic": {
+    "name": "",
+    "race": "",
+    "gender": "",
+    "age": 0,
+    "identity": "",
+    "position": ""
+  },
+  "appearance": {
+    "overall_impression": "",
+    "body_proportion": "",
+    "aura": "",
+    "hair": {
+      "length": "",
+      "style": "",
+      "color": ""
+    }
+  },
+  "personality": {
+    "core": "",
+    "values": "",
+    "fears": "",
+    "likes": ""
+  },
+  "background": {
+    "history": "",
+    "major_events": ""
+  },
+  "relationships": {
+    "friends": [],
+    "enemies": [],
+    "lover": ""
+  },
+  "attitude_to_player": {
+    "surface": "",
+    "true_feelings": ""
+  },
+  "knowledge_bounds": {
+    "knows": [],
+    "does_not_know": []
+  }
+}
