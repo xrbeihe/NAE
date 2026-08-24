@@ -66,6 +66,18 @@ _GENRES = {
         "rec_types": "修炼、社交、探索、任务",
         "scenes": ["宗门", "坊市", "秘境", "山脉", "城镇", "洞府"],
     },
+    "historical": {
+        "role": "你是一个{worldview_name}的叙事引擎。你的职责是讲述故事、描写场景、扮演NPC。",
+        "power_hint": "这是一个写实的历史演义世界——力量体系为军功、官职、武艺与谋略，没有超自然、魔法或玄幻元素，一切遵循古代社会的礼法、人情与世故。",
+        "money_note": "货币为铜钱、银两。",
+        "behavior": [
+            "NPC按照各自的社会身份活动（武将操练、谋士议事、商贾贩货、农夫耕作、官员理政等），玩家不主动接触则不会特意搭理玩家。",
+            "不要让角色表现出超出其身份的能力（无名小卒不会轻易号令军队，平民不会突然影响朝堂）。",
+            "有归属的NPC，除非剧情需要，默认在自己的驻地或势力范围活动。",
+        ],
+        "rec_types": "结交、谋略、征战、游历",
+        "scenes": ["都城", "军营", "酒肆", "边境", "市集", "驿站"],
+    },
 }
 
 
@@ -75,14 +87,16 @@ def _field_names(author):
     role_label = (author.get("role_label") or "").strip()
     status_label = (author.get("status_label") or "").strip()
 
-    cultivation_label = power or "修为"
+    # 能力体系名称为空 = 无超自然力量体系（历史/写实题材），跳过 cultivation 相关产物
+    cultivation_label = power or ""
     default_name = author.get("default_name") or "无名旅人"
-    cultivation_value = "平民"
+    cultivation_value = "" if not power else "平民"
     if not status_label:
         status_label = role_label or "角色"
 
     return {
         "cultivation_label": cultivation_label,
+        "has_power": bool(cultivation_label),
         "default_name": default_name,
         "cultivation_value": cultivation_value,
         "status_label": status_label,
@@ -132,10 +146,14 @@ def build_system_prompt(author: dict) -> str:
         "【输出格式·本世界观特定】",
         f"- recommendations 推荐内容多样化时涵盖{genre_cfg['rec_types']}等不同类型。",
         "- state_changes 各类型用法：",
-        f'  - status_change：target="player", field="{fields["cultivation_label"]}", value="新值" → 更新玩家属性',
         "  - location_change：target=\"player\", value=\"新地名\" → 更新玩家位置",
         "  - npc_status / character_status：target=NPC名, field=\"任意字段\", value=\"新值\" → 更新NPC状态",
     ]
+    if fields["has_power"]:
+        lines.insert(
+            len(lines) - 2,
+            f'  - status_change：target="player", field="{fields["cultivation_label"]}", value="新值" → 更新玩家属性',
+        )
     return "\n".join(lines)
 
 
@@ -218,10 +236,10 @@ def _build_player_templates(author: dict) -> dict:
         })
     return {
         "genders": [{"value": "男", "label": "男"}, {"value": "女", "label": "女"}],
-        "cultivations": [
+        "cultivations": ([] if not fields["has_power"] else [
             {"value": p, "label": p, "desc": f"{author.get('name','')}世界中的{p}"}
             for p in professions
-        ],
+        ]),
         "personalities": [
             {"value": "随和", "label": "随和", "desc": "好相处，情绪稳定。"},
             {"value": "外向", "label": "外向开朗", "desc": "爱交朋友，自来熟。"},
@@ -265,7 +283,9 @@ def _build_constraints(author: dict) -> dict:
         f"这是一个{name}世界。遵循该世界的物理规律与社会规则，不得混入其他世界观的力量体系。",
         "NPC的性格和行为必须与其设定一致。冷漠的人不会突然热情，高傲的人不会低声下气。",
         "NPC只能在自身当前位置出现。在远方的NPC不能突然现身。",
-        f"保持角色（包括玩家和NPC）的所有状态信息（{fields['cultivation_label']}、身份、位置）与数据库记录完全一致，不得随意修改或编造。前一回合的状态必须继承到当前回合。",
+        (f"保持角色（包括玩家和NPC）的所有状态信息（{fields['cultivation_label']}、身份、位置）与数据库记录完全一致，不得随意修改或编造。前一回合的状态必须继承到当前回合。"
+         if fields["has_power"] else
+         "保持角色（包括玩家和NPC）的所有状态信息（身份、位置）与数据库记录完全一致，不得随意修改或编造。前一回合的状态必须继承到当前回合。"),
         "禁止使用'洗得发白'这个短语来形容衣物——属于低质量模板化描写。如需描写旧衣物，请用更具体的手法（褪色的纹路、磨破的袖口、浆洗发硬的布料、颜色不均的补丁等）。",
     ]
     # World taboos → hard constraints in in-world phrasing
@@ -283,8 +303,10 @@ def _build_constraints(author: dict) -> dict:
         ],
         "triggers": [],
         "context_templates": {
-            "ability_cap": f"玩家当前{fields['cultivation_label']}为{{cultivation}}，不得表现出超出此水平的资源、权力或能力。提升需要时间和契机，不能突然暴涨。",
             "nsfw_intent": "玩家意图进行性爱互动。根据场景性质选择Type 1（刺激插曲）或Type 2（情节性性爱）的描写模式，详见【性爱场景核心规范】。严格遵循描写规范中的所有规则。无论哪种模式，NPC不能以反问/拖延/兜圈子的方式阻滞叙事，每轮都必须有推进感。",
+            **({} if not fields["has_power"] else {
+                "ability_cap": f"玩家当前{fields['cultivation_label']}为{{cultivation}}，不得表现出超出此水平的资源、权力或能力。提升需要时间和契机，不能突然暴涨。",
+            }),
         },
         "modeler_blurb": author.get("description") or f"{name}世界观。",
     }
@@ -298,7 +320,7 @@ def _build_panel(author: dict) -> dict:
         "fields": [
             {"label": "姓名", "kind": "composite", "format": "{name} ｜ {gender} ｜ {age}岁",
              "source": {"name": "player.name", "gender": "attrs.gender", "age": "attrs.age"}},
-            {"label": fields["cultivation_label"], "key": "cultivation", "source": "player"},
+            *([] if not fields["has_power"] else [{"label": fields["cultivation_label"], "key": "cultivation", "source": "player"}]),
             {"label": "性格", "key": "personality", "source": "attrs", "default": "未知"},
             {"label": "身份", "key": "identity", "source": "attrs", "default": "未知"},
             {"label": "位置", "key": "location", "source": "player", "default": "未知"},
@@ -330,7 +352,7 @@ def _build_ui(author: dict) -> dict:
             "lines": [
                 {"label": "姓名", "key": "name"},
                 {"label": "性别", "composite": "性别：{gender} ｜ 年龄：{age}岁"},
-                {"label": fields["cultivation_label"], "key": "cultivation"},
+                *([] if not fields["has_power"] else [{"label": fields["cultivation_label"], "key": "cultivation"}]),
                 {"label": "身份", "composite": "身份：{identity} — {identity_desc}"},
                 {"label": "性格", "key": "personality"},
                 {"label": "出身", "key": "background_summary"},
@@ -379,7 +401,7 @@ def _build_modeler_schema(author: dict) -> dict:
     Generic across genres: identity + appearance + inner self. Genres with a
     power system get an extra power_details section; authors can extend freely.
     """
-    power_label = (author.get("power_system") or "").strip() or "能力"
+    power_label = (author.get("power_name") or "").strip()
     schema = {
         "basic": {"name": "", "race": "", "gender": "", "age": 0, "identity": "", "position": ""},
         "appearance": {
@@ -420,9 +442,9 @@ def _build_form(author: dict) -> dict:
             {"key": "background", "label": "出身背景", "kind": "select", "options_from": "backgrounds",
              "hint_template": "{desc} ｜ 初始资源：{initial_resource} ｜ 性格倾向：{personality_tendency}",
              "store": "attrs.background", "derive": ["background_summary"]},
-            {"key": "cultivation", "label": fields["cultivation_label"], "kind": "select", "options_from": "cultivations",
-             "hint_template": "{desc}", "allow_custom": True, "custom_label": "自定义" + fields["cultivation_label"],
-             "store": "player.cultivation"},
+            *([] if not fields["has_power"] else [{"key": "cultivation", "label": fields["cultivation_label"], "kind": "select", "options_from": "cultivations",
+               "hint_template": "{desc}", "allow_custom": True, "custom_label": "自定义" + fields["cultivation_label"],
+               "store": "player.cultivation"}]),
             {"key": "personality", "label": "性格", "kind": "select", "options_from": "personalities",
              "hint_template": "{desc}", "allow_custom": True, "custom_label": "自定义性格描述", "store": "attrs.personality"},
             {"key": "identity", "label": "身份", "kind": "select", "options_from": "identities",
