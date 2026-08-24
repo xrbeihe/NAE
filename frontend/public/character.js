@@ -219,7 +219,8 @@ function renderFormFields() {
           }
         }
         if (f.allow_custom) opts.push('<option value="__custom__">自定义</option>');
-        html += '<select id="field-' + key + '" data-key="' + key + '" data-options-from="' + _escH(f.options_from || '') + '" data-hint-template="' + _escH(f.hint_template || '') + '" data-allow-custom="' + (f.allow_custom ? '1' : '') + '" data-derive="' + _escH((f.derive || []).join(',')) + '" style="' + _inputStyle + '">' + opts.join('') + '</select>';
+        var dataOpts = Array.isArray(f.options) ? ' data-options="' + _escH(JSON.stringify(f.options)) + '"' : '';
+        html += '<select id="field-' + key + '" data-key="' + key + '" data-options-from="' + _escH(f.options_from || '') + '"' + dataOpts + ' data-hint-template="' + _escH(f.hint_template || '') + '" data-allow-custom="' + (f.allow_custom ? '1' : '') + '" data-derive="' + _escH((f.derive || []).join(',')) + '" style="' + _inputStyle + '">' + opts.join('') + '</select>';
       }
       html += '<div class="hint" id="hint-' + key + '" style="' + _hintStyle + '"></div>';
       if (f.allow_custom) {
@@ -228,7 +229,8 @@ function renderFormFields() {
           '<textarea id="custom-' + key + '" data-key="' + key + '" placeholder="' + _escH(f.custom_label || '') + '…" maxlength="500" style="width:100%;padding:8px 12px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px;font-family:inherit;resize:vertical;min-height:60px;box-sizing:border-box"></textarea></div>';
       }
     } else if (f.kind === 'card_grid') {
-      html += '<div id="grid-' + key + '" data-key="' + key + '" data-options-from="' + _escH(f.options_from || '') + '" data-option-map="' + _escH(JSON.stringify(f.option_map || {})) + '" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px"></div>';
+      var gridDataOpts = Array.isArray(f.options) ? ' data-options="' + _escH(JSON.stringify(f.options)) + '"' : '';
+      html += '<div id="grid-' + key + '" data-key="' + key + '" data-options-from="' + _escH(f.options_from || '') + '"' + gridDataOpts + ' data-option-map="' + _escH(JSON.stringify(f.option_map || {})) + '" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px"></div>';
       if (f.allow_custom) {
         html += '<div id="custom-' + key + '-wrap" style="display:none;margin-top:10px">' +
           '<label style="' + _labelStyle + '">' + _escH(f.custom_label || '自定义') + '</label>' +
@@ -285,11 +287,20 @@ function updateFormHint(sel) {
   if (customWrap) customWrap.style.display = isCustom ? 'block' : 'none';
   if (isCustom) { hintEl.textContent = '填写你的自定义描述'; return; }
   if (!tpl) { hintEl.textContent = ''; return; }
-  var src = sel.dataset.optionsFrom && charTemplates ? charTemplates[sel.dataset.optionsFrom] : null;
   var opt = null;
-  if (src) {
-    if (Array.isArray(src)) opt = src.find(function (o) { return (o.value != null ? o.value : o.id) === sel.value; });
-    else opt = src[sel.value];
+  // 优先字段内嵌 options（渲染时写入 data-options）
+  if (sel.dataset.options) {
+    try {
+      var emb = JSON.parse(sel.dataset.options);
+      if (Array.isArray(emb)) opt = emb.find(function (o) { return (o.value != null ? o.value : o.id) === sel.value; });
+    } catch (e) {}
+  }
+  if (!opt) {
+    var src = sel.dataset.optionsFrom && charTemplates ? charTemplates[sel.dataset.optionsFrom] : null;
+    if (src) {
+      if (Array.isArray(src)) opt = src.find(function (o) { return (o.value != null ? o.value : o.id) === sel.value; });
+      else opt = src[sel.value];
+    }
   }
   if (!opt) { hintEl.textContent = ''; return; }
   hintEl.textContent = tpl.replace(/\{(\w+)\}/g, function (_, k) { return opt[k] != null ? opt[k] : ''; });
@@ -316,7 +327,12 @@ function fillFormValues() {
     if (!grid.id || grid.id.indexOf('grid-') !== 0) return;
     var from = grid.dataset.optionsFrom;
     var key = grid.dataset.key;
-    var src = charTemplates && charTemplates[from];
+    // 字段内嵌 options 优先；否则查池
+    var src = null;
+    if (grid.dataset.options) {
+      try { src = JSON.parse(grid.dataset.options); } catch (e) { src = null; }
+    }
+    if (!Array.isArray(src)) src = charTemplates && charTemplates[from];
     if (!Array.isArray(src)) return;
     var allowCustom = !!document.getElementById('custom-' + key + '-wrap');
     grid.innerHTML = src.map(function (o) {
