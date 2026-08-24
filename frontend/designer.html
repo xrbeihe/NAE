@@ -664,6 +664,15 @@ var _COMMON_FIELD_TEMPLATES = {
   golden_finger:{key:'golden_finger', label:'特殊能力', kind:'card_grid', options_from:'golden_fingers', allow_custom:true, custom_label:'自定义', visible_if:'has_golden_fingers', option_map:{id:'golden_finger_id',name:'golden_finger_name',tagline:'golden_finger_tagline',desc:'golden_finger_desc'}, store:'attrs.golden_finger_id'},
   cultivation:{key:'cultivation', label:'能力等级', kind:'select', options_from:'cultivations', hint_template:'{desc}', allow_custom:true, custom_label:'自定义', store:'player.cultivation'},
   sect:      {key:'sect', label:'宗门/组织', kind:'select', options_from:'sects', store:'attrs.sect'},
+  faction:   {key:'faction', label:'阵营/势力', kind:'text', placeholder:'如：曹魏 / 草帽海贼团（可不填）', store:'attrs.faction'},
+  race:      {key:'race', label:'种族', kind:'select', options_from:'races', hint_template:'{desc}', allow_custom:true, custom_label:'自定义种族', store:'attrs.race'},
+  spiritual_root:{key:'spiritual_root', label:'灵根', kind:'select', options_from:'spiritual_roots', hint_template:'{desc}', allow_custom:true, custom_label:'自定义灵根', store:'attrs.spiritual_root'},
+  talent_note:{key:'talent_note', label:'资质/天赋', kind:'text', placeholder:'如：中品 / 天资聪颖', store:'attrs.talent_note'},
+  hometown:  {key:'hometown', label:'家乡/出生地', kind:'text', placeholder:'如：涿郡（可不填）', store:'attrs.hometown'},
+  speech_style:{key:'speech_style', label:'说话风格', kind:'text', placeholder:'如：文绉绉 / 粗豪直爽（可不填）', store:'attrs.speech_style'},
+  weapon:    {key:'weapon', label:'武器/装备', kind:'text', placeholder:'如：青龙偃月刀（可不填）', store:'attrs.weapon'},
+  pet:       {key:'pet', label:'伙伴/灵兽', kind:'text', placeholder:'如：赤兔马 / 灵猫（可不填）', store:'attrs.pet'},
+  title:     {key:'title', label:'称号', kind:'text', placeholder:'如：卧龙 / 常山赵子龙（可不填）', store:'attrs.title'},
   appearance:{key:'appearance_brief', label:'外貌简述', kind:'text', store:'attrs.appearance_brief'},
   height:    {key:'height', label:'身高', kind:'number', default:170, min:120, max:250, store:'attrs.height'},
   weight:    {key:'weight', label:'体重', kind:'number', default:60, min:30, max:200, store:'attrs.weight'},
@@ -672,8 +681,11 @@ var _COMMON_FIELD_TEMPLATES = {
 // 整表预设：一键替换当前全部字段
 var _FORM_PRESETS = {
   '标准角色表': ['name','age','gender','background','personality','identity','golden_finger'],
+  '写实/无超自然表': ['name','age','gender','background','personality','identity'],
   '精简表':     ['name','gender','age'],
   '详细表':     ['name','age','gender','height','weight','appearance','background','personality','identity','golden_finger'],
+  '修仙表':     ['name','age','gender','spiritual_root','talent_note','background','personality','identity','sect','golden_finger'],
+  '西幻表':     ['name','age','gender','race','background','personality','identity','cultivation','golden_finger'],
 };
 
 function applyFormPreset(name) {
@@ -1049,6 +1061,8 @@ var _optEditor = { worldview: '', file: 'player_templates.json', data: {}, tab: 
 /* Each tab: source file, data key, columns [{key,label,type}] */
 var _OPT_TABS = {
   cultivations: { file: 'player_templates.json', label: '职业/能力', cols: [['value','选项值'],['label','显示名'],['desc','说明']] },
+  races:        { file: 'player_templates.json', label: '种族池', cols: [['value','选项值'],['label','显示名'],['desc','说明']] },
+  spiritual_roots:{ file: 'player_templates.json', label: '灵根池', cols: [['value','选项值'],['label','显示名'],['desc','说明']] },
   backgrounds:  { file: 'player_templates.json', label: '出身背景', cols: [['value','选项值'],['label','显示名'],['desc','说明'],['initial_resource','初始资源'],['personality_tendency','性格倾向']] },
   personalities:{ file: 'player_templates.json', label: '性格', cols: [['value','选项值'],['label','显示名'],['desc','说明']] },
   identities:   { file: 'player_templates.json', label: '身份', cols: [['label','显示名'],['desc','说明'],['clothing','衣物']] },
@@ -1159,7 +1173,7 @@ function renderOptBody() {
   var cols = tab.cols;
   var html = _helpBlock([
     ['这是什么', '编辑「角色创建弹窗」下拉框的选项数据（职业/出身/性格/身份/特殊能力）与地图地点，以及 NPC 生成池'],
-    ['各 tab 的数据文件', '职业/出身/性格/身份/特殊能力 = player_templates.json；地点 = world_templates.json；姓氏/男名/女名/NPC性格/修为/体型/衣着/体质/NPC原型 = npc_templates.json'],
+    ['各 tab 的数据文件', '职业/种族/灵根/出身/性格/身份/特殊能力 = player_templates.json；地点 = world_templates.json；姓氏/男名/女名/NPC性格/修为/体型/衣着/体质/NPC原型 = npc_templates.json'],
     ['表格操作', '直接改单元格内容，点「＋ 添加一行」新增、「✕」删除，保存后下次创建角色生效'],
     ['空数组', '作者明确表示"此世界观没有这项"，该区块会自动隐藏（如现代都市没有灵根）'],
     ['NPC 池', '姓名池/性格池等是「新建建模NPC」弹窗提示库的数据源，可自由增删'],
