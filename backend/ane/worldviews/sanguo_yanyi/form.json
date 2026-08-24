@@ -95,6 +95,17 @@
       "store": "attrs.appearance_brief",
       "allow_custom": true,
       "custom_label": "自定义外貌"
+    },
+    {
+      "key": "weapon",
+      "label": "武器/装备",
+      "kind": "select",
+      "options_from": "weapons",
+      "hint_template": "{desc}",
+      "placeholder": "如：青龙偃月刀（可不填）",
+      "store": "attrs.weapon",
+      "allow_custom": true,
+      "custom_label": "自定义武器"
     }
   ]
 }

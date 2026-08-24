@@ -670,7 +670,7 @@ var _COMMON_FIELD_TEMPLATES = {
   talent_note:{key:'talent_note', label:'资质/天赋', kind:'text', placeholder:'如：中品 / 天资聪颖', store:'attrs.talent_note'},
   hometown:  {key:'hometown', label:'家乡/出生地', kind:'text', placeholder:'如：涿郡（可不填）', store:'attrs.hometown'},
   speech_style:{key:'speech_style', label:'说话风格', kind:'text', placeholder:'如：文绉绉 / 粗豪直爽（可不填）', store:'attrs.speech_style'},
-  weapon:    {key:'weapon', label:'武器/装备', kind:'text', placeholder:'如：青龙偃月刀（可不填）', store:'attrs.weapon'},
+  weapon:    {key:'weapon', label:'武器/装备', kind:'select', options_from:'weapons', hint_template:'{desc}', allow_custom:true, custom_label:'自定义武器', store:'attrs.weapon'},
   pet:       {key:'pet', label:'伙伴/灵兽', kind:'text', placeholder:'如：赤兔马 / 灵猫（可不填）', store:'attrs.pet'},
   title:     {key:'title', label:'称号', kind:'text', placeholder:'如：卧龙 / 常山赵子龙（可不填）', store:'attrs.title'},
   appearance:{key:'appearance_brief', label:'外貌简述', kind:'text', store:'attrs.appearance_brief'},
@@ -1173,6 +1173,7 @@ function openOptEditor(wvId) {
   apiFetch('/worldviews/' + encodeURIComponent(wvId) + '/form').then(function(r) { return r.json(); }).then(function(d) {
     var fields = (d.form && d.form.fields) || [];
     _optEditor.formSources = [];
+    _optEditor.formFields = fields;
     fields.forEach(function(f) {
       if (f.options_from && _optEditor.formSources.indexOf(f.options_from) === -1) _optEditor.formSources.push(f.options_from);
     });
@@ -1305,6 +1306,17 @@ function _optSourcesHtml() {
       '<div style="font-size:12px;color:#b08060;margin-bottom:4px">⚠️ 表单引用了以下数据源，但包数据中不存在（下拉会是空的）——点「创建」一键建池：</div>' +
       missing.map(function(k) {
         return '<span style="display:inline-block;margin:2px;padding:2px 8px;background:var(--panel);border:1px solid var(--border);border-radius:3px;font-size:11px;color:var(--accent-dim)">' + _esc(k) + ' <button onclick="createOptPool(\'' + _esc(k) + '\')" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:11px">创建</button></span>';
+      }).join('') + '</div>';
+  }
+  // 下拉/卡片字段但没填 options_from —— 提示去表单编辑器填写
+  var noSource = (_optEditor.formFields || []).filter(function(f) {
+    return (f.kind === 'select' || f.kind === 'card_grid') && !f.options_from;
+  });
+  if (noSource.length) {
+    h += '<div style="margin-bottom:8px;border:1px solid #8a5a3a;border-radius:6px;padding:8px 10px;background:rgba(138,90,58,0.08)">' +
+      '<div style="font-size:12px;color:#b08060;margin-bottom:4px">⚠️ 表单以下字段是下拉框/卡片但未填「选项来源 options_from」（下拉会是空的）——请到 ✏️ 表单编辑器展开该字段的配置，在「选项来源」里填数据源键名：</div>' +
+      noSource.map(function(f) {
+        return '<span style="display:inline-block;margin:2px;padding:2px 8px;background:var(--panel);border:1px solid var(--border);border-radius:3px;font-size:11px;color:var(--accent-dim)">' + _esc(f.label || f.key) + '（' + _esc(f.key) + '）</span>';
       }).join('') + '</div>';
   }
   h += '<div style="margin-bottom:8px;font-size:11px;color:var(--accent-dim)">新建数据池：<input id="opt-new-pool" placeholder="键名，如 appearances / weapons" style="padding:4px 8px;background:var(--panel);border:1px solid var(--border);border-radius:3px;color:var(--text);font-size:11px;width:200px;box-sizing:border-box"> <button onclick="createOptPoolFromInput()" style="background:none;border:1px solid var(--accent);color:var(--accent);padding:4px 10px;border-radius:3px;cursor:pointer;font-size:11px">＋ 创建</button></div>';
