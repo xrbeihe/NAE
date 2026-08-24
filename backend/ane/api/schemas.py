@@ -189,5 +189,12 @@ class NpcLibraryEntry(BaseModel):
     tags: list[str] = []
 
 
+# ── AI Image Generation (vision model proxy) ──────────────────
+
+class GenerateImageRequest(BaseModel):
+    prompt: str = Field(default="", max_length=4000, description="图片内容描述")
+
+
+
 class NpcLibraryResponse(BaseModel):
     npcs: list[NpcLibraryEntry]

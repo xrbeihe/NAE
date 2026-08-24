@@ -18,6 +18,7 @@ from ane.api.schemas import (
     NpcModelingConfirmRequest, NpcModelingConfirmResponse,
     SummaryEntry, SummariesResponse,
     NpcLibraryCreateRequest, NpcLibraryUpdateRequest,
+    GenerateImageRequest,
 )
 
 import logging
@@ -1533,3 +1534,79 @@ async def remove_imported_npc(
     await db.commit()
     logger.info(f"[npc-lib] REMOVE: user={user.id[:12]} session={session_id[:12]} name={name}")
     return {"name": name, "removed": True}
+
+
+# ── AI Image Generation（暂未开放，以后再开发）──────────────
+# deepseek-v4-flash-vision-exp 为图像理解模型（图片输入→文字输出），
+# 无法生成图片。待接入真正的文生图服务后，取消下方三引号注释恢复路由。
+r"""
+@router.post("/generate-image")
+async def generate_image(
+    req: GenerateImageRequest,
+    user = Depends(get_current_user),
+):
+    \"\"\"调用文生图服务生成图片（未开放）。密钥只从 DEEPSEEK_API_KEY
+    环境变量读取，前端仅提交描述文本。\"\"\"
+    from ane.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
+    if not DEEPSEEK_API_KEY:
+        raise HTTPException(status_code=400, detail="未配置 DEEPSEEK_API_KEY（请在服务器环境变量设置后重启）")
+    prompt = (req.prompt or "").strip()
+    if not prompt:
+        raise HTTPException(status_code=400, detail="图片描述不能为空")
+
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=180.0) as client:
+            resp = await client.post(
+                f"{DEEPSEEK_BASE_URL}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "deepseek-v4-flash-vision-exp",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.8,
+                },
+            )
+            resp.raise_for_status()
+            data = resp.json()
+    except Exception as e:
+        logger.error(f"[img-gen] API call failed: {e}")
+        raise HTTPException(status_code=502, detail=f"图片生成请求失败: {e}")
+
+    # ── 最小可用解析：兼容多模态返回格式 ──
+    image_url = ""
+    b64 = ""
+    content = ""
+    try:
+        msg = data["choices"][0]["message"]
+        content = msg.get("content") or ""
+        if isinstance(content, list):
+            for blk in content:
+                if isinstance(blk, dict):
+                    if blk.get("type") == "image_url":
+                        iu = blk.get("image_url")
+                        image_url = iu.get("url", "") if isinstance(iu, dict) else str(iu or "")
+                    elif blk.get("type") == "text":
+                        content = blk.get("text", "")
+        elif isinstance(content, str):
+            m = re.search(r"https?://\S+\.(?:png|jpe?g|webp|gif)(?:\?\S*)?", content)
+            if m:
+                image_url = m.group(0)
+    except Exception:
+        pass
+
+    if not image_url:
+        try:
+            data_list = data.get("data") or []
+            if data_list and isinstance(data_list[0], dict):
+                b64 = data_list[0].get("b64_json", "") or ""
+        except Exception:
+            pass
+
+    if not (image_url or b64 or content):
+        logger.warning(f"[img-gen] unexpected response: {str(data)[:300]}")
+        raise HTTPException(status_code=502, detail="图片服务返回了无法识别的响应，请检查模型或中转配置")
+    return {"image_url": image_url, "b64_json": b64, "content": content[:1000]}
+"""

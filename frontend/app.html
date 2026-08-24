@@ -335,9 +335,12 @@
     </div>
     <span style="color:var(--accent-dim);font-size:16px">›</span>
   </div>
-  <div style="margin-top:12px;flex-shrink:0;display:flex;gap:8px;align-items:center">
+  <div style="margin-top:12px;flex-shrink:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
     <button onclick="showWorldManage()" style="background:var(--accent);color:var(--panel);border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:13px">🌍 世界管理</button>
     <button onclick="location.href='/chat'" style="background:transparent;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:8px 20px;cursor:pointer;font-size:13px;font-family:inherit" title="1v1 陪伴对话">💬 1v1 对话</button>
+    <!-- 🖼️ 生成图片：AI 文生图功能暂未开放（deepseek-v4-flash-vision-exp 为图像理解模型，只能看图不能画图）。以后再开发时接入真正的文生图服务后恢复此按钮。
+    <button onclick="showImageGenModal()" style="background:transparent;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:8px 20px;cursor:pointer;font-size:13px;font-family:inherit" title="AI 生成图片">🖼️ 生成图片</button>
+    -->
   </div>
 
   <!-- ── 开源世界观广场 ── -->
@@ -424,6 +427,24 @@
     </div>
   </div>
 </div>
+
+<!-- ── AI 生成图片（暂未开放，以后再开发）──
+     说明：deepseek-v4-flash-vision-exp 为图像理解模型，无法生成图片。
+     接入真正的文生图服务后，恢复本弹窗与 generateImage() 即可。
+<div id="img-gen-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:21000;align-items:center;justify-content:center" onclick="if(event.target===this)this.style.display='none'">
+  <div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;width:520px;max-width:92vw;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 6px 24px rgba(0,0,0,0.5)">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <h2 style="margin:0;color:var(--accent);font-size:15px">🖼️ AI 生成图片</h2>
+      <span onclick="document.getElementById('img-gen-modal').style.display='none'" style="cursor:pointer;font-size:16px;color:var(--accent-dim);padding:2px 4px">✕</span>
+    </div>
+    <div style="padding:16px 18px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;flex:1">
+      <textarea id="img-gen-input" placeholder="描述你想生成的画面，如：漩涡鸣人站在火影岩前，黄昏，忍术的光影交错…" style="width:100%;min-height:90px;padding:10px;background:var(--input-bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;line-height:1.5"></textarea>
+      <button id="img-gen-btn" onclick="generateImage()" style="padding:8px;background:var(--accent);color:var(--panel);border:none;border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit">✨ 生成</button>
+      <div id="img-gen-result" style="font-size:12px;color:var(--accent-dim);min-height:40px;display:flex;align-items:center;justify-content:center">输入描述后点击生成</div>
+    </div>
+  </div>
+</div>
+-->
 
 <!-- ── Chat panel ── -->
 <div id="main-layout" style="display:none">
@@ -2908,6 +2929,41 @@ async function deleteWorld(sid, name) {
   try { var r = await apiFetch('/sessions/' + sid, { method: 'DELETE' }); if (!r.ok) throw new Error((await r.json()).detail || '删除失败'); if (sessionId === sid) { sessionId = null; } loadWorldManageList(); } catch(e) { alert('删除失败: ' + e.message); }
 }
 function startNewWorld() { closeWorldManageModal(); createSession(); }
+
+// ── AI 生成图片（暂未开放，以后再开发）──────────────────
+// deepseek-v4-flash-vision-exp 为图像理解模型（看图），无法生成图片。
+// 接入真正的文生图服务后取消注释恢复即可。
+/*
+function showImageGenModal() { document.getElementById('img-gen-modal').style.display = 'flex'; }
+async function generateImage() {
+  var input = document.getElementById('img-gen-input');
+  var resEl = document.getElementById('img-gen-result');
+  var btn = document.getElementById('img-gen-btn');
+  var prompt = (input.value || '').trim();
+  if (!prompt) { resEl.textContent = '请输入图片描述'; return; }
+  btn.disabled = true; btn.textContent = '⏳ 生成中...';
+  resEl.textContent = '⏳ 正在调用 AI 生成图片，请稍候...';
+  try {
+    var r = await apiFetch('/sessions/generate-image', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({prompt: prompt}) });
+    if (!r.ok) { var errData = await r.json().catch(function() { return {}; }); throw new Error(errData.detail || '生成失败'); }
+    var data = await r.json();
+    if (data.image_url) {
+      resEl.innerHTML = '<img src="' + escAttr(data.image_url) + '" style="max-width:100%;border-radius:8px;border:1px solid var(--border)">';
+    } else if (data.b64_json) {
+      resEl.innerHTML = '<img src="data:image/png;base64,' + data.b64_json + '" style="max-width:100%;border-radius:8px;border:1px solid var(--border)">';
+    } else if (data.content) {
+      resEl.innerHTML = '<div style="white-space:pre-wrap;text-align:left">' + escHtml(data.content) + '</div>';
+    } else {
+      resEl.textContent = '未返回可显示的图片';
+    }
+  } catch(e) {
+    resEl.textContent = '❌ ' + e.message;
+    frontendLog('ERROR', 'Generate image: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '✨ 生成';
+  }
+}
+*/
 
 // ── Session avatar ──
 var _avatarZoom = 100;
