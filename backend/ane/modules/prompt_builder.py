@@ -4,7 +4,10 @@ Assembles prompts in the fixed Htem order:
   System → World → Player → NPC (重要人物 + 当前交互角色) →
   Scene → Constraints → Agentic State →
   Facts → Summary → Conversation →
-  Related Characters → Action Suggestions → User Input
+  Related Characters → User Input
+
+NOTE: action recommendations are shown to the player only and are NOT
+injected into the prompt (they would leak planned actions to the model).
 """
 
 import logging
@@ -811,11 +814,6 @@ class PromptBuilder:
         if conv_block:
             blocks.append(conv_block)
 
-        # P4: Action suggestions
-        suggestions_block = self._build_suggestions_block(ctx)
-        if suggestions_block:
-            blocks.append(suggestions_block)
-
         # P0: User Input (always last)
         blocks.append(f"【玩家输入】\n{ctx.user_input}")
 
@@ -1468,16 +1466,6 @@ class PromptBuilder:
         era_block = ("\n\n".join(era_lines) + "\n\n") if era_lines else ""
 
         return f"{era_block}💾短记忆区 {current_count}/{CONVERSATION_WINDOW_SIZE}：\n{conv_text}"
-
-    def _build_suggestions_block(self, ctx: PromptContext) -> str:
-        """Build the [推荐行动] block."""
-        if not ctx.suggestions:
-            return ""
-
-        lines = ["【推荐行动】"]
-        for i, s in enumerate(ctx.suggestions, 1):
-            lines.append(f"{i}. {s}")
-        return "\n".join(lines)
 
 
 def _format_status(status: dict) -> str:

@@ -146,33 +146,6 @@ class MemoryManager:
         await self._trim_conversation(db, session_id, "conversation", CONVERSATION_WINDOW_SIZE)
         return []
 
-    async def get_latest_recommendations(
-        self,
-        db: AsyncSession,
-        session_id: str,
-    ) -> list[str]:
-        """Return the most recent recommendations list (stored as JSON), or []."""
-        import json as _json
-        result = await db.execute(
-            select(Memory)
-            .where(
-                Memory.session_id == session_id,
-                Memory.memory_type == "recommendations",
-            )
-            .order_by(Memory.turn_number.desc())
-            .limit(1)
-        )
-        row = result.scalar_one_or_none()
-        if not row or not row.content:
-            return []
-        try:
-            recs = _json.loads(row.content)
-            if isinstance(recs, list):
-                return [r for r in recs if isinstance(r, str) and r.strip()]
-        except Exception:
-            pass
-        return []
-
     async def get_conversation(
         self, db: AsyncSession, session_id: str
     ) -> list[Memory]:

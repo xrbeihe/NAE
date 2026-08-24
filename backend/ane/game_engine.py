@@ -538,9 +538,8 @@ class GameEngine:
         # Conversation
         ctx.conversation = conversation
 
-        # Action suggestions: previous turn's recommendations feed the
-        # 【推荐行动】 block so the model continues/revisits them.
-        ctx.suggestions = await memory_manager.get_latest_recommendations(db, session_id)
+        # NOTE: recommendations are NOT injected into the next prompt —
+        # they are only shown to the player in the UI (see frontend).
 
         # Era entries: inject only the most recent 3 records for long-term
         # context — older eras are superseded by newer summaries, so keeping

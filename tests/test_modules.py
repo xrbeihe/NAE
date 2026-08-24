@@ -817,8 +817,9 @@ class TestPromptBuilder:
         assert "叶辰" in prompt
         assert "内门大长老嫡孙" in prompt
 
-    def test_build_suggestions_block(self):
-        """Build prompt with action suggestions."""
+    def test_build_does_not_inject_suggestions(self):
+        """Recommendations are for the player only — they must NOT appear in
+        the prompt sent to the model."""
         from ane.modules.prompt_builder import (
             prompt_builder, PromptContext,
             AgenticContext, WorldContext, PlayerContext, SceneContext,
@@ -835,9 +836,9 @@ class TestPromptBuilder:
             user_input="你好",
         )
         prompt = prompt_builder.build(ctx)
-        assert "【推荐行动】" in prompt
-        assert "1. 假装受宠若惊" in prompt
-        assert "2. 捂住伤口" in prompt
+        assert "【推荐行动】" not in prompt
+        assert "假装受宠若惊" not in prompt
+        assert "捂住伤口" not in prompt
 
     def test_build_conversation_with_slot_counter(self):
         """Conversation block should show slot counter."""

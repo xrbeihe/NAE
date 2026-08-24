@@ -170,15 +170,9 @@
   #model-btn:hover { border-color: var(--accent); color: var(--accent); }
   #model-select { display: none; }
 
-  /* ── rec area ── */
-  #rec-area { background: var(--panel); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 6px 20px 8px; flex-shrink: 0; }
+  /* ── 工具栏区（原 rec-area，现仅放工具按钮）── */
+  #rec-area { background: var(--panel); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 4px 20px; flex-shrink: 0; }
   #rec-area:empty { display: none; }
-  #rec-label { font-size: 11px; color: var(--accent-dim); margin-bottom: 4px; flex-shrink: 0; }
-  #rec-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
-  .rec-card { background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; cursor: pointer; font-size: 13px; color: var(--text); line-height: 1.4; user-select: none; min-height: 32px; }
-  .rec-card:hover { border-color: var(--accent); }
-  .rec-card:empty { display: none; }
-  #rec-count { font-size: 11px; color: var(--accent-dim); margin-top: 4px; }
 
   /* ── NPC library popup ── */
   .npc-lib-popup { display: none; position: fixed; z-index: 9999; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; width: 75vw; max-width: 900px; height: 75vh; box-shadow: 0 4px 16px rgba(0,0,0,0.6); flex-direction: column; overflow: hidden; }
@@ -252,11 +246,6 @@
     #session-bar > div:last-child { font-size: 11px; }
     #session-bar > div:last-child button { font-size: 11px; padding: 2px 5px; }
     #model-btn { font-size: 11px; white-space: nowrap; max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
-    .rec-card { font-size: 12px; padding: 6px 8px; }
-    #rec-grid { display: none; }
-    #rec-label { display: none !important; }
-    #rec-count { display: none !important; }
-    #rec-mobile-btn { display: inline-flex !important; }
     #user-input { font-size: 14px; min-height: 60px; padding: 8px 10px; }
     #input-area { padding: 6px 10px; }
     #send-btn { padding: 8px 16px; font-size: 14px; }
@@ -454,23 +443,13 @@
     <div id="player-ball" title="角色面板" onclick="togglePlayerBall()">🧑</div>
     <div id="player-ball-panel"></div>
     <div id="rec-area">
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;overflow-x:auto;padding:2px 0">
-        <div id="rec-label" style="font-size:11px;color:var(--accent-dim);flex-shrink:0">💡推荐行动</div>
-        <span id="rec-count" style="font-size:11px;color:var(--accent-dim);flex-shrink:0"></span>
-        <button id="rec-mobile-btn" class="cmd-btn" onclick="recMobileClick()" title="推荐行动" style="display:none">💡 推荐 (<span id="rec-mobile-count">0</span>)</button>
-        <span style="display:flex;align-items:center;gap:6px;flex-shrink:0;margin-left:4px">
-          <span id="help-btn" class="pill-btn" onclick="showHelpPopup(event)" title="勾选说明">❤️ 勾选说明</span>
-          <span class="pill-btn" onclick="showRelationshipGraph()" title="关系网图谱">🚻 关系网</span>
-          <span class="pill-btn" onclick="showNpcLibraryPopup()" title="NPC总库">📚 NPC总库</span>
-          <span id="summary-bar-btn" class="pill-btn" onclick="showLatestSummary()" title="查看上轮场景摘要">📘 上轮摘要</span>
-          <span id="word-count-btn" class="pill-btn" onclick="showWordCountPopup(event)" title="正文字数设置">🔤 字数</span>
-          <span id="prompt-lib-btn" class="pill-btn" onclick="showPromptLibPopup(event)" title="提示词库">🛠 提示词库</span>
-        </span>
-      </div>
-      <div id="rec-grid">
-        <div class="rec-card" onclick="recClick(0)"></div>
-        <div class="rec-card" onclick="recClick(1)"></div>
-        <div class="rec-card" onclick="recClick(2)"></div>
+      <div style="display:flex;align-items:center;gap:6px;overflow-x:auto;padding:2px 0">
+        <span id="help-btn" class="pill-btn" onclick="showHelpPopup(event)" title="勾选说明">❤️ 勾选说明</span>
+        <span class="pill-btn" onclick="showRelationshipGraph()" title="关系网图谱">🚻 关系网</span>
+        <span class="pill-btn" onclick="showNpcLibraryPopup()" title="NPC总库">📚 NPC总库</span>
+        <span id="summary-bar-btn" class="pill-btn" onclick="showLatestSummary()" title="查看上轮场景摘要">📘 上轮摘要</span>
+        <span id="word-count-btn" class="pill-btn" onclick="showWordCountPopup(event)" title="正文字数设置">🔤 字数</span>
+        <span id="prompt-lib-btn" class="pill-btn" onclick="showPromptLibPopup(event)" title="提示词库">🛠 提示词库</span>
       </div>
     </div>
     <div id="input-area">
@@ -700,8 +679,6 @@ let sessionId = null;
 let selectedModel = null;
 let _currentTurnNumber = 1;
 let charTemplates = null;
-let recList = [];
-let recIndex = 0;
 let selectMode = false;
 let _pending_world_intro = null;
 let lastTurnNumber = 0;
@@ -1009,12 +986,11 @@ async function switchSession(sid) {
       }
     }
     if (data.world_intro) addMsg('system', data.world_intro);
-    updateRecs(data.recommendations);
     try { localStorage.setItem('ane_last_session', sessionId); } catch(e) {};
     npcLibLoad();
     loadSessionList();
     if (data.player_panel) updateInfoPanel(data.player_panel);
-    if (data.info_panel) addInfoPanel(data.info_panel);  // 刷新/切换后重建信息栏
+    if (data.info_panel || (data.recommendations && data.recommendations.length)) addInfoPanel(data.info_panel, data.recommendations);  // 刷新/切换后重建信息栏（含推荐行动）
   } catch(e) { frontendLog('ERROR', 'Switch: ' + e.message); addMsg('system', '加载世界失败: ' + e.message); }
 }
 
@@ -1192,7 +1168,7 @@ async function applyCharacter() {
       // ── 加载预填推荐行动（创建后立即显示，无需重进聊天）──
       try {
         var recRes = await apiFetch('/sessions/' + sid);
-        if (recRes.ok) { var recData = await recRes.json(); updateRecs(recData.recommendations || []); }
+        if (recRes.ok) { var recData = await recRes.json(); if (recData.recommendations && recData.recommendations.length) addInfoPanel('', recData.recommendations); }
       } catch(e) { frontendLog('WARN', 'Load initial recs: ' + e.message); }
       // ── Show llm_introduction if present (world opening narration) ──
       if (data.llm_introduction) addMsg('system', data.llm_introduction);
@@ -1266,11 +1242,11 @@ async function sendTurn() {
     addMsg('ai', td.narrative, _currentTurnNumber); _currentTurnNumber++;
     if (_pending_world_intro) { addMsg('system', _pending_world_intro); _pending_world_intro = null; }
     if (td.is_system_command && td.system_response) addMsg('system', td.system_response);
-    if (td.info_panel) addInfoPanel(td.info_panel);
+    addInfoPanel(td.info_panel, td.recommendations);  // 信息栏 + 推荐行动并入
     if (td.nearby_characters && td.nearby_characters.length) addNearbyCards(td.nearby_characters);
     if (td.player_panel) updateInfoPanel(td.player_panel);
     if (td.modeled_npcs && td.modeled_npcs.length) renderModeledNpcs(td.modeled_npcs);
-    updateRecs(td.recommendations); npcLibLoad();
+    npcLibLoad();
     if (td.npc_updates && td.npc_updates.length) addMsg('system', '【世界动态】\n' + td.npc_updates.map(function(u) { return '• ' + u.description; }).join('\n'));
   } catch(e) { addMsg('system', '请求失败: ' + e.message); }
   sb.disabled = false; ld.classList.remove('active');
@@ -1740,15 +1716,30 @@ function showSummaryPopup(btn, turnStr) {
 function hideSummaryPopup() { document.querySelectorAll('.summary-popup').forEach(function(e) { e.remove(); }); }
 
 // ── Nearby Characters ──
-function addInfoPanel(text) {
-  if (!text || !text.trim()) return;
+function addInfoPanel(text, recommendations) {
+  var recs = recommendations || [];
+  if ((!text || !text.trim()) && !recs.length) return;
   var container = document.createElement('div');
   container.style.cssText = 'align-self:stretch;margin-top:4px;max-width:100%;';
-  var header = document.createElement('div'); header.textContent = '📋 信息栏'; header.style.cssText = 'font-size:11px;color:var(--accent);margin-bottom:4px;font-weight:bold;';
-  var box = document.createElement('div');
-  box.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:6px;padding:8px 12px;font-size:12px;color:var(--text);line-height:1.6;white-space:pre-wrap;';
-  box.textContent = text; // 纯文本渲染 — LLM 输出信息区，防 XSS
-  container.appendChild(header); container.appendChild(box);
+  if (text && text.trim()) {
+    var header = document.createElement('div'); header.textContent = '📋 信息栏'; header.style.cssText = 'font-size:11px;color:var(--accent);margin-bottom:4px;font-weight:bold;';
+    var box = document.createElement('div');
+    box.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:6px;padding:8px 12px;font-size:12px;color:var(--text);line-height:1.6;white-space:pre-wrap;';
+    box.textContent = text; // 纯文本渲染 — LLM 输出信息区，防 XSS
+    container.appendChild(header); container.appendChild(box);
+  }
+  // 推荐行动并入信息栏：纯展示（不可点击填入输入框）
+  if (recs.length) {
+    var recHeader = document.createElement('div'); recHeader.textContent = '💡 推荐行动'; recHeader.style.cssText = 'font-size:11px;color:var(--accent);margin:8px 0 4px;font-weight:bold;';
+    var recListEl = document.createElement('div'); recListEl.style.cssText = 'display:flex;flex-direction:column;gap:6px;';
+    recs.forEach(function(r, i) {
+      var item = document.createElement('div');
+      item.textContent = (i + 1) + '. ' + r;
+      item.style.cssText = 'background:var(--input-bg);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;color:var(--text);line-height:1.4;';
+      recListEl.appendChild(item);
+    });
+    container.appendChild(recHeader); container.appendChild(recListEl);
+  }
   document.getElementById('chat').appendChild(container);
   document.getElementById('chat').scrollTop = document.getElementById('chat').scrollHeight;
 }
@@ -2139,17 +2130,6 @@ function renderModeledNpcs(npcs) {
   });
   container.appendChild(header); container.appendChild(list); document.getElementById('chat').appendChild(container);
 }
-
-// ── Recommendations ──
-function updateRecs(recommendations) { recList = recommendations || []; recIndex = 0; var grid = document.getElementById('rec-grid'); if (!recList.length) { grid.querySelectorAll('.rec-card').forEach(function(c) { c.textContent = ''; }); return; } renderRecs(); }
-function renderRecs() {
-  var cards = document.querySelectorAll('.rec-card');
-  for (var i = 0; i < 3; i++) { var idx = recIndex + i; cards[i].textContent = idx < recList.length ? recList[idx] : ''; }
-  document.getElementById('rec-count').textContent = '(' + recList.length + ')' + (Math.max(0, recList.length - recIndex - 3) > 0 ? ' +' + Math.max(0, recList.length - recIndex - 3) : '');
-  var mc = document.getElementById('rec-mobile-count'); if (mc) mc.textContent = recList.length;
-}
-function recClick(slot) { var idx = recIndex + slot; if (!recList.length || idx >= recList.length) return; document.getElementById('user-input').value = recList[idx]; recList.splice(idx, 1); renderRecs(); }
-function recMobileClick() { if (!recList.length) return; document.getElementById('user-input').value = recList[0]; recList.shift(); renderRecs(); }
 
 // ── NPC Library ──
 async function npcLibLoad() {

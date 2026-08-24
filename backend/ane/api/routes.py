@@ -400,7 +400,9 @@ async def get_session(
             select(Memory).where(
                 Memory.session_id == session_id,
                 Memory.memory_type == "recommendations",
-            ).limit(1)
+            )
+            .order_by(Memory.turn_number.desc())
+            .limit(1)
         )
         rec_entry = rec_mem.scalar_one_or_none()
         if rec_entry:
