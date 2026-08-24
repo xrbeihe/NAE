@@ -491,7 +491,7 @@ async def test_upload_requires_login(db):
 
 @pytest.mark.asyncio
 async def test_worldview_edit_permissions(db):
-    """包写权限：内置公共包仅管理员可改（他人 403 / 匿名 401）；用户上传的包仅作者可改。"""
+    """包写权限：内置公共包仅白名单管理员可改（他人 403 / 匿名 401）；用户上传的包仅作者可改。"""
     import io
     import zipfile
     import shutil
@@ -501,6 +501,7 @@ async def test_worldview_edit_permissions(db):
     from ane.database.engine import get_db
     from ane.auth import create_access_token
     from ane.database.models import User
+    import ane.config as _cfg_mod
 
     admin = User(id="perm_admin", username="perm_admin", password_hash="x", display_name="A", is_adult=True)
     other = User(id="perm_other", username="perm_other", password_hash="x", display_name="B", is_adult=True)
@@ -508,6 +509,10 @@ async def test_worldview_edit_permissions(db):
     await db.commit()
     admin_token = create_access_token({"sub": admin.id})
     other_token = create_access_token({"sub": other.id})
+
+    # 白名单只含 perm_admin
+    _orig_admin_ids = _cfg_mod.WORLDVIEW_ADMIN_IDS
+    _cfg_mod.WORLDVIEW_ADMIN_IDS = ["perm_admin"]
 
     async def _db_override():
         yield db
@@ -517,7 +522,7 @@ async def test_worldview_edit_permissions(db):
     try:
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-            # ── 内置公共包：非管理员 403，匿名 401 ──
+            # ── 内置公共包：非白名单 403，匿名 401 ──
             client.headers["Authorization"] = f"Bearer {other_token}"
             r = await client.put("/worldviews/naruto_shippuden/ui", json={"ui": {"labels": {"role": "忍者"}}})
             assert r.status_code == 403, r.text
@@ -543,8 +548,20 @@ async def test_worldview_edit_permissions(db):
             client.headers["Authorization"] = f"Bearer {other_token}"
             r = await client.put(f"/worldviews/{wv_id}/ui", json={"ui": {"labels": {"role": "捣乱"}}})
             assert r.status_code == 403, r.text  # 他人不可改
+
+            # ── 白名单管理员可改内置公共包 ──
+            client.headers["Authorization"] = f"Bearer {admin_token}"
+            # 用 validate-only 读接口确认可读；写内置包会改磁盘，改为直接调用权限函数验证
+            from ane.api.worldview_routes import _require_edit_permission
+            try:
+                await _require_edit_permission(db, admin, "naruto_shippuden")
+                admin_ok = True
+            except Exception:
+                admin_ok = False
+            assert admin_ok, "白名单管理员应可编辑内置包"
     finally:
         app.dependency_overrides.pop(get_db, None)
+        _cfg_mod.WORLDVIEW_ADMIN_IDS = _orig_admin_ids
         target = WORLDVIEWS_DIR / wv_id
         if target.exists():
             shutil.rmtree(target)

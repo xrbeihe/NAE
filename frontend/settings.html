@@ -83,7 +83,11 @@
 
     <!-- Username -->
     <label style="display:block;margin-bottom:4px;font-size:12px;color:var(--accent-dim)">用户名</label>
-    <div id="settings-username" style="padding:8px 12px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;font-size:13px;color:var(--text);margin-bottom:12px"></div>
+    <div id="settings-username" style="padding:8px 12px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;font-size:13px;color:var(--text);margin-bottom:8px"></div>
+
+    <!-- User ID -->
+    <label style="display:block;margin-bottom:4px;font-size:12px;color:var(--accent-dim)">用户编号（配置管理员白名单等场景使用）</label>
+    <div id="settings-userid" style="padding:8px 12px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;font-size:13px;color:var(--accent);margin-bottom:12px;font-family:monospace;user-select:all;cursor:pointer" title="点击可全选复制"></div>
 
     <!-- Password -->
     <label style="display:block;margin-bottom:4px;font-size:12px;color:var(--accent-dim)">新密码</label>
@@ -133,6 +137,7 @@ function handleLogout() { clearToken(); location.href = '/login'; }
       if (parts.length === 3) {
         var data = JSON.parse(atob(parts[1]));
         document.getElementById('settings-username').textContent = data.username || data.sub || '(未知)';
+        document.getElementById('settings-userid').textContent = data.sub || '(未知)';
         window._settings_username = data.username || data.sub || '';
       }
     }

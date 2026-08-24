@@ -43,11 +43,10 @@ async def get_worldviews(
         editable = False
         if wv_id and user:
             owner = _worldview_owner(wv_id)
-            admin = await _admin_user_id(db)
             if owner:
-                editable = (user.id == owner) or (admin and user.id == admin)
+                editable = (user.id == owner) or _is_admin(user)
             else:
-                editable = bool(admin and user.id == admin)
+                editable = _is_admin(user)
         wv["editable"] = editable
         out.append(wv)
     return {"worldviews": out}
@@ -277,17 +276,14 @@ _EDITABLE_ARTIFACTS = {
 
 
 # ── 包编辑权限 ────────────────────────────────────────────────
-# 内置包（manifest 无 owner_user_id）= 项目公共资源，仅管理员可改；
+# 内置包（manifest 无 owner_user_id）= 项目公共资源，仅白名单管理员可改；
 # 用户上传安装的包 = 作者或管理员可改；所有写操作一律要求登录。
+# 管理员白名单：config.json `worldview_admin_ids` / env `ANE_WORLDVIEW_ADMIN_IDS`。
 
-async def _admin_user_id(db: AsyncSession) -> str | None:
-    """第一个注册的用户视为管理员（负责维护内置公共包）。"""
-    from ane.database.models import User as _User
-    from sqlalchemy import select as _select
-    row = await db.execute(
-        _select(_User.id).order_by(_User.created_at.asc(), _User.id.asc()).limit(1)
-    )
-    return row.scalar_one_or_none()
+def _is_admin(user) -> bool:
+    """白名单内的 user_id 视为管理员（负责维护内置公共包）。"""
+    from ane.config import WORLDVIEW_ADMIN_IDS
+    return bool(user and user.id in WORLDVIEW_ADMIN_IDS)
 
 
 def _worldview_owner(wv_id: str) -> str | None:
@@ -308,14 +304,13 @@ async def _require_edit_permission(db: AsyncSession, user, wv_id: str) -> None:
     if not (WORLDVIEWS_DIR / wv_id).is_dir():
         raise HTTPException(status_code=404, detail=f"世界观 {wv_id} 不存在")
     owner = _worldview_owner(wv_id)
-    admin = await _admin_user_id(db)
     if owner:
-        if user.id == owner or (admin and user.id == admin):
+        if user.id == owner or _is_admin(user):
             return
         raise HTTPException(status_code=403, detail="只能修改自己上传安装的世界观")
-    if admin and user.id == admin:
+    if _is_admin(user):
         return
-    raise HTTPException(status_code=403, detail="内置世界观为公共资源，仅管理员可修改")
+    raise HTTPException(status_code=403, detail="内置世界观为公共资源，仅白名单管理员可修改")
 
 
 @router.get("/{worldview_id}/data/{filename}")
@@ -376,8 +371,7 @@ async def unshare_worldview(
     if not share:
         raise HTTPException(status_code=404, detail=f"世界观 {wv_id} 不在共享库")
     if share.user_id != user.id:
-        admin = await _admin_user_id(db)
-        if not (admin and user.id == admin):
+        if not _is_admin(user):
             raise HTTPException(status_code=403, detail="只能撤销自己推送的世界观")
     await db.delete(share)
     await db.commit()

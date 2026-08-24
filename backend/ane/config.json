@@ -4,6 +4,7 @@
     "port": 8002
   },
   "secret_key": "ane-jwt-secret-change-me-in-production",
+  "worldview_admin_ids": [],
   "database": {
     "url": "sqlite+aiosqlite:///data/ane.db"
   },

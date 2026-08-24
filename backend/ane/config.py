@@ -26,6 +26,17 @@ PORT = int(os.getenv("ANE_PORT", _cfg["server"]["port"]))
 
 SECRET_KEY = os.getenv("ANE_SECRET_KEY", _cfg.get("secret_key", "default-dev-key"))
 
+# ── Worldview admin whitelist (世界观包管理员白名单) ───────────
+# 内置公共包仅白名单内的 user_id 可编辑。env 覆盖：ANE_WORLDVIEW_ADMIN_IDS=id1,id2
+WORLDVIEW_ADMIN_IDS: list[str] = [
+    s.strip()
+    for s in os.getenv(
+        "ANE_WORLDVIEW_ADMIN_IDS",
+        ",".join(_cfg.get("worldview_admin_ids", [])),
+    ).split(",")
+    if s.strip()
+]
+
 # ── Database ─────────────────────────────────────────────────
 
 _raw_db_url = os.getenv("ANE_DATABASE_URL", _cfg["database"]["url"])

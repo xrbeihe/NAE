@@ -30,6 +30,30 @@ function clearToken() { localStorage.removeItem('ane_token'); localStorage.remov
 
 function isLoggedIn() { return !!getToken(); }
 
+/** 当前登录用户的 user_id（从 JWT payload 的 sub 解析）。 */
+function getUserId() {
+  try {
+    var t = getToken();
+    if (!t) return '';
+    var parts = t.split('.');
+    if (parts.length !== 3) return '';
+    var data = JSON.parse(atob(parts[1]));
+    return data.sub || '';
+  } catch(e) { return ''; }
+}
+
+/** 当前登录用户的 username（从 JWT payload 解析）。 */
+function getUsername() {
+  try {
+    var t = getToken();
+    if (!t) return '';
+    var parts = t.split('.');
+    if (parts.length !== 3) return '';
+    var data = JSON.parse(atob(parts[1]));
+    return data.username || '';
+  } catch(e) { return ''; }
+}
+
 /** Wrapped fetch that auto-injects auth header and handles 401. */
 async function apiFetch(url, opts = {}) {
   const token = getToken();
