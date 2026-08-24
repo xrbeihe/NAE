@@ -32,11 +32,29 @@ router = APIRouter(prefix="/worldviews", tags=["worldviews"])
 
 @router.get("")
 async def get_worldviews(
+    scope: str = "",
     db: AsyncSession = Depends(get_db),
     user = Depends(get_optional_user),
 ):
-    """List all installed worldview packs (manifest summaries + edit permission)."""
+    """List installed worldview packs.
+
+    - 默认（游戏侧：角色创建下拉等）：返回全部安装的包。
+    - scope=mine（designer 编辑侧）：管理员见全部；普通登录用户只见
+      自己上传的包 + 开源共享库中的包；匿名返回空。
+    附带 editable 标志（白名单管理员或包作者可编辑）。
+    """
     wvs = list_worldviews()
+    if scope == "mine" and not _is_admin(user):
+        if not user:
+            return {"worldviews": []}
+        from sqlalchemy import select as _sel
+        from ane.database.models import WorldviewShare as _Share
+        shared_rows = await db.execute(_sel(_Share.worldview_id))
+        shared_ids = {r[0] for r in shared_rows.all()}
+        wvs = [
+            w for w in wvs
+            if _worldview_owner(w.get("id")) == user.id or w.get("id") in shared_ids
+        ]
     out = []
     for wv in wvs:
         wv_id = wv.get("id")

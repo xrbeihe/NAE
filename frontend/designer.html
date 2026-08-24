@@ -311,7 +311,7 @@ async function loadWorldviewList() {
   var listEl = document.getElementById('worldview-list');
   listEl.innerHTML = '加载中…';
   try {
-    var r = await apiFetch('/worldviews');
+    var r = await apiFetch('/worldviews?scope=mine');
     if (!r.ok) { listEl.innerHTML = '加载失败'; return; }
     var d = await r.json();
     _worldviews = d.worldviews || [];
