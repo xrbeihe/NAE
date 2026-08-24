@@ -698,11 +698,22 @@ var _FORM_PRESETS = {
   '西幻表':     ['name','age','gender','race','background','personality','identity','cultivation','golden_finger'],
 };
 
+// 从模板生成字段：select 字段把 pool_defaults 转成内嵌 options（随世界观保存）
+function _fieldFromTemplate(key) {
+  var t = _COMMON_FIELD_TEMPLATES[key];
+  if (!t) return null;
+  var f = JSON.parse(JSON.stringify(t));
+  if (f.kind === 'select' && t.pool_defaults) {
+    f.options = JSON.parse(JSON.stringify(t.pool_defaults));
+  }
+  return f;
+}
+
 function applyFormPreset(name) {
   var keys = _FORM_PRESETS[name];
   if (!keys) return;
   if (!confirm('套用「' + name + '」将替换当前全部字段，确定？')) return;
-  _formEditor.form.fields = keys.map(function(k) { return JSON.parse(JSON.stringify(_COMMON_FIELD_TEMPLATES[k])); });
+  _formEditor.form.fields = keys.map(function(k) { return _fieldFromTemplate(k); }).filter(Boolean);
   renderFormEditor();
   _ensurePoolsForForm(_formEditor.form.fields);
 }
@@ -711,7 +722,9 @@ function addCommonField(key) {
   var t = _COMMON_FIELD_TEMPLATES[key];
   if (!t) return;
   if (_formEditor.form.fields.some(function(f) { return f.key === key; })) { alert('该字段已存在：' + t.label); return; }
-  _formEditor.form.fields.push(JSON.parse(JSON.stringify(t)));
+  var f = _fieldFromTemplate(key);
+  if (!f) return;
+  _formEditor.form.fields.push(f);
   renderFormEditor();
   _ensurePoolsForForm(_formEditor.form.fields);
 }
@@ -817,9 +830,42 @@ function renderFormEditor() {
           '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--accent-dim)">显隐 <select data-f="visible_if" style="padding:4px 6px;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px"><option value=""' + (!field.visible_if ? ' selected' : '') + '>总是显示</option><option value="has_sects"' + (field.visible_if==='has_sects' ? ' selected' : '') + '>有宗门时</option><option value="has_golden_fingers"' + (field.visible_if==='has_golden_fingers' ? ' selected' : '') + '>有特殊能力时</option></select></label>' +
         '</div>' +
       '</div>' +
+      (field.kind === 'select' ? _fieldOptionsHtml(idx, field) : '') +
     '</div>';
   });
   list.innerHTML = html;
+}
+
+// 下拉字段的「📦 选项」就地编辑区（内嵌 options，随世界观保存）
+function _fieldOptionsHtml(idx, field) {
+  var opts = Array.isArray(field.options) ? field.options : [];
+  var rows = opts.map(function(o, oi) {
+    return '<div data-opt-row="' + oi + '" style="display:flex;gap:4px;margin-bottom:4px">' +
+      '<input data-opt="value" value="' + _esc(o.value || '') + '" placeholder="值(标识)" style="width:64px;padding:4px 6px;background:var(--panel);border:1px solid var(--border);border-radius:3px;color:var(--text);font-size:11px">' +
+      '<input data-opt="label" value="' + _esc(o.label || '') + '" placeholder="显示名(必填)" style="flex:1;min-width:0;padding:4px 6px;background:var(--panel);border:1px solid var(--border);border-radius:3px;color:var(--text);font-size:11px">' +
+      '<input data-opt="desc" value="' + _esc(o.desc || '') + '" placeholder="说明(可选)" style="flex:1.4;min-width:0;padding:4px 6px;background:var(--panel);border:1px solid var(--border);border-radius:3px;color:var(--text);font-size:11px">' +
+      '<button onclick="fieldOptDel(' + idx + ',' + oi + ')" title="删除此选项" style="background:none;border:none;color:#b06060;cursor:pointer;font-size:12px">✕</button></div>';
+  }).join('');
+  return '<div data-opt-editor style="margin-top:6px;border-top:1px dashed var(--border);padding-top:8px">' +
+    '<div style="font-size:11px;color:var(--accent);margin-bottom:4px">📦 选项（随世界观保存，就地编辑）</div>' +
+    rows +
+    '<button onclick="fieldOptAdd(' + idx + ')" style="padding:3px 10px;background:none;border:1px dashed var(--border);color:var(--accent-dim);border-radius:3px;cursor:pointer;font-size:11px">＋ 添加选项</button>' +
+  '</div>';
+}
+
+function fieldOptAdd(idx) {
+  var f = _formEditor.form.fields[idx];
+  if (!f) return;
+  if (!Array.isArray(f.options)) f.options = [];
+  f.options.push({value: '', label: '', desc: ''});
+  renderFormEditor();
+}
+
+function fieldOptDel(idx, oi) {
+  var f = _formEditor.form.fields[idx];
+  if (!f || !Array.isArray(f.options)) return;
+  f.options.splice(oi, 1);
+  renderFormEditor();
 }
 
 // 展开/收起字段卡片的「可选增强」区
@@ -876,6 +922,20 @@ function saveFormEditor() {
     if (checked('allow_custom')) field.allow_custom = true; else delete field.allow_custom;
     if (checked('random_button')) field.random_button = true; else delete field.random_button;
     if (!field.visible_if) delete field.visible_if;
+    // 下拉字段：收集内嵌选项（随世界观保存）
+    if (field.kind === 'select') {
+      var optRows = el.querySelectorAll('[data-opt-editor] [data-opt-row]');
+      var opts = [];
+      optRows.forEach(function(tr) {
+        var v = tr.querySelector('[data-opt="value"]');
+        var l = tr.querySelector('[data-opt="label"]');
+        var d = tr.querySelector('[data-opt="desc"]');
+        var item = { value: (v ? v.value : '').trim(), label: (l ? l.value : '').trim(), desc: (d ? d.value : '').trim() };
+        if (item.label) opts.push(item);
+      });
+      if (opts.length) field.options = opts;
+      else delete field.options;
+    }
   });
   var msgEl = document.getElementById('form-editor-msg');
   msgEl.textContent = '保存中…';

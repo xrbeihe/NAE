@@ -202,7 +202,10 @@ function renderFormFields() {
         // populated later from /models/sects
         html += '<select id="field-' + key + '" data-key="' + key + '" data-options-from="sects" style="' + _inputStyle + '"></select>';
       } else {
-        var src = f.options_from && charTemplates ? charTemplates[f.options_from] : null;
+        // 字段内嵌 options（随世界观捆绑）优先；否则 options_from 查池（兼容旧）
+        var src = null;
+        if (Array.isArray(f.options)) src = f.options;
+        else if (f.options_from && charTemplates) src = charTemplates[f.options_from];
         if (src) {
           if (Array.isArray(src)) {
             src.forEach(function (o) {

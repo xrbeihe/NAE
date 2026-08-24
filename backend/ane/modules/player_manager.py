@@ -237,8 +237,17 @@ class PlayerManager:
             is_custom = (raw == "__custom__")
 
             if kind == "select" and raw:
-                # Resolve the selected option dict from the template source
-                opt = self._find_option(templates, f.get("options_from"), raw)
+                # Resolve the selected option dict: 字段内嵌 options 优先，
+                # 否则从模板数据源(options_from)查找
+                opt = None
+                embedded = f.get("options")
+                if isinstance(embedded, list):
+                    for _o in embedded:
+                        if isinstance(_o, dict) and (_o.get("value") == raw or _o.get("id") == raw):
+                            opt = _o
+                            break
+                else:
+                    opt = self._find_option(templates, f.get("options_from"), raw)
                 custom_val = values.get(key + "_custom", "")
                 # Write the store value — 自定义时用自定义文本替换 __custom__ 标记，
                 # 否则存 __custom__ 字面量会泄漏到主角面板
