@@ -97,7 +97,10 @@ jobs:
           echo "DEEPSEEK_API_KEY=${{ secrets.DEEPSEEK_API_KEY }}" | sudo tee /etc/ane/.env
           echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" | sudo tee -a /etc/ane/.env
           echo "ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}" | sudo tee -a /etc/ane/.env
-          echo "ANE_WORLDVIEW_ADMIN_IDS=${{ secrets.ANE_WORLDVIEW_ADMIN_IDS }}" | sudo tee -a /etc/ane/.env
+          # 管理员白名单：secret 配置后写入（覆盖 config.json 默认）；未配置则用默认值
+          if [ -n "${{ secrets.ANE_WORLDVIEW_ADMIN_IDS }}" ]; then
+            echo "ANE_WORLDVIEW_ADMIN_IDS=${{ secrets.ANE_WORLDVIEW_ADMIN_IDS }}" | sudo tee -a /etc/ane/.env
+          fi
           sudo chmod 600 /etc/ane/.env
       - name: Ensure venv + install/update dependencies
         run: |
