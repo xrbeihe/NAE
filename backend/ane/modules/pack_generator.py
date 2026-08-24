@@ -314,12 +314,14 @@ def _build_constraints(author: dict) -> dict:
 
 def _build_panel(author: dict) -> dict:
     fields = _field_names(author)
+    genre = author.get("genre") or "fantasy"
     return {
         "title": "【主角面板】",
         "join": " ｜ ",
         "fields": [
             {"label": "姓名", "kind": "composite", "format": "{name} ｜ {gender} ｜ {age}岁",
              "source": {"name": "player.name", "gender": "attrs.gender", "age": "attrs.age"}},
+            *([] if genre != "historical" else [{"label": "字", "key": "courtesy_name", "source": "attrs", "show_if": "truthy"}]),
             *([] if not fields["has_power"] else [{"label": fields["cultivation_label"], "key": "cultivation", "source": "player"}]),
             {"label": "性格", "key": "personality", "source": "attrs", "default": "未知"},
             {"label": "身份", "key": "identity", "source": "attrs", "default": "未知"},
@@ -426,6 +428,7 @@ def _build_modeler_schema(author: dict) -> dict:
 def _build_form(author: dict) -> dict:
     """Build a declarative form.json for the generated pack."""
     fields = _field_names(author)
+    genre = author.get("genre") or "fantasy"
     professions = author.get("professions") or []
     if isinstance(professions, str):
         professions = [p.strip() for p in re.split(r"[、,，;；\n]", professions) if p.strip()]
@@ -437,6 +440,8 @@ def _build_form(author: dict) -> dict:
         "title": "创建你的" + (fields["role_label"] or "角色") + "（" + name + "）",
         "fields": [
             {"key": "name", "label": "姓名", "kind": "text", "placeholder": "输入你的名字", "default": "", "maxlength": 20, "random_button": True, "store": "player.name"},
+            # 历史题材默认提供「字（表字）」——古人的名与字并存，如刘备字玄德
+            *([] if genre != "historical" else [{"key": "courtesy_name", "label": "字（表字）", "kind": "text", "placeholder": "如：玄德 / 云长（可不填）", "store": "attrs.courtesy_name"}]),
             {"key": "age", "label": "年龄", "kind": "number", "default": 19, "min": 12, "max": 999, "store": "attrs.age"},
             {"key": "gender", "label": "性别", "kind": "select", "options_from": "genders", "store": "attrs.gender"},
             {"key": "background", "label": "出身背景", "kind": "select", "options_from": "backgrounds",
@@ -492,8 +497,9 @@ def _build_npc_templates(author: dict) -> dict:
         },
         "historical": {
             "surnames": ["刘", "曹", "孙", "袁", "张", "关", "赵", "马", "黄", "诸葛", "司马", "周", "吕", "董", "韩"],
-            "given_m": ["云长", "孟德", "仲谋", "奉先", "子龙", "文远", "公瑾", "伯约", "元直", "孝直", "士元", "子敬", "兴霸", "文和", "公明"],
-            "given_f": ["月英", "昭姬", "小乔", "尚香", "貂蝉", "文姬", "静姝", "春华", "令君", "若雪"],
+            # 名（非字）：汉末通用单字名，避开刘备/曹操/关羽等顶级历史人物撞名
+            "given_m": ["昭", "牧", "循", "靖", "衡", "彦", "恪", "翊", "泰", "勋", "韶", "冲", "稷", "垣", "昶", "邈", "虔", "桓", "邃", "骧"],
+            "given_f": ["婉", "娴", "静", "芷", "兰", "蕙", "珠", "瑶", "彤", "萱", "菱", "薇", "馥", "蔓", "蘅", "蘩", "琬", "珺", "纨", "绮"],
             "identities": ["武将", "谋士", "州郡官吏", "商贾", "农夫", "门客", "绣娘", "书吏", "游侠", "郎中"],
         },
     }

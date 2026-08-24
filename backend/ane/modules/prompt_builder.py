@@ -384,6 +384,7 @@ class PlayerContext:
     """Structured player data for the [用户扮演角色] block."""
     name: str = ""
     gender: str = ""
+    courtesy_name: str = ""   # 字（表字），如刘备字玄德 —— 历史题材世界观用
     cultivation: str = ""
     location: str = ""
     location_hierarchy: str = ""
@@ -591,6 +592,7 @@ def player_to_context(player) -> PlayerContext:
     return PlayerContext(
         name=player.name or "",
         gender=attrs.get("gender", ""),
+        courtesy_name=attrs.get("courtesy_name", ""),
         cultivation=player.cultivation or "",
         location=player.location or "",
         location_hierarchy=attrs.get("location_hierarchy", player.location or ""),
@@ -909,6 +911,8 @@ class PromptBuilder:
         if p is not None:
             lines = ["【用户扮演角色】"]
             lines.append(f"姓名：{p.name}")
+            if p.courtesy_name:
+                lines.append(f"字：{p.courtesy_name}（他人可尊称此字）")
             if p.gender:
                 lines.append(f"性别：{p.gender}")
 

@@ -655,6 +655,7 @@ function _seedFormFromTemplates() {
 // ── 常见字段模板库（一键添加/套用，配置完整无需手填）──
 var _COMMON_FIELD_TEMPLATES = {
   name:      {key:'name', label:'姓名', kind:'text', placeholder:'输入你的名字', default:'', maxlength:20, random_button:true, store:'player.name'},
+  courtesy_name:{key:'courtesy_name', label:'字（表字）', kind:'text', placeholder:'如：玄德 / 云长（可不填）', store:'attrs.courtesy_name'},
   age:       {key:'age', label:'年龄', kind:'number', default:19, min:12, max:999, store:'attrs.age'},
   gender:    {key:'gender', label:'性别', kind:'select', options_from:'genders', store:'attrs.gender'},
   background:{key:'background', label:'出身', kind:'select', options_from:'backgrounds', hint_template:'{desc} ｜ 初始资源：{initial_resource}', store:'attrs.background', derive:['background_summary']},
