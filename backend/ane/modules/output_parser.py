@@ -362,7 +362,6 @@ CORE_EVENT_TYPES = {
     "npc_enters", "npc_leaves", "npc_action",
     "environment", "event", "time_skip",
     "player_name_change",
-    "economy_change",        # numeric savings — was documented in system prompt but missing from the whitelist
     "npc_important",
     "npc_nearby",
 }

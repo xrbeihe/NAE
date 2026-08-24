@@ -63,14 +63,13 @@
       "label": "身份",
       "kind": "select",
       "options_from": "identities",
-      "hint_template": "月入：{monthly_income} ｜ 衣着：{clothing}",
+      "hint_template": " ｜ 衣着：{clothing}",
       "allow_custom": true,
       "custom_label": "自定义身份",
       "store": "attrs.identity",
       "derive": [
         "identity_desc",
-        "clothing",
-        "monthly_income"
+        "clothing"
       ]
     },
     {

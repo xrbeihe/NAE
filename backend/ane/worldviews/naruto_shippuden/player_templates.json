@@ -116,7 +116,6 @@
       "label": "火影护卫",
       "desc": "保护火影的贴身忍者",
       "clothing": "火影直属制服+护额",
-      "monthly_income": "S级任务报酬",
       "background": "",
       "identity_desc": "保护火影的贴身忍者"
     },
@@ -124,7 +123,6 @@
       "label": "木叶商人",
       "desc": "经营木叶的店铺",
       "clothing": "普通和服+围裙",
-      "monthly_income": "稳定收入",
       "background": "",
       "identity_desc": "经营木叶的店铺"
     },
@@ -132,7 +130,6 @@
       "label": "情报忍者",
       "desc": "穿梭于情报网络",
       "clothing": "便装+伪装",
-      "monthly_income": "C级任务报酬",
       "background": "",
       "identity_desc": "穿梭于情报网络"
     },
@@ -140,7 +137,6 @@
       "label": "封印班成员",
       "desc": "管理村中封印之术",
       "clothing": "封印班制服",
-      "monthly_income": "B级任务报酬",
       "background": "",
       "identity_desc": "管理村中封印之术"
     },
@@ -148,7 +144,6 @@
       "label": "中忍考试考官",
       "desc": "负责中忍考试选拔",
       "clothing": "考官制服+护额",
-      "monthly_income": "稳定酬劳",
       "background": "",
       "identity_desc": "负责中忍考试选拔"
     },
@@ -156,7 +151,6 @@
       "label": "木叶下忍",
       "desc": "从忍者学校毕业的新晋忍者，执行D/C级任务，梦想成为火影。",
       "clothing": "标准忍者装束+护额",
-      "monthly_income": "50张委托单",
       "background": "",
       "identity_desc": "木叶隐村的下忍，护额是身份的象征"
     },
@@ -164,7 +158,6 @@
       "label": "中忍",
       "desc": "通过中忍考试晋升，可担任小队长或教官，承担B级任务。",
       "clothing": "标准忍者装束+护额",
-      "monthly_income": "120张委托单",
       "background": "",
       "identity_desc": "木叶隐村的中忍"
     },
@@ -172,7 +165,6 @@
       "label": "医疗忍者",
       "desc": "专精掌仙术与治疗的忍者，战场上的救命稻草。",
       "clothing": "医疗护腕+白色外套",
-      "monthly_income": "80张委托单",
       "background": "",
       "identity_desc": "木叶隐村的医疗忍者"
     },
@@ -180,7 +172,6 @@
       "label": "忍者学校学生",
       "desc": "尚未毕业的学员，还在学习基础忍术与查克拉控制。",
       "clothing": "学校制服",
-      "monthly_income": "0张委托单",
       "background": "",
       "identity_desc": "木叶忍者学校的学生"
     },
@@ -188,7 +179,6 @@
       "label": "木叶警备队员",
       "desc": "负责村内治安巡逻的忍者，维护木叶秩序。",
       "clothing": "警备队制服+护额",
-      "monthly_income": "90张委托单",
       "background": "",
       "identity_desc": "木叶警备部队成员"
     },
@@ -196,7 +186,6 @@
       "label": "任务委托人",
       "desc": "不是忍者，而是委托任务、提供情报的普通村民或商人。",
       "clothing": "便服",
-      "monthly_income": "依生意而定",
       "background": "",
       "identity_desc": "木叶村的普通居民"
     }

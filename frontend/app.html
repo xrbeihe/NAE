@@ -1106,7 +1106,7 @@ function updateCharHints() {
   else { document.getElementById('personality-custom-wrap').style.display = 'none'; if (pi) document.getElementById('char-personality-hint').textContent = pi.desc; }
   var iv = document.getElementById('char-identity').value;
   if (iv === 'custom') { document.getElementById('identity-custom-wrap').style.display = 'block'; document.getElementById('char-identity-hint').textContent = '填写你的自定义身份描述'; }
-  else { document.getElementById('identity-custom-wrap').style.display = 'none'; var idData = charTemplates.identities[iv]; if (idData) document.getElementById('char-identity-hint').textContent = '衣物：' + idData.clothing + ' ｜ 月入：' + idData.monthly_income + ' ｜ ' + idData.background; }
+  else { document.getElementById('identity-custom-wrap').style.display = 'none'; var idData = charTemplates.identities[iv]; if (idData) document.getElementById('char-identity-hint').textContent = '衣物：' + idData.clothing + ' ｜ ' + idData.background; }
 }
 
 async function applyCharacter() {
@@ -1181,7 +1181,6 @@ async function applyCharacter() {
         if (data.sect) parts.push(_wvLabel('sect','宗门') + '：' + data.sect);
         if (data.location) parts.push('初始位置：' + data.location);
         if (data.golden_finger_name) { var gfTag = data.golden_finger_tagline || data.golden_finger_desc || ''; if (gfTag === data.golden_finger_name) gfTag = ''; parts.push(_wvLabel('golden_finger','金手指') + '：' + data.golden_finger_name + (gfTag ? ' — ' + gfTag : '')); }
-        if (data.monthly_income) parts.push('月入：' + data.monthly_income);
         addMsg('system', parts.join('\n'));
       }
       if (data.player_panel) updateInfoPanel(data.player_panel);

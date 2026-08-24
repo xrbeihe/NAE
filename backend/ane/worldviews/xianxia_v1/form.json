@@ -34,7 +34,10 @@
       "options_from": "backgrounds",
       "hint_template": "{desc} ｜ 初始资源：{initial_resource} ｜ 性格倾向：{personality_tendency}",
       "store": "attrs.background",
-      "derive": ["background_summary", "personality_tendency"]
+      "derive": [
+        "background_summary",
+        "personality_tendency"
+      ]
     },
     {
       "key": "cultivation",
@@ -61,11 +64,17 @@
       "label": "身份",
       "kind": "select",
       "options_from": "identities",
-      "hint_template": "衣物：{clothing} ｜ 月入：{monthly_income} ｜ {background}",
+      "hint_template": "衣物：{clothing} ｜ {background}",
       "allow_custom": true,
       "custom_label": "自定义身份描述",
       "store": "attrs.identity",
-      "derive": ["identity_desc", "clothing", "monthly_income", "spiritual_root", "talent_note", "background_summary"]
+      "derive": [
+        "identity_desc",
+        "clothing",
+        "spiritual_root",
+        "talent_note",
+        "background_summary"
+      ]
     },
     {
       "key": "sect",
@@ -85,7 +94,12 @@
       "allow_custom": true,
       "custom_label": "自定义描写",
       "visible_if": "has_golden_fingers",
-      "option_map": {"id": "golden_finger_id", "name": "golden_finger_name", "tagline": "golden_finger_tagline", "desc": "golden_finger_desc"},
+      "option_map": {
+        "id": "golden_finger_id",
+        "name": "golden_finger_name",
+        "tagline": "golden_finger_tagline",
+        "desc": "golden_finger_desc"
+      },
       "store": "attrs.golden_finger_id"
     }
   ]

@@ -2,11 +2,9 @@
   "labels": {
     "role": "旅人",
     "cultivation": "职业",
-    "savings": "银币",
     "spiritual_root": "",
     "sect": "",
-    "golden_finger": "",
-    "monthly_income": "月入"
+    "golden_finger": ""
   },
   "create_button": "踏上冒险之旅",
   "modal_title": "创建你的冒险者",
@@ -50,11 +48,6 @@
       {
         "label": "初始位置",
         "key": "location"
-      },
-      {
-        "label": "月入",
-        "key": "monthly_income",
-        "show_if": "truthy"
       }
     ]
   },

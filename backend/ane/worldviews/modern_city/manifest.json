@@ -6,13 +6,16 @@
   "description": "当代都市生活叙事：普通人视角，无超自然元素。",
   "base_map": "modern",
   "maturity_rating": "adult",
-  "tags": ["modern", "slice-of-life", "urban"],
+  "tags": [
+    "modern",
+    "slice-of-life",
+    "urban"
+  ],
   "assembly": "shell+kernel",
   "player_defaults": {
     "name": "无名市民",
     "cultivation": "无",
     "location_hint": "出租屋",
-    "savings": "3000元",
     "savings_unit": "元",
     "status_label": "市民"
   },

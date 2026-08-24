@@ -853,23 +853,6 @@ class GameEngine:
                         db_rel.updated_at = datetime.utcnow()
                         logger.info(f"step15: relationship {change_target}→{player_name}: {change_value}")
 
-            # ── Economy (numeric savings) ──
-            elif change_type == "economy_change":
-                if change_target == "player":
-                    delta = change.get("change", 0)
-                    unit = change.get("unit", "")
-                    if delta != 0:
-                        attrs = dict(player.attributes or {})
-                        cur = attrs.get("_savings_amount", 0)
-                        if not isinstance(cur, (int, float)):
-                            cur = 0
-                        cur += delta
-                        attrs["_savings_amount"] = cur
-                        if unit:
-                            attrs["_savings_unit"] = unit
-                        player.attributes = attrs
-                        logger.info(f"step15: economy {cur} ({delta:+d}) {attrs.get('_savings_unit', '')}")
-
             # ── Generic catch-all for worldview-specific event types ──
             # Unknown-but-validated event types with target=player and a
             # field write into player.attributes (e.g. modern_city 职业).

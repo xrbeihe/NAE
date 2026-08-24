@@ -162,7 +162,6 @@
       "label": "普通职员",
       "desc": "朝九晚五的上班族",
       "clothing": "衬衫+牛仔裤",
-      "monthly_income": "8000元",
       "background": "",
       "identity_desc": "朝九晚五的上班族"
     },
@@ -170,7 +169,6 @@
       "label": "程序员",
       "desc": "格子衫专业户",
       "clothing": "T恤+休闲裤",
-      "monthly_income": "15000元",
       "background": "",
       "identity_desc": "格子衫专业户"
     },
@@ -178,7 +176,6 @@
       "label": "大学生",
       "desc": "在校生，课业与社团",
       "clothing": "卫衣+运动鞋",
-      "monthly_income": "2000元",
       "background": "",
       "identity_desc": "在校生，课业与社团"
     },
@@ -186,7 +183,6 @@
       "label": "个体店主",
       "desc": "自己的店自己做主",
       "clothing": "休闲装",
-      "monthly_income": "9000元",
       "background": "",
       "identity_desc": "自己的店自己做主"
     },
@@ -194,7 +190,6 @@
       "label": "体制内",
       "desc": "稳定压倒一切",
       "clothing": "正装",
-      "monthly_income": "9000元",
       "background": "",
       "identity_desc": "稳定压倒一切"
     },
@@ -202,7 +197,6 @@
       "label": "自由职业者",
       "desc": "时间自由，收入看天",
       "clothing": "家居服",
-      "monthly_income": "6000元",
       "background": "",
       "identity_desc": "时间自由，收入看天"
     }

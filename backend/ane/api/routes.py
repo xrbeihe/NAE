@@ -141,8 +141,6 @@ def _render_character_card(wv, player, attrs: dict) -> str:
             parts.append(f"{line.get('label', '金手指')}：{value}{' — ' + tag if tag else ''}")
         elif key == "location":
             parts.append(f"{line.get('label', '初始位置')}：{value}")
-        elif key == "monthly_income":
-            parts.append(f"{line.get('label', '月入')}：{value}")
         else:
             parts.append(f"{line.get('label', key)}：{value}")
 
@@ -779,7 +777,6 @@ async def apply_character(
         "golden_finger_tagline": attrs.get("golden_finger_tagline", ""),
         "golden_finger_desc": attrs.get("golden_finger_desc", ""),
         "sect": attrs.get("sect", ""),
-        "monthly_income": attrs.get("monthly_income", ""),
         "player_panel": player_panel_str,
         "llm_introduction": llm_intro,
         "card_content": card_content,

@@ -116,7 +116,6 @@
       "label": "自由民",
       "desc": "无领地依附的平民",
       "clothing": "亚麻短衫+粗布裤",
-      "monthly_income": "20枚铜币",
       "background": "",
       "identity_desc": "无领地依附的平民"
     },
@@ -124,7 +123,6 @@
       "label": "骑士侍从",
       "desc": "为骑士牵马执盾的见习者",
       "clothing": "旧皮甲+佩剑",
-      "monthly_income": "无",
       "background": "",
       "identity_desc": "为骑士牵马执盾的见习者"
     },
@@ -132,7 +130,6 @@
       "label": "猎人",
       "desc": "森林的常客，熟悉兽径",
       "clothing": "皮革猎装+短弓",
-      "monthly_income": "8枚银币",
       "background": "",
       "identity_desc": "森林的常客，熟悉兽径"
     },
@@ -140,7 +137,6 @@
       "label": "行商",
       "desc": "沿国王大道往来贩货",
       "clothing": "羊毛斗篷+货担",
-      "monthly_income": "15枚银币",
       "background": "",
       "identity_desc": "沿国王大道往来贩货"
     },
@@ -148,7 +144,6 @@
       "label": "吟游诗人",
       "desc": "唱传奇、传消息的人",
       "clothing": "彩色衣袍+鲁特琴",
-      "monthly_income": "5枚银币",
       "background": "",
       "identity_desc": "唱传奇、传消息的人"
     },
@@ -156,7 +151,6 @@
       "label": "雇佣兵",
       "desc": "谁出钱就为谁卖命",
       "clothing": "旧链甲+长剑",
-      "monthly_income": "10枚银币",
       "background": "",
       "identity_desc": "谁出钱就为谁卖命"
     }

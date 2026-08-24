@@ -156,15 +156,6 @@ def test_xianxia_shell_lists_breakthrough():
     assert "breakthrough" in (wv.system_prompt or "")
 
 
-def test_player_context_default_savings_unit():
-    # Regression: the duplicated field definition used to override the
-    # default with "" — now it stays "块下品灵石".
-    from ane.modules.prompt_builder import PlayerContext
-    p = PlayerContext()
-    assert p.savings_amount == 0
-    assert p.savings_unit == "块下品灵石"
-
-
 # ── Intent classification via pack keywords ──────────────────
 
 def test_cultivate_keywords_from_pack():
@@ -189,7 +180,6 @@ def test_nsfw_body_words_extra():
 
 def test_core_event_types_always_valid():
     assert "location_change" in CORE_EVENT_TYPES
-    assert "economy_change" in CORE_EVENT_TYPES  # regression fix: was missing
 
 
 def test_xianxia_extra_event_types():
@@ -208,14 +198,14 @@ def test_parse_keeps_known_drops_unknown():
     raw = json.dumps({
         "narrative": "测试正文",
         "state_changes": [
-            {"type": "economy_change", "target": "player", "change": -3, "unit": "块下品灵石"},
+            {"type": "relationship_change", "target": "player", "value": "知己"},
             {"type": "cultivation_change", "target": "player", "value": "筑基期"},
             {"type": "quantum_flip", "target": "player", "value": "x"},
         ],
     }, ensure_ascii=False)
     r = parse(raw)
     types = {c["type"] for c in r.state_changes}
-    assert types == {"economy_change", "cultivation_change"}
+    assert types == {"relationship_change", "cultivation_change"}
 
 
 # ── SQLite migration (non-destructive) ───────────────────────
@@ -522,7 +512,7 @@ async def test_form_path_applies_character(db):
     assert attrs.get("personality") == "谨慎隐忍"
     assert attrs.get("identity") == "外门弟子"
     # Derived fields from identity option
-    assert attrs.get("clothing") or attrs.get("monthly_income")
+    assert attrs.get("clothing")
 
 
 @pytest.mark.asyncio

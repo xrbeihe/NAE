@@ -42,8 +42,6 @@ worldviews/<worldview_id>/
   "player_defaults": {
     "name": "无名人士",
     "cultivation": "无",
-    "savings": "0",
-    "savings_unit": "块",
     "status_label": "角色"
   },
   "extra_event_types": [],
@@ -64,13 +62,11 @@ worldviews/<worldview_id>/
 |----|------|
 | `name` | 玩家默认名（未创建角色时） |
 | `cultivation` | 玩家默认能力/职业标签 |
-| `savings` | 初始存款描述 |
-| `savings_unit` | 存款计量单位 |
 | `status_label` | `/status` 命令与前端状态栏对玩家的称呼（如"修士"/"市民"） |
 
 ### extra_event_types
 
-本世界观允许的额外 `state_changes` 事件类型（引擎核心类型始终可用：location_change、status_change、item_added/removed、relationship_change、quest_*、npc_status、player_name_change、economy_change、npc_important、npc_nearby、npc_enters/leaves/action、dialogue、travel、combat、trade、environment、event、time_skip、death、marriage）。xianxia 用 `["cultivation_change", "breakthrough"]`。
+本世界观允许的额外 `state_changes` 事件类型（引擎核心类型始终可用：location_change、status_change、item_added/removed、relationship_change、quest_*、npc_status、player_name_change、npc_important、npc_nearby、npc_enters/leaves/action、dialogue、travel、combat、trade、environment、event、time_skip、death、marriage）。xianxia 用 `["cultivation_change", "breakthrough"]`。
 
 ### time_per_intent（可选）
 
@@ -116,7 +112,6 @@ worldviews/<worldview_id>/
 - recommendations 推荐内容多样化时涵盖<本世界的活动类型>。
 - state_changes 各类型用法：
   - status_change：target="player", field="<字段>", value="<值>" → 更新玩家属性
-  - economy_change：target="player", change=<数值>, unit="<单位>" → 增减存款
 ```
 
 ## intent_keywords.json
@@ -183,8 +178,7 @@ worldviews/<worldview_id>/
     {"label": "姓名", "kind": "composite", "format": "{name} ｜ {gender} ｜ {age}岁",
      "source": {"name": "player.name", "gender": "attrs.gender", "age": "attrs.age"}},
     {"label": "职业", "key": "cultivation", "source": "player"},
-    {"label": "性格", "key": "personality", "source": "attrs", "default": "未知"},
-    {"label": "存款", "key": "_savings_amount", "source": "attrs", "unit_attr": "_savings_unit", "default_unit": "元", "show_if": "nonzero"}
+    {"label": "性格", "key": "personality", "source": "attrs", "default": "未知"}
   ]
 }
 ```
@@ -206,8 +200,8 @@ worldviews/<worldview_id>/
     {"key": "cultivation", "label": "忍者等级", "kind": "select", "options_from": "cultivations",
      "hint_template": "{desc}", "allow_custom": true, "custom_label": "自定义等级", "store": "player.cultivation"},
     {"key": "identity", "label": "身份", "kind": "select", "options_from": "identities",
-     "hint_template": "月入：{monthly_income}", "allow_custom": true,
-     "store": "attrs.identity", "derive": ["identity_desc", "clothing", "monthly_income"]},
+     "hint_template": "衣物：{clothing}", "allow_custom": true,
+     "store": "attrs.identity", "derive": ["identity_desc", "clothing"]},
     {"key": "golden_finger", "label": "特殊能力", "kind": "card_grid", "options_from": "golden_fingers",
      "allow_custom": true, "visible_if": "has_golden_fingers",
      "option_map": {"id": "golden_finger_id", "name": "golden_finger_name", "tagline": "golden_finger_tagline", "desc": "golden_finger_desc"},
@@ -222,7 +216,7 @@ worldviews/<worldview_id>/
 - `hint_template`: 解释小字，`{字段名}` 占位符从选中选项填充
 - `allow_custom` + `custom_label`: 选中 `__custom__` 时弹出文本框
 - `store`: 写入位置（`player.name`/`player.cultivation`/`player.location` 列，或 `attrs.xxx`）
-- `derive`: 选中选项后复制到 attributes 的字段列表（如 identity → clothing/monthly_income）
+- `derive`: 选中选项后复制到 attributes 的字段列表（如 identity → clothing）
 - `option_map`: 卡片选项字段重命名映射（金手指 id→golden_finger_id 等）
 - `visible_if`: `has_sects` / `has_golden_fingers` 条件显隐
 

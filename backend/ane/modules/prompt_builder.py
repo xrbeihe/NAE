@@ -130,8 +130,6 @@ player_name_change, npc_important
   LLM 根据叙事进展持续更新。活动结束后栏目可自然消失。
 - npc_status / character_status：target=NPC_ID, field="cultivation", value="新修为" →
   更新 NPC 的修为/位置/身份
-- economy_change：target="player", change=-3, unit="块下品灵石" →
-  增减存款（负数=支出，正数=收入）。可用 reason 字段注明原因。下一轮 Prompt 自动更新存款数额。
 如果本轮没有状态变更，state_changes 为空数组 []。
 
 player_relationships 规则：
@@ -241,7 +239,6 @@ state_changes 规则：
     自动创建自定义跟踪栏目。当玩家询问或需要持续跟踪的长期活动时，LLM 应主动创建栏目，
     value 为完整 JSON 对象，并按叙事进展持续更新；活动结束后栏目可自然消失。
   - npc_status / character_status：target=NPC_ID, field="cultivation", value="新修为" → 更新 NPC 的状态
-  - economy_change：target="player", change=-3, unit="货币单位" → 增减存款（负数=支出，正数=收入），可用 reason 字段注明原因
   - relationship_change：target=NPC_ID, value="关系类型" → 更新该 NPC 对玩家的关系
 - 如果本轮没有状态变更，state_changes 为空数组 []。
 
@@ -401,12 +398,6 @@ class PlayerContext:
     background_summary: str = ""
     spiritual_root: str = ""
     talent_note: str = ""
-    monthly_income: str = ""
-    savings: str = ""
-
-    # Numeric savings for economy system
-    savings_amount: int = 0
-    savings_unit: str = "块下品灵石"
 
     # Golden finger
     special_constitution: str = ""
@@ -455,12 +446,6 @@ class NPCContext:
     background_summary: str = ""
     spiritual_root: str = ""
     talent_note: str = ""
-    monthly_income: str = ""
-    savings: str = ""
-
-    # Numeric savings for economy system
-    savings_amount: int = 0
-    savings_unit: str = "块下品灵石"
 
     # Golden finger
     special_constitution: str = ""
@@ -552,10 +537,6 @@ def npc_to_context(npc: NPCModel) -> NPCContext:
         background_summary=lts.get("background_summary", ""),
         spiritual_root=lts.get("spiritual_root", ""),
         talent_note=lts.get("talent_note", ""),
-        monthly_income=lts.get("monthly_income", ""),
-        savings=lts.get("savings", ""),
-        savings_amount=lts.get("_savings_amount", 0),
-        savings_unit=lts.get("_savings_unit", "块下品灵石"),
         special_constitution=lts.get("special_constitution", ""),
         moral_character=lts.get("moral_character", ""),
         sexual_knowledge=lts.get("sexual_knowledge", ""),
@@ -624,10 +605,6 @@ def player_to_context(player) -> PlayerContext:
         background_summary=attrs.get("background_summary", ""),
         spiritual_root=attrs.get("spiritual_root", ""),
         talent_note=attrs.get("talent_note", ""),
-        monthly_income=attrs.get("monthly_income", ""),
-        savings=attrs.get("savings", ""),
-        savings_amount=attrs.get("_savings_amount", 0),
-        savings_unit=attrs.get("_savings_unit", "块下品灵石"),
         special_constitution=attrs.get("special_constitution", ""),
         clothing=attrs.get("clothing", ""),
         current_action=attrs.get("current_action", ""),
@@ -977,19 +954,6 @@ class PromptBuilder:
             if p.sect:
                 lines.append(f"所属宗门：{p.sect}")
 
-            if p.monthly_income or p.savings or p.savings_amount:
-                econ_parts = []
-                if p.monthly_income:
-                    econ_parts.append(f"每月固定收入{p.monthly_income}")
-                savings_display = ""
-                if p.savings_amount:
-                    savings_display = f"现存款{p.savings_amount}{p.savings_unit}"
-                elif p.savings:
-                    savings_display = f"现存款{p.savings}"
-                if savings_display:
-                    econ_parts.append(savings_display)
-                lines.append(f"经济：{'，'.join(econ_parts)}。")
-
             if p.special_constitution:
                 lines.append(f"特殊体质：{p.special_constitution}")
 
@@ -1267,19 +1231,6 @@ class PromptBuilder:
             lines.append(f"资质：{'，'.join(qual_parts)}")
 
         lines.append(f"修为：{npc.cultivation}")
-
-        if npc.monthly_income or npc.savings or npc.savings_amount:
-            econ_parts = []
-            if npc.monthly_income:
-                econ_parts.append(f"月例{npc.monthly_income}")
-            savings_display = ""
-            if npc.savings_amount:
-                savings_display = f"存款{npc.savings_amount}{npc.savings_unit}"
-            elif npc.savings:
-                savings_display = f"存款{npc.savings}"
-            if savings_display:
-                econ_parts.append(savings_display)
-            lines.append(f"经济：{'，'.join(econ_parts)}。")
 
         if npc.identity:
             lines.append(f"身份：{npc.identity}")

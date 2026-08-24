@@ -66,7 +66,6 @@ def test_generated_system_prompt_uses_author_fields():
     sp = files["system_prompt.txt"]
     assert "蒸汽朋克城邦" in sp
     assert "工艺等级" in sp       # power_name injected into state_changes usage
-    assert "金币" in sp           # money_name injected
     # places land in world_templates (regions), not the system prompt
     wt = json.loads(files["world_templates.json"])
     region_names = [r["name"] for r in wt["regions"]]

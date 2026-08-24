@@ -314,17 +314,17 @@ def _check_panel_sources(panel: dict, pt: dict, errors: list, warnings: list) ->
     _KNOWN_ATTRS = {
         "age", "gender", "personality", "identity",
         "special_constitution", "background_summary", "identity_desc",
-        "spiritual_root", "talent_note", "clothing", "monthly_income",
+        "spiritual_root", "talent_note", "clothing",
         "appearance_brief", "appearance_summary", "moral_character",
         "sexual_knowledge", "fertility", "lifestyle_summary",
         "current_action", "current_pose", "visible_state",
-        "height", "weight", "savings", "location_hierarchy",
+        "height", "weight", "location_hierarchy",
     }
     for f in panel.get("fields", []):
         src = f.get("source")
         if src == "attrs" and f.get("key"):
             key = f["key"]
-            if key in ("_savings_amount", "_savings_unit", "_extensions"):
+            if key in ("_extensions",):
                 continue
             if key in _KNOWN_ATTRS:
                 continue

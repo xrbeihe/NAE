@@ -96,7 +96,7 @@ class PlayerManager:
         id_data = identities.get(identity, {})
         if not id_data:
             logger.warning(f"Unknown identity '{identity}' — using raw value")
-            id_data = {"label": identity, "desc": "", "clothing": "", "monthly_income": "", "background": "", "spiritual_root": "", "talent_note": ""}
+            id_data = {"label": identity, "desc": "", "clothing": "", "background": "", "spiritual_root": "", "talent_note": ""}
 
         bg_data = {}
         if isinstance(templates, dict) and templates.get("backgrounds"):
@@ -119,7 +119,6 @@ class PlayerManager:
         if identity == "custom" and identity_custom:
             # Custom identity: use player-provided text as the identity description
             attrs["clothing"] = ""
-            attrs["monthly_income"] = ""
             attrs["spiritual_root"] = ""
             attrs["talent_note"] = ""
             attrs["identity_desc"] = ""  # 自定义身份：无预设 desc，不留「自定义身份」标签
@@ -127,7 +126,6 @@ class PlayerManager:
             # 注意：不覆写 background_summary —— 出身是独立选择，不能被身份文本覆盖
         else:
             attrs["clothing"] = id_data.get("clothing", "")
-            attrs["monthly_income"] = id_data.get("monthly_income", "")
             attrs["spiritual_root"] = id_data.get("spiritual_root", "")
             attrs["talent_note"] = id_data.get("talent_note", "")
             attrs["background_summary"] = id_data.get("background", "")
@@ -150,7 +148,6 @@ class PlayerManager:
         attrs.setdefault("moral_character", "节操正常")
         attrs.setdefault("sexual_knowledge", "粗浅")
         attrs.setdefault("fertility", "正常")
-        attrs.setdefault("savings", "10块下品灵石")
         attrs.setdefault("lifestyle_summary", "")
         attrs.setdefault("special_constitution", "")
         attrs.setdefault("current_action", "")
@@ -237,7 +234,7 @@ class PlayerManager:
                     self._write_field(player, attrs, store, custom_val or raw)
                 else:
                     self._write_field(player, attrs, store, raw)
-                # Derived fields from the option (e.g. identity → clothing/月入)
+                # Derived fields from the option (e.g. identity → clothing)
                 if opt:
                     for derive_key in f.get("derive", []) or []:
                         if derive_key in opt:

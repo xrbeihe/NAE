@@ -6,15 +6,21 @@
   "description": "经典东方玄幻修仙世界观：宗门、境界、灵根、法宝、丹药、灵石。",
   "base_map": "cultivation",
   "maturity_rating": "adult",
-  "tags": ["xianxia", "cultivation", "chinese-fantasy"],
+  "tags": [
+    "xianxia",
+    "cultivation",
+    "chinese-fantasy"
+  ],
   "assembly": "shell+kernel",
   "player_defaults": {
     "name": "无名修士",
     "cultivation": "凡人",
     "location_hint": "山门",
-    "savings": "10块下品灵石",
     "savings_unit": "块下品灵石",
     "status_label": "修士"
   },
-  "extra_event_types": ["cultivation_change", "breakthrough"]
+  "extra_event_types": [
+    "cultivation_change",
+    "breakthrough"
+  ]
 }

@@ -72,13 +72,10 @@ _GENRES = {
 def _field_names(author):
     """Map short author labels to the data keys used across the pack."""
     power = (author.get("power_name") or "").strip()
-    money = (author.get("money_name") or "").strip()
     role_label = (author.get("role_label") or "").strip()
     status_label = (author.get("status_label") or "").strip()
 
     cultivation_label = power or "修为"
-    savings_label = money or "灵石"
-    savings_unit = money or "枚银币"
     default_name = author.get("default_name") or "无名旅人"
     cultivation_value = "平民"
     if not status_label:
@@ -86,8 +83,6 @@ def _field_names(author):
 
     return {
         "cultivation_label": cultivation_label,
-        "savings_label": savings_label,
-        "savings_unit": savings_unit,
         "default_name": default_name,
         "cultivation_value": cultivation_value,
         "status_label": status_label,
@@ -138,7 +133,6 @@ def build_system_prompt(author: dict) -> str:
         f"- recommendations 推荐内容多样化时涵盖{genre_cfg['rec_types']}等不同类型。",
         "- state_changes 各类型用法：",
         f'  - status_change：target="player", field="{fields["cultivation_label"]}", value="新值" → 更新玩家属性',
-        f"  - economy_change：target=\"player\", change=-3, unit=\"{fields['savings_unit']}\" → 增减货币（负数=支出，正数=收入）。可用 reason 字段注明原因。",
         "  - location_change：target=\"player\", value=\"新地名\" → 更新玩家位置",
         "  - npc_status / character_status：target=NPC名, field=\"任意字段\", value=\"新值\" → 更新NPC状态",
     ]
@@ -161,8 +155,6 @@ def _build_manifest(author: dict) -> dict:
         "player_defaults": {
             "name": fields["default_name"],
             "cultivation": fields["cultivation_value"],
-            "savings": f"0{fields['savings_unit']}",
-            "savings_unit": fields["savings_unit"],
             "status_label": fields["status_label"],
         },
         "extra_event_types": [],
@@ -209,7 +201,6 @@ def _build_player_templates(author: dict) -> dict:
             "label": p,
             "desc": f"{author.get('name','')}世界中的{p}",
             "clothing": "",
-            "monthly_income": "",
             "background": "",
         }
     # Author-provided special abilities → golden_fingers (card grid in the form)
@@ -313,8 +304,6 @@ def _build_panel(author: dict) -> dict:
             {"label": "位置", "key": "location", "source": "player", "default": "未知"},
             {"label": "衣物", "key": "clothing", "source": "attrs", "default": "未设定"},
             {"label": "物品", "key": "inventory", "source": "items", "join": "、"},
-            {"label": fields["savings_label"], "key": "_savings_amount", "source": "attrs",
-             "unit_attr": "_savings_unit", "default_unit": fields["savings_unit"], "show_if": "nonzero"},
             {"label": "扩展", "key": "_extensions", "source": "exts", "show_if": "truthy"},
         ],
     }
@@ -327,11 +316,9 @@ def _build_ui(author: dict) -> dict:
         "labels": {
             "role": fields["status_label"],
             "cultivation": fields["cultivation_label"],
-            "savings": fields["savings_label"],
             "spiritual_root": "",
             "sect": "",
             "golden_finger": "",
-            "monthly_income": "月入",
         },
         "create_button": author.get("create_button") or "开始旅程",
         "modal_title": "创建你的" + (fields["role_label"] or "角色") + "（" + name + "）",
@@ -351,7 +338,6 @@ def _build_ui(author: dict) -> dict:
             ],
             "conditional": [
                 {"label": "初始位置", "key": "location"},
-                {"label": "月入", "key": "monthly_income", "show_if": "truthy"},
             ],
         },
         "initial_recommendations": {
@@ -440,9 +426,9 @@ def _build_form(author: dict) -> dict:
             {"key": "personality", "label": "性格", "kind": "select", "options_from": "personalities",
              "hint_template": "{desc}", "allow_custom": True, "custom_label": "自定义性格描述", "store": "attrs.personality"},
             {"key": "identity", "label": "身份", "kind": "select", "options_from": "identities",
-             "hint_template": "衣物：{clothing} ｜ 月入：{monthly_income}",
+             "hint_template": "衣物：{clothing}",
              "allow_custom": True, "custom_label": "自定义身份描述",
-             "store": "attrs.identity", "derive": ["identity_desc", "clothing", "monthly_income", "background_summary"]},
+             "store": "attrs.identity", "derive": ["identity_desc", "clothing", "background_summary"]},
             {"key": "golden_finger", "label": "特殊能力", "kind": "card_grid", "options_from": "golden_fingers",
              "allow_custom": True, "custom_label": "自定义", "visible_if": "has_golden_fingers",
              "option_map": {"id": "golden_finger_id", "name": "golden_finger_name", "tagline": "golden_finger_tagline", "desc": "golden_finger_desc"},

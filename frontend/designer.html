@@ -925,7 +925,7 @@ var _OPT_TABS = {
   cultivations: { file: 'player_templates.json', label: '职业/能力', cols: [['value','选项值'],['label','显示名'],['desc','说明']] },
   backgrounds:  { file: 'player_templates.json', label: '出身背景', cols: [['value','选项值'],['label','显示名'],['desc','说明'],['initial_resource','初始资源'],['personality_tendency','性格倾向']] },
   personalities:{ file: 'player_templates.json', label: '性格', cols: [['value','选项值'],['label','显示名'],['desc','说明']] },
-  identities:   { file: 'player_templates.json', label: '身份', cols: [['label','显示名'],['desc','说明'],['clothing','衣物'],['monthly_income','月入']] },
+  identities:   { file: 'player_templates.json', label: '身份', cols: [['label','显示名'],['desc','说明'],['clothing','衣物']] },
   golden_fingers:{file: 'player_templates.json', label: '特殊能力', cols: [['id','ID'],['name','名称'],['tagline','一句话'],['desc','详细说明'],['icon','图标']] },
   places:       { file: 'world_templates.json', label: '地点', cols: [['name','名称'],['type','类型'],['description','描述']] },
   npc_identities:{file: 'npc_templates.json', label: 'NPC身份池', cols: [['name','身份']], kind: 'str_list', list_key: 'identities' },
@@ -1121,7 +1121,6 @@ function saveOptEditor() {
         merged.label = row.label || row.value;
         if (row.desc !== undefined) merged.desc = row.desc;
         if (row.clothing !== undefined) merged.clothing = row.clothing;
-        if (row.monthly_income !== undefined) merged.monthly_income = row.monthly_income;
         if (row.background !== undefined) merged.background = row.background;
         rebuilt[row.value] = merged;
       }
