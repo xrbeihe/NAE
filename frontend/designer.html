@@ -698,15 +698,12 @@ var _FORM_PRESETS = {
   '西幻表':     ['name','age','gender','race','background','personality','identity','cultivation','golden_finger'],
 };
 
-// 从模板生成字段：select 字段把 pool_defaults 转成内嵌 options（随世界观保存）
+// 从模板生成字段：下拉字段保留 options_from 键名；pool_defaults 作为
+// 自动建池时的示例数据（_ensurePoolsForForm 用），不内嵌到字段
 function _fieldFromTemplate(key) {
   var t = _COMMON_FIELD_TEMPLATES[key];
   if (!t) return null;
-  var f = JSON.parse(JSON.stringify(t));
-  if (f.kind === 'select' && t.pool_defaults) {
-    f.options = JSON.parse(JSON.stringify(t.pool_defaults));
-  }
-  return f;
+  return JSON.parse(JSON.stringify(t));
 }
 
 function applyFormPreset(name) {
@@ -729,9 +726,9 @@ function addCommonField(key) {
   _ensurePoolsForForm(_formEditor.form.fields);
 }
 
-// 套用/添加字段后：检查字段引用的数据源池是否可用。
-// 判断基于「合并后的模板」（引擎默认池已补齐）——引擎默认或包已覆盖的
-// 无需建池；仅作者自定义且引擎默认也没有的键，才写入包数据。
+// 套用/添加字段后：把字段引用的数据源池「带入世界观」——
+// 包数据里缺失的池自动创建（预填模板示例，供作者参考修改），
+// 创建后选项编辑器动态出现对应「XXX池」tab，统一在那里编辑。
 // sects 走动态接口，不建池。
 function _ensurePoolsForForm(fields) {
   var need = [];
@@ -739,36 +736,30 @@ function _ensurePoolsForForm(fields) {
     if (f.options_from && f.options_from !== 'sects' && need.indexOf(f.options_from) === -1) need.push(f.options_from);
   });
   if (!need.length || !_formEditor.worldview) return;
-  apiFetch('/sessions/__any__/templates?worldview=' + encodeURIComponent(_formEditor.worldview))
+  apiFetch('/worldviews/' + encodeURIComponent(_formEditor.worldview) + '/data/player_templates.json')
     .then(function(r) { return r.json(); })
-    .then(function(d) {
-      var missing = need.filter(function(k) { return !d || d[k] === undefined; });
-      if (!missing.length) return;  // 引擎默认池已覆盖，无需建池
-      return apiFetch('/worldviews/' + encodeURIComponent(_formEditor.worldview) + '/data/player_templates.json')
-        .then(function(r) { return r.json(); })
-        .then(function(dd) {
-          var data = dd.data || {};
-          var created = [];
-          missing.forEach(function(k) {
-            if (data[k] !== undefined) return;
-            var defaults = null;
-            Object.keys(_COMMON_FIELD_TEMPLATES).forEach(function(tk) {
-              var t = _COMMON_FIELD_TEMPLATES[tk];
-              if (t.options_from === k && t.pool_defaults) defaults = t.pool_defaults;
-            });
-            data[k] = defaults ? JSON.parse(JSON.stringify(defaults)) : [];
-            created.push(k);
-          });
-          if (!created.length) return;
-          return apiFetch('/worldviews/' + encodeURIComponent(_formEditor.worldview) + '/data/player_templates.json', {
-            method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({data: data})
-          }).then(function() {
-            var msgEl = document.getElementById('form-editor-msg');
-            if (msgEl) msgEl.textContent = '✅ 已创建自定义数据源池：' + created.join('、') + '（可在 📋 选项编辑器继续编辑）';
-          });
+    .then(function(dd) {
+      var data = dd.data || {};
+      var created = [];
+      need.forEach(function(k) {
+        if (data[k] !== undefined) return;  // 包内已有（含作者改过）→ 不动
+        var defaults = null;
+        Object.keys(_COMMON_FIELD_TEMPLATES).forEach(function(tk) {
+          var t = _COMMON_FIELD_TEMPLATES[tk];
+          if (t.options_from === k && t.pool_defaults) defaults = t.pool_defaults;
         });
+        data[k] = defaults ? JSON.parse(JSON.stringify(defaults)) : [];
+        created.push(k);
+      });
+      if (!created.length) return;
+      return apiFetch('/worldviews/' + encodeURIComponent(_formEditor.worldview) + '/data/player_templates.json', {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({data: data})
+      }).then(function() {
+        var msgEl = document.getElementById('form-editor-msg');
+        if (msgEl) msgEl.textContent = '✅ 已把数据池带入世界观：' + created.join('、') + '（默认给示例，可在 📋 选项编辑器改成你世界的选项）';
+      });
     }).catch(function() {});
 }
 
@@ -830,42 +821,9 @@ function renderFormEditor() {
           '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--accent-dim)">显隐 <select data-f="visible_if" style="padding:4px 6px;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px"><option value=""' + (!field.visible_if ? ' selected' : '') + '>总是显示</option><option value="has_sects"' + (field.visible_if==='has_sects' ? ' selected' : '') + '>有宗门时</option><option value="has_golden_fingers"' + (field.visible_if==='has_golden_fingers' ? ' selected' : '') + '>有特殊能力时</option></select></label>' +
         '</div>' +
       '</div>' +
-      (field.kind === 'select' ? _fieldOptionsHtml(idx, field) : '') +
     '</div>';
   });
   list.innerHTML = html;
-}
-
-// 下拉字段的「📦 选项」就地编辑区（内嵌 options，随世界观保存）
-function _fieldOptionsHtml(idx, field) {
-  var opts = Array.isArray(field.options) ? field.options : [];
-  var rows = opts.map(function(o, oi) {
-    return '<div data-opt-row="' + oi + '" style="display:flex;gap:4px;margin-bottom:4px">' +
-      '<input data-opt="value" value="' + _esc(o.value || '') + '" placeholder="值(标识)" style="width:64px;padding:4px 6px;background:var(--panel);border:1px solid var(--border);border-radius:3px;color:var(--text);font-size:11px">' +
-      '<input data-opt="label" value="' + _esc(o.label || '') + '" placeholder="显示名(必填)" style="flex:1;min-width:0;padding:4px 6px;background:var(--panel);border:1px solid var(--border);border-radius:3px;color:var(--text);font-size:11px">' +
-      '<input data-opt="desc" value="' + _esc(o.desc || '') + '" placeholder="说明(可选)" style="flex:1.4;min-width:0;padding:4px 6px;background:var(--panel);border:1px solid var(--border);border-radius:3px;color:var(--text);font-size:11px">' +
-      '<button onclick="fieldOptDel(' + idx + ',' + oi + ')" title="删除此选项" style="background:none;border:none;color:#b06060;cursor:pointer;font-size:12px">✕</button></div>';
-  }).join('');
-  return '<div data-opt-editor style="margin-top:6px;border-top:1px dashed var(--border);padding-top:8px">' +
-    '<div style="font-size:11px;color:var(--accent);margin-bottom:4px">📦 选项（随世界观保存，就地编辑）</div>' +
-    rows +
-    '<button onclick="fieldOptAdd(' + idx + ')" style="padding:3px 10px;background:none;border:1px dashed var(--border);color:var(--accent-dim);border-radius:3px;cursor:pointer;font-size:11px">＋ 添加选项</button>' +
-  '</div>';
-}
-
-function fieldOptAdd(idx) {
-  var f = _formEditor.form.fields[idx];
-  if (!f) return;
-  if (!Array.isArray(f.options)) f.options = [];
-  f.options.push({value: '', label: '', desc: ''});
-  renderFormEditor();
-}
-
-function fieldOptDel(idx, oi) {
-  var f = _formEditor.form.fields[idx];
-  if (!f || !Array.isArray(f.options)) return;
-  f.options.splice(oi, 1);
-  renderFormEditor();
 }
 
 // 展开/收起字段卡片的「可选增强」区
@@ -922,20 +880,6 @@ function saveFormEditor() {
     if (checked('allow_custom')) field.allow_custom = true; else delete field.allow_custom;
     if (checked('random_button')) field.random_button = true; else delete field.random_button;
     if (!field.visible_if) delete field.visible_if;
-    // 下拉字段：收集内嵌选项（随世界观保存）
-    if (field.kind === 'select') {
-      var optRows = el.querySelectorAll('[data-opt-editor] [data-opt-row]');
-      var opts = [];
-      optRows.forEach(function(tr) {
-        var v = tr.querySelector('[data-opt="value"]');
-        var l = tr.querySelector('[data-opt="label"]');
-        var d = tr.querySelector('[data-opt="desc"]');
-        var item = { value: (v ? v.value : '').trim(), label: (l ? l.value : '').trim(), desc: (d ? d.value : '').trim() };
-        if (item.label) opts.push(item);
-      });
-      if (opts.length) field.options = opts;
-      else delete field.options;
-    }
   });
   var msgEl = document.getElementById('form-editor-msg');
   msgEl.textContent = '保存中…';
@@ -1303,12 +1247,7 @@ function openOptEditor(wvId) {
     });
     renderOptBody();
   }).catch(function() {});
-  // 预加载合并后的模板（引擎默认池已补齐）供缺失判断；
-  // playerData 为原始包数据（创建自定义池时写文件用）
-  apiFetch('/sessions/__any__/templates?worldview=' + encodeURIComponent(wvId)).then(function(r) { return r.json(); }).then(function(d) {
-    _optEditor.mergedTpl = d || {};
-    renderOptBody();
-  }).catch(function() {});
+  // playerData = 包原始数据（缺失判断 + 创建/删除池时写文件用）
   apiFetch('/worldviews/' + encodeURIComponent(wvId) + '/data/player_templates.json').then(function(r) { return r.json(); }).then(function(d) {
     _optEditor.playerData = d.data || {};
     renderOptBody();
@@ -1429,10 +1368,9 @@ function renderOptBody() {
 
 // 表单引用的数据源缺失提示 + 新建数据池（解决 options_from 无编辑入口）
 function _optSourcesHtml() {
-  // 缺失判断基于「合并后的模板」（引擎默认池已补齐）：引擎默认已有的键
-  // 不算缺失；仅引擎默认也没有的作者自定义键才提示创建。与当前 tab
-  // 加载的文件（如 npc_templates.json）无关。
-  var src = _optEditor.mergedTpl || {};
+  // 缺失判断基于「包数据」（池随世界观隔离）：表单引用的数据源
+  // 若不在这个世界观中，提示一键「带入」（预填模板示例）。
+  var src = _optEditor.playerData || {};
   var missing = (_optEditor.formSources || []).filter(function(k) {
     return src[k] === undefined;
   });
@@ -1480,9 +1418,15 @@ function createOptPool(key) {
   if (!/^[a-z_][a-z0-9_]*$/.test(key)) { alert('键名需小写字母/数字/下划线开头'); return; }
   var data = _optEditor.playerData || _optEditor.data || {};
   if (data[key] !== undefined) { alert('数据源已存在: ' + key); return; }
-  data[key] = [];
+  // 带入世界观时预填模板示例，供作者参考修改
+  var defaults = null;
+  Object.keys(_COMMON_FIELD_TEMPLATES).forEach(function(tk) {
+    var t = _COMMON_FIELD_TEMPLATES[tk];
+    if (t.options_from === key && t.pool_defaults) defaults = t.pool_defaults;
+  });
+  data[key] = defaults ? JSON.parse(JSON.stringify(defaults)) : [];
   _optEditor.playerData = data;
-  _optSaveWholeData('✅ 已创建数据池「' + key + '」');
+  _optSaveWholeData('✅ 已把数据池「' + key + '」带入世界观（预填示例，可改为你世界的选项）');
 }
 
 function createOptPoolFromInput() {
