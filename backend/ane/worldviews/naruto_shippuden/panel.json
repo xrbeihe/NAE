@@ -13,11 +13,6 @@
       }
     },
     {
-      "label": "忍者等级",
-      "key": "cultivation",
-      "source": "player"
-    },
-    {
       "label": "血继限界/能力",
       "key": "golden_finger_name",
       "source": "attrs",
