@@ -562,7 +562,7 @@
     <span onclick="promptLibRequestClose()" style="cursor:pointer;font-size:18px;color:var(--accent-dim);line-height:1;padding:2px 6px" title="关闭">✕</span>
   </div>
   <div style="overflow-y:auto;padding:12px 16px;flex:1;min-height:0">
-    <div style="font-size:11px;color:var(--accent-dim);margin-bottom:8px;text-align:center">一套提示词 = 前提示词 + 后提示词，可留空。勾选启用（单选）</div>
+    <div style="font-size:11px;color:var(--accent-dim);margin-bottom:8px;text-align:center">一套提示词 = 前提示词 + 后提示词，可留空。勾选启用（单选），双击已启用的提示词可取消选择</div>
     <!-- Token 上限滑动条 -->
     <div style="border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin-bottom:10px;background:var(--input-bg)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
@@ -1421,12 +1421,12 @@ function promptLibRender() {
     var active = p.enabled ? 'rgba(201,169,110,0.15)' : 'var(--input-bg)';
     var border = p.enabled ? 'var(--accent)' : 'var(--border)';
     var label = '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;flex:1;font-size:12px;color:' + (p.enabled ? 'var(--accent)' : 'var(--text)') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
-      '<input type="radio" name="prompt-lib-radio" onchange="promptLibEnable(\'' + p.id + '\',this.checked)" style="accent-color:var(--accent);cursor:pointer"' + (p.enabled ? ' checked' : '') + '>' +
+      '<input type="radio" name="prompt-lib-radio" value="' + p.id + '" onchange="promptLibEnable(\'' + p.id + '\',this.checked)" style="accent-color:var(--accent);cursor:pointer"' + (p.enabled ? ' checked' : '') + '>' +
       p.name + '</label>';
     var badge = '';
     if (p.pre_prompt) badge += '<span style="font-size:10px;color:var(--accent-dim)">前</span>';
     if (p.post_prompt) badge += '<span style="font-size:10px;color:var(--accent-dim)">后</span>';
-    return '<div style="display:flex;align-items:center;gap:4px;padding:6px 8px;border:1px solid ' + border + ';border-radius:4px;background:' + active + '">' +
+    return '<div data-id="' + p.id + '" data-enabled="' + (p.enabled ? '1' : '0') + '" ondblclick="promptLibToggle(\'' + p.id + '\')" title="双击取消选择" style="display:flex;align-items:center;gap:4px;padding:6px 8px;border:1px solid ' + border + ';border-radius:4px;background:' + active + ';cursor:default">' +
       label + badge +
       '<button onclick="promptLibEdit(\'' + p.id + '\')" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:2px 8px;border-radius:3px;cursor:pointer;font-size:11px">✏️</button>' +
       '<button onclick="promptLibDelete(\'' + p.id + '\',\'' + (p.name || '').replace(/'/g,"\\'") + '\')" style="background:none;border:1px solid var(--border);color:var(--danger);padding:2px 8px;border-radius:3px;cursor:pointer;font-size:11px">🗑</button>' +
@@ -1434,12 +1434,23 @@ function promptLibRender() {
   }).join('');
 }
 function promptLibEnable(id, checked) {
-  if (!checked) return; // 单选：radio 取消时不处理（radio 无法主动取消）
+  if (!checked) return; // radio 无法主动取消；取消由双击（promptLibToggle）处理
   var lib = getPromptLib();
   var target = null;
   lib.forEach(function(p) { p.enabled = (p.id === id); if (p.id === id) target = p; });
   savePromptLibCache();
-  promptLibRender();
+  // 只同步 radio 与高亮，不重建列表——否则 DOM 重建会使双击事件丢失
+  document.querySelectorAll('#prompt-lib-list input[name="prompt-lib-radio"]').forEach(function(r) {
+    r.checked = (r.value === id);
+  });
+  document.querySelectorAll('#prompt-lib-list > div[data-id]').forEach(function(row) {
+    var on = row.getAttribute('data-id') === id;
+    row.style.background = on ? 'rgba(201,169,110,0.15)' : 'var(--input-bg)';
+    row.style.borderColor = on ? 'var(--accent)' : 'var(--border)';
+    var lb = row.querySelector('label');
+    if (lb) lb.style.color = on ? 'var(--accent)' : 'var(--text)';
+    row.setAttribute('data-enabled', on ? '1' : '0');
+  });
   if (!target) return;
   apiFetch('/prompts/' + id, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({enabled: true}) })
     .then(function(r) { return r.json(); })
@@ -1448,6 +1459,25 @@ function promptLibEnable(id, checked) {
       else addMsg('system', '🛠 已启用提示词：「' + target.name + '」');
     })
     .catch(function(e) { addMsg('system', '提示词启用失败: ' + e.message); });
+}
+// 双击提示词条目：已启用 → 取消选择；未启用 → 启用（单选）。允许"不启用任何提示词"。
+function promptLibToggle(id) {
+  var lib = getPromptLib();
+  var target = null;
+  lib.forEach(function(p) {
+    if (p.id === id) { p.enabled = !p.enabled; target = p; }
+    else p.enabled = false;
+  });
+  savePromptLibCache();
+  promptLibRender(); // dblclick 已触发完毕，此时重建 DOM 安全
+  if (!target) return;
+  apiFetch('/prompts/' + id, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({enabled: !!target.enabled}) })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.detail) { addMsg('system', (target.enabled ? '提示词启用失败: ' : '提示词取消失败: ') + d.detail); return; }
+      addMsg('system', target.enabled ? ('🛠 已启用提示词：「' + target.name + '」') : ('🛠 已取消选择提示词：「' + target.name + '」'));
+    })
+    .catch(function(e) { addMsg('system', '提示词状态更新失败: ' + e.message); });
 }
 function promptLibNew() {
   // 新建前若有未保存改动，先询问（用户可能正编辑到一半）
