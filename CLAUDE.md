@@ -82,6 +82,15 @@ watch_backup.bat
 
 ## 功能变更记录
 
+### 🛡️ 部署保护 + 服务器内容同步 + 世界观历史完善
+- **部署保护（ci.yml）**：deploy job 在 `actions/checkout` **之前**检测服务器 worktree 未提交改动（网页编辑器直接写磁盘的包文件，如 world_facts.json）——有改动则 tar 打包 `worldviews/` + `git diff` 上传为 artifact `ane-server-edits-backup`，并**中止部署**，防止 checkout 静默覆盖手改内容。worktree 干净时正常部署
+- **服务器 ↔ GitHub 双向同步**：网页编辑保存 → 服务器 `git add -A && git commit && git push`（HTTPS + PAT）→ 本地 `git pull`。图片库数据（`data/images/` + `image_categories` 表）是运行时数据，不在 git 内，无需推送也不受部署影响
+- **📜 世界观历史（lore）**：naruto `world_facts.lore` 写入完整木叶编年史——表格版（木叶前 24 年—木叶 68 年，时间/大事记/人物出生）+ 浓缩年表（按木叶年纪年）+ 关键事件散文 + 人物成长线（春野樱/井野/纲手/手鞠/雏田/白/夕日红，含年龄戳如雏田 12/14/19/32）；聊天页 📜 弹窗展示
+- **🛠 提示词库双击取消选择**：新增 `promptLibToggle`——双击提示词条目切换启用/取消，允许"不启用任何提示词"；`promptLibEnable` 勾选时只同步 radio 与高亮、不再重建 DOM（否则双击事件丢失）；后端 `PUT /prompts/{id}` 原生支持 `enabled:false`
+- **🧹 经济系统彻底移除**：清理 5 包 `manifest.savings_unit`、`panel` 存款字段、`system_prompt` 的 `economy_change` 说明、`ui.json` 经济尾巴推荐文案、designer 货币名称字段（后端已不消费）；文档同步清理
+- **🎭 naruto 移除职业/能力**：删除 `cultivations`（下忍/中忍/上忍/暗部/医疗忍者/村民）数据与 `form.json`「忍者等级」字段——与「身份」选项重复；面板忍者等级改由 `player.cultivation` 直接显示
+- 服务器端编辑：naruto `player_templates.json` 出身背景简化（label 去括号、清空 initial_resource/性格倾向、砂忍流亡→流亡忍者）
+
 ### 🎯 位置体系重构 + 卡片渲染修复 + 1v1 历史修复（v1.3+）
 - **初始无位置**：`_pick_start_location` 改为返回空，玩家初始无固定位置；第一轮 prompt 渲染「具体位置：未设定」，LLM 按角色身份/世界观/时间线自主决定位置（输出 location_change 确立）。解决砂忍角色被生成在木叶等身份-位置错配
 - **剧情航线注入**：world_facts.json 支持 `story_route` 字段（极简箭头链），每轮【本世界权威设定】注入；LLM 从航线定位当前位置并推下一站。one_piece 已配 21 地完整航线（东海篇+伟大航路+新世界）
