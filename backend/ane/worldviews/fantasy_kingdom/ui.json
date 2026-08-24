@@ -19,35 +19,23 @@
         "key": "name"
       },
       {
-        "label": "性别",
-        "composite": "性别：{gender} ｜ 年龄：{age}岁"
+        "label": "年龄",
+        "key": "age"
       },
       {
-        "label": "职业",
-        "key": "cultivation"
+        "label": "性别",
+        "key": "gender"
       },
       {
         "label": "身份",
-        "composite": "身份：{identity} — {identity_desc}"
-      },
-      {
-        "label": "性格",
-        "key": "personality"
-      },
-      {
-        "label": "出身",
-        "key": "background_summary"
-      },
-      {
-        "label": "衣物",
-        "key": "clothing",
-        "default": "未设定"
+        "key": "identity"
       }
     ],
     "conditional": [
       {
-        "label": "初始位置",
-        "key": "location"
+        "label": "特殊能力",
+        "key": "golden_finger_name",
+        "show_if": "truthy"
       }
     ]
   },

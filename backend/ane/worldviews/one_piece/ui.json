@@ -19,34 +19,35 @@
         "key": "name"
       },
       {
+        "label": "年龄",
+        "key": "age"
+      },
+      {
         "label": "性别",
-        "composite": "性别：{gender} ｜ 年龄：{age}岁"
+        "key": "gender"
+      },
+      {
+        "label": "出身",
+        "key": "background_summary"
       },
       {
         "label": "身份",
         "key": "cultivation"
       },
       {
-        "label": "职位",
-        "composite": "职位：{identity} — {identity_desc}"
-      },
-      {
         "label": "性格",
         "key": "personality"
       },
       {
-        "label": "出身",
-        "key": "background_summary"
+        "label": "外貌简述",
+        "key": "appearance_brief"
       }
     ],
     "conditional": [
       {
-        "label": "恶魔果实",
-        "key": "golden_finger_name"
-      },
-      {
-        "label": "初始位置",
-        "key": "location"
+        "label": "特殊能力",
+        "key": "golden_finger_name",
+        "show_if": "truthy"
       }
     ]
   },

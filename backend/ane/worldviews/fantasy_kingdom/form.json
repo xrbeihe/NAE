@@ -25,19 +25,9 @@
     {
       "key": "gender",
       "label": "性别",
-      "kind": "select",
+      "kind": "text",
       "options_from": "genders",
       "store": "attrs.gender"
-    },
-    {
-      "key": "cultivation",
-      "label": "能力",
-      "kind": "select",
-      "options_from": "cultivations",
-      "hint_template": "{desc}",
-      "allow_custom": true,
-      "custom_label": "自定义",
-      "store": "player.cultivation"
     },
     {
       "key": "identity",

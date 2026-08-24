@@ -716,38 +716,46 @@ function addCommonField(key) {
   _ensurePoolsForForm(_formEditor.form.fields);
 }
 
-// 套用/添加字段后：自动检查并创建缺失的数据源池（带模板预填默认选项），
-// 作者无需手动去选项编辑器建池。sects 走动态接口，不建池。
+// 套用/添加字段后：检查字段引用的数据源池是否可用。
+// 判断基于「合并后的模板」（引擎默认池已补齐）——引擎默认或包已覆盖的
+// 无需建池；仅作者自定义且引擎默认也没有的键，才写入包数据。
+// sects 走动态接口，不建池。
 function _ensurePoolsForForm(fields) {
   var need = [];
   fields.forEach(function(f) {
     if (f.options_from && f.options_from !== 'sects' && need.indexOf(f.options_from) === -1) need.push(f.options_from);
   });
   if (!need.length || !_formEditor.worldview) return;
-  apiFetch('/worldviews/' + encodeURIComponent(_formEditor.worldview) + '/data/player_templates.json')
+  apiFetch('/sessions/__any__/templates?worldview=' + encodeURIComponent(_formEditor.worldview))
     .then(function(r) { return r.json(); })
     .then(function(d) {
-      var data = d.data || {};
-      var created = [];
-      need.forEach(function(k) {
-        if (data[k] !== undefined) return;
-        var defaults = null;
-        Object.keys(_COMMON_FIELD_TEMPLATES).forEach(function(tk) {
-          var t = _COMMON_FIELD_TEMPLATES[tk];
-          if (t.options_from === k && t.pool_defaults) defaults = t.pool_defaults;
+      var missing = need.filter(function(k) { return !d || d[k] === undefined; });
+      if (!missing.length) return;  // 引擎默认池已覆盖，无需建池
+      return apiFetch('/worldviews/' + encodeURIComponent(_formEditor.worldview) + '/data/player_templates.json')
+        .then(function(r) { return r.json(); })
+        .then(function(dd) {
+          var data = dd.data || {};
+          var created = [];
+          missing.forEach(function(k) {
+            if (data[k] !== undefined) return;
+            var defaults = null;
+            Object.keys(_COMMON_FIELD_TEMPLATES).forEach(function(tk) {
+              var t = _COMMON_FIELD_TEMPLATES[tk];
+              if (t.options_from === k && t.pool_defaults) defaults = t.pool_defaults;
+            });
+            data[k] = defaults ? JSON.parse(JSON.stringify(defaults)) : [];
+            created.push(k);
+          });
+          if (!created.length) return;
+          return apiFetch('/worldviews/' + encodeURIComponent(_formEditor.worldview) + '/data/player_templates.json', {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({data: data})
+          }).then(function() {
+            var msgEl = document.getElementById('form-editor-msg');
+            if (msgEl) msgEl.textContent = '✅ 已创建自定义数据源池：' + created.join('、') + '（可在 📋 选项编辑器继续编辑）';
+          });
         });
-        data[k] = defaults ? JSON.parse(JSON.stringify(defaults)) : [];
-        created.push(k);
-      });
-      if (!created.length) return;
-      return apiFetch('/worldviews/' + encodeURIComponent(_formEditor.worldview) + '/data/player_templates.json', {
-        method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({data: data})
-      }).then(function() {
-        var msgEl = document.getElementById('form-editor-msg');
-        if (msgEl) msgEl.textContent = '✅ 已自动创建数据源池：' + created.join('、') + '（可在 📋 选项编辑器继续编辑）';
-      });
     }).catch(function() {});
 }
 
@@ -1235,7 +1243,12 @@ function openOptEditor(wvId) {
     });
     renderOptBody();
   }).catch(function() {});
-  // 预加载 player_templates 数据，供缺失判断使用（不随 tab 切换变化）
+  // 预加载合并后的模板（引擎默认池已补齐）供缺失判断；
+  // playerData 为原始包数据（创建自定义池时写文件用）
+  apiFetch('/sessions/__any__/templates?worldview=' + encodeURIComponent(wvId)).then(function(r) { return r.json(); }).then(function(d) {
+    _optEditor.mergedTpl = d || {};
+    renderOptBody();
+  }).catch(function() {});
   apiFetch('/worldviews/' + encodeURIComponent(wvId) + '/data/player_templates.json').then(function(r) { return r.json(); }).then(function(d) {
     _optEditor.playerData = d.data || {};
     renderOptBody();
@@ -1356,9 +1369,10 @@ function renderOptBody() {
 
 // 表单引用的数据源缺失提示 + 新建数据池（解决 options_from 无编辑入口）
 function _optSourcesHtml() {
-  // 缺失判断基于 player_templates.json（表单 options_from 只引用它），
-  // 与当前 tab 加载的文件（如 npc_templates.json）无关
-  var src = _optEditor.playerData || _optEditor.data || {};
+  // 缺失判断基于「合并后的模板」（引擎默认池已补齐）：引擎默认已有的键
+  // 不算缺失；仅引擎默认也没有的作者自定义键才提示创建。与当前 tab
+  // 加载的文件（如 npc_templates.json）无关。
+  var src = _optEditor.mergedTpl || {};
   var missing = (_optEditor.formSources || []).filter(function(k) {
     return src[k] === undefined;
   });

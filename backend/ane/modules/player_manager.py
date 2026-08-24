@@ -33,13 +33,25 @@ with open(_templates_path, "r", encoding="utf-8") as f:
 class PlayerManager:
     """Manages player data. Does NOT handle narrative logic."""
 
+    # 跨世界观通用的池键：包缺失时从引擎默认补齐（包有则覆盖，题材可定制）
+    _COMMON_POOL_KEYS = ("genders", "appearances", "weapons", "races", "spiritual_roots")
+
     def get_templates(self, worldview: str | None = None) -> dict:
-        """Return the player creation template data for the frontend."""
+        """Return the player creation template data for the frontend.
+
+        包级 player_templates 存在时，缺失的通用池键（genders/appearances/
+        weapons/races/spiritual_roots）自动从引擎默认补齐——通用池引擎维护
+        一份，各包无需重复复制；包内有该键则覆盖引擎默认（题材定制）。
+        """
         from ane.worldview import get as get_worldview, DEFAULT_WORLDVIEW_ID
         wv = get_worldview(worldview or DEFAULT_WORLDVIEW_ID)
-        if wv.player_templates:
-            return wv.player_templates
-        return PLAYER_TEMPLATES
+        if not wv.player_templates:
+            return PLAYER_TEMPLATES
+        merged = dict(wv.player_templates)
+        for k in self._COMMON_POOL_KEYS:
+            if k not in merged and PLAYER_TEMPLATES.get(k):
+                merged[k] = PLAYER_TEMPLATES[k]
+        return merged
 
     async def create(
         self, db: AsyncSession, session_id: str, worldview: str | None = None,

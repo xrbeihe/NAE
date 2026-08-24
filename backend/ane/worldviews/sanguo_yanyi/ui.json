@@ -19,28 +19,36 @@
         "key": "name"
       },
       {
-        "label": "字",
+        "label": "字（表字）",
         "key": "courtesy_name"
-      },
-      {
-        "label": "性别",
-        "key": "gender"
       },
       {
         "label": "年龄",
         "key": "age"
       },
       {
-        "label": "身份",
-        "composite": "身份：{identity} — {identity_desc}"
+        "label": "性别",
+        "key": "gender"
+      },
+      {
+        "label": "出身",
+        "key": "background_summary"
       },
       {
         "label": "性格",
         "key": "personality"
       },
       {
-        "label": "出身",
-        "key": "background_summary"
+        "label": "身份",
+        "key": "identity"
+      },
+      {
+        "label": "外貌简述",
+        "key": "appearance_brief"
+      },
+      {
+        "label": "武器/装备",
+        "key": "weapon"
       }
     ],
     "conditional": [
