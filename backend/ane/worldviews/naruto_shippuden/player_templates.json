@@ -44,37 +44,37 @@
   "backgrounds": [
     {
       "value": "孤儿",
-      "label": "孤儿（无亲无故）",
-      "desc": "从小失去双亲，被村子当作异类疏远，靠自己的意志走到今天。",
-      "initial_resource": "一个存钱罐和满身伤痕。",
-      "personality_tendency": "渴望被认可，用吵闹和倔强掩饰孤独。",
+      "label": "孤儿",
+      "desc": "孤儿",
+      "initial_resource": "",
+      "personality_tendency": "",
       "typical_sect_path": "从忍者学校毕业，加入某班成为下忍。",
       "background_summary": "从小失去双亲，被村子当作异类疏远，靠自己的意志走到今天。"
     },
     {
       "value": "忍者世家",
-      "label": "忍者世家（名门之后）",
-      "desc": "出身显赫的忍者家族，背负着家族的血脉与期望。",
-      "initial_resource": "家族传授的秘术和一把家传武器。",
-      "personality_tendency": "骄傲而克制，时刻谨记家族荣耀。",
+      "label": "忍者世家",
+      "desc": "有家族或血脉",
+      "initial_resource": "",
+      "personality_tendency": "",
       "typical_sect_path": "家族安排或自己选择的忍者之路。",
       "background_summary": "出身显赫的忍者家族，背负着家族的血脉与期望。"
     },
     {
       "value": "平民子弟",
-      "label": "平民子弟（普通人家的孩子）",
-      "desc": "父母是普通村民，凭自己的努力考入忍者学校。",
-      "initial_resource": "父母的支持和一颗不服输的心。",
-      "personality_tendency": "踏实勤奋，珍惜来之不易的机会。",
+      "label": "平民子弟",
+      "desc": "村里的普通人",
+      "initial_resource": "",
+      "personality_tendency": "",
       "typical_sect_path": "从忍者学校一步步往上爬。",
       "background_summary": "父母是普通村民，凭自己的努力考入忍者学校。"
     },
     {
-      "value": "砂忍流亡",
-      "label": "砂忍后裔（流亡者）",
-      "desc": "来自其他隐村的忍者，因种种原因来到木叶。",
-      "initial_resource": "一身异乡的忍术和一个不能说的秘密。",
-      "personality_tendency": "警觉而疏离，对村子归属感淡薄。",
+      "value": "流亡忍者",
+      "label": "流亡者",
+      "desc": "流亡忍者",
+      "initial_resource": "",
+      "personality_tendency": "",
       "typical_sect_path": "以中忍身份受雇，逐步融入木叶。",
       "background_summary": "来自其他隐村的忍者，因种种原因来到木叶。"
     }
