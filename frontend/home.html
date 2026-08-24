@@ -561,7 +561,7 @@ async function loadWorldManageList() {
         return '<div style="display:flex;align-items:center;padding:10px;border-bottom:1px solid var(--border)">' +
           '<div onclick="switchToWorld(\'' + s.session_id + '\')" style="flex:1;cursor:pointer;min-width:0">' +
           '<div style="font-size:14px;color:var(--text)">' + s.name + ' — ' + (s.player_name || '无名修士') + '</div>' +
-          '<div style="font-size:12px;color:var(--accent-dim)">' + (s.world_time || '') + ' · ' + (s.player_cultivation || '?') + '</div></div>' +
+          '<div style="font-size:12px;color:var(--accent-dim)">' + (s.world_time || '') + '</div></div>' +
           '<button onclick="event.stopPropagation();deleteWorld(\'' + s.session_id + '\', \'' + escHtml(s.name) + '\')" style="background:none;border:1px solid var(--danger);color:var(--danger);padding:2px 8px;border-radius:3px;cursor:pointer;font-size:11px;flex-shrink:0;margin-left:8px">删除</button></div>';
       }).join('');
     }

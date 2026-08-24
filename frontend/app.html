@@ -950,7 +950,7 @@ async function loadSessionList() {
       card.innerHTML = '<div style="display:flex;align-items:center;padding:10px 14px;margin:2px 8px;border-radius:4px;cursor:pointer;transition:background 0.15s' + (s.session_id === sessionId ? ';background:var(--input-bg);border-left:3px solid var(--accent)' : '') + '">' +
         '<input type="checkbox" class="sel-check" style="display:none;flex-shrink:0;margin-right:8px;accent-color:var(--accent);width:16px;height:16px;cursor:pointer" onclick="event.stopPropagation();updateBatchCount()">' +
         '<div class="info" style="flex:1;min-width:0"><div class="name" style="font-size:14px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(s.name) + ' — ' + escHtml(s.player_name||'无名修士') + '</div>' +
-        '<div class="meta" style="font-size:11px;color:var(--accent-dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(s.world_time) + ' · ' + escHtml(s.player_cultivation||'?') + '</div></div>' +
+        '<div class="meta" style="font-size:11px;color:var(--accent-dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(s.world_time) + '</div></div>' +
         '<button class="del-btn" onclick="event.stopPropagation();deleteSession(\'' + s.session_id + '\', \'' + escHtml(s.name) + '\')" style="background:none;border:1px solid var(--danger);color:var(--danger);padding:2px 8px;border-radius:3px;cursor:pointer;font-size:11px;flex-shrink:0;margin-left:8px">删除</button></div>';
       list.appendChild(card);
     }
@@ -994,7 +994,7 @@ async function switchSession(sid) {
     document.getElementById('session-id-display').textContent = '会话: ' + data.session_id.substring(0,8) + '... | ' + data.name;
     clearChat();
     if (data.conversation && data.conversation.length > 0) {
-      addMsg('system', '已进入「' + data.name + '」\n时间: ' + data.world_time + ' · 角色: ' + (data.player_name||'无名修士') + ' · ' + (data.player_cultivation||'?') + '\n核心人物: ' + ((data.npc_names||[]).join('、') || '无'));
+      addMsg('system', '已进入「' + data.name + '」\n时间: ' + data.world_time + ' · 角色: ' + (data.player_name||'无名修士'));
       for (var entry of data.conversation) {
         var lines = entry.content.split('\n');
         for (var i = 0; i < lines.length; i++) {
@@ -1171,7 +1171,7 @@ async function applyCharacter() {
       // 显示世界进入信息
       var statusLabel = (worldviewState.ui && worldviewState.ui.labels && worldviewState.ui.labels.role) || '角色';
       var sr = await apiFetch('/sessions/' + sid);
-      if (sr.ok) { var sd = await sr.json(); if (sd.world_time) addMsg('system', '已进入「' + wvName + '」\n时间: ' + sd.world_time + ' · ' + statusLabel + ': ' + data.player_name + ' · ' + data.cultivation + '\n'); }
+      if (sr.ok) { var sd = await sr.json(); if (sd.world_time) addMsg('system', '已进入「' + wvName + '」\n时间: ' + sd.world_time + ' · ' + statusLabel + ': ' + data.player_name + '\n'); }
       if (data.card_content) addMsg('system', data.card_content);
       else {
         // 后端未返回卡片时（旧后端），回退到本地拼装
@@ -2949,7 +2949,7 @@ async function loadWorldManageList() {
   try { var r = await apiFetch('/sessions'); if (!r.ok) return; var ss = await r.json();
     var listDiv = document.getElementById('world-list');
     if (!ss.length) listDiv.innerHTML = '<div style="text-align:center;color:var(--accent-dim);padding:20px">暂无世界，点击上方"创建新世界"</div>';
-    else listDiv.innerHTML = ss.map(function(s) { return '<div style="display:flex;align-items:center;padding:10px;border-bottom:1px solid var(--border)"><div onclick="switchToWorld(\'' + s.session_id + '\')" style="flex:1;cursor:pointer;min-width:0"><div style="font-size:14px;color:var(--text)">' + s.name + ' — ' + (s.player_name||'无名修士') + '</div><div style="font-size:12px;color:var(--accent-dim)">' + (s.world_time||'') + ' · ' + (s.player_cultivation||'?') + '</div></div><button onclick="event.stopPropagation();deleteWorld(\'' + s.session_id + '\', \'' + escHtml(s.name) + '\')" style="background:none;border:1px solid var(--danger);color:var(--danger);padding:2px 8px;border-radius:3px;cursor:pointer;font-size:11px;flex-shrink:0;margin-left:8px">删除</button></div>'; }).join('');
+    else listDiv.innerHTML = ss.map(function(s) { return '<div style="display:flex;align-items:center;padding:10px;border-bottom:1px solid var(--border)"><div onclick="switchToWorld(\'' + s.session_id + '\')" style="flex:1;cursor:pointer;min-width:0"><div style="font-size:14px;color:var(--text)">' + s.name + ' — ' + (s.player_name||'无名修士') + '</div><div style="font-size:12px;color:var(--accent-dim)">' + (s.world_time||'') + '</div></div><button onclick="event.stopPropagation();deleteWorld(\'' + s.session_id + '\', \'' + escHtml(s.name) + '\')" style="background:none;border:1px solid var(--danger);color:var(--danger);padding:2px 8px;border-radius:3px;cursor:pointer;font-size:11px;flex-shrink:0;margin-left:8px">删除</button></div>'; }).join('');
   } catch(e) { frontendLog('ERROR', 'Load world list: ' + e.message); }
 }
 function switchToWorld(sid) { closeWorldManageModal(); switchSession(sid); }
