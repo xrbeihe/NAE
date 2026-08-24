@@ -734,7 +734,7 @@ function renderFormEditor() {
   '<div style="margin-bottom:10px"><label style="display:block;font-size:12px;color:var(--accent-dim)">主标题</label>' +
     '<input type="text" id="form-editor-title-input" value="' + _esc(f.title || '') + '" style="width:100%;padding:8px 12px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px;box-sizing:border-box"></div>';
   f.fields.forEach(function(field, idx) {
-    html += '<div style="border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-bottom:8px;background:var(--input-bg)">' +
+    html += '<div data-form-card="' + idx + '" style="border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-bottom:8px;background:var(--input-bg)">' +
       '<div style="display:flex;align-items:center;gap:6px">' +
         '<span style="font-size:12px;color:var(--accent-dim);width:26px">' + (idx+1) + '</span>' +
         '<input type="text" data-f="label" value="' + _esc(field.label || field.key || '') + '" placeholder="子标题（如：身份）" style="flex:1;min-width:0;padding:6px 10px;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px">' +
@@ -803,7 +803,8 @@ function saveFormEditor() {
   var f = _formEditor.form;
   f.title = document.getElementById('form-editor-title-input').value.trim() || '创建你的角色';
   var list = document.getElementById('form-fields-list');
-  var blocks = list.querySelectorAll('div[style*="border:1px solid var(--border)"]');
+  // 只匹配字段卡片（data-form-card），避免「一键套用/常用字段」区块被误当字段
+  var blocks = list.querySelectorAll('[data-form-card]');
   f.fields.forEach(function(field, idx) {
     var el = blocks[idx];
     if (!el) return;
