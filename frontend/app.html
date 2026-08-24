@@ -39,6 +39,16 @@
     display: flex; gap: 8px; align-items: center; flex-shrink: 0;
   }
   #session-id-display { font-size: 12px; color: var(--accent-dim); }
+  /* 胶囊按钮：上下直边 + 左右半圆，左对齐工具按钮共用 */
+  .pill-btn {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 14px; border-radius: 999px;
+    border: 1px solid var(--border); background: var(--panel);
+    color: var(--accent-dim); cursor: pointer; font-size: 12px;
+    font-family: inherit; white-space: nowrap; flex-shrink: 0;
+    line-height: 1.2; user-select: none;
+  }
+  .pill-btn:hover { border-color: var(--accent); color: var(--accent); }
   #session-avatar-btn {
     width: 30px; height: 30px; border-radius: 50%; overflow: hidden;
     cursor: pointer; flex-shrink: 0; border: 1px solid var(--border);
@@ -436,6 +446,7 @@
         <button id="model-btn" onclick="showModelPopup()">✨<span id="model-btn-label">loading</span></button>
         <select id="model-select" style="display:none"></select>
         <button id="color-btn" onclick="showColorPopup()" style="background:transparent;border:1px solid var(--border);color:var(--accent-dim);padding:2px 6px;border-radius:3px;cursor:pointer;font-size:12px;font-family:inherit">🎨</button>
+        <button id="world-lore-btn" onclick="showSessionWorldLore()" title="查看作者撰写的世界历史" style="background:transparent;border:1px solid var(--border);color:var(--accent-dim);padding:2px 8px;border-radius:3px;cursor:pointer;font-size:12px;font-family:inherit">📜</button>
       </div>
     </div>
     <div id="chat"><div class="msg system">欢迎来到 AI Narrative Engine。<br>选择一个世界继续冒险。</div></div>
@@ -443,17 +454,17 @@
     <div id="player-ball" title="角色面板" onclick="togglePlayerBall()">🧑</div>
     <div id="player-ball-panel"></div>
     <div id="rec-area">
-      <div style="display:flex;align-items:center;gap:4px;margin-bottom:4px">
-        <div id="rec-label" style="font-size:11px;color:var(--accent-dim);margin-left:auto">💡推荐行动</div>
-        <span id="rec-count" style="font-size:11px;color:var(--accent-dim)"></span>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;overflow-x:auto;padding:2px 0">
+        <div id="rec-label" style="font-size:11px;color:var(--accent-dim);flex-shrink:0">💡推荐行动</div>
+        <span id="rec-count" style="font-size:11px;color:var(--accent-dim);flex-shrink:0"></span>
         <button id="rec-mobile-btn" class="cmd-btn" onclick="recMobileClick()" title="推荐行动" style="display:none">💡 推荐 (<span id="rec-mobile-count">0</span>)</button>
-        <span style="display:flex;align-items:center;flex-shrink:0;margin-left:auto">
-          <span id="help-btn" onclick="showHelpPopup(event)" style="cursor:pointer;font-size:13px" title="勾选说明">❤️</span>
-          <span onclick="showRelationshipGraph()" style="cursor:pointer;font-size:13px" title="关系网图谱">🚻</span>
-          <span onclick="showNpcLibraryPopup()" style="cursor:pointer;font-size:13px" title="NPC总库">📚</span>
-          <span id="summary-bar-btn" onclick="showLatestSummary()" style="cursor:pointer;font-size:13px;margin-left:2px" title="查看上轮场景摘要">📘</span>
-          <span id="word-count-btn" onclick="showWordCountPopup(event)" style="cursor:pointer;font-size:13px;margin-left:2px" title="正文字数设置">🔤</span>
-          <span id="prompt-lib-btn" onclick="showPromptLibPopup(event)" style="cursor:pointer;font-size:13px;margin-left:2px" title="提示词库">🛠</span>
+        <span style="display:flex;align-items:center;gap:6px;flex-shrink:0;margin-left:4px">
+          <span id="help-btn" class="pill-btn" onclick="showHelpPopup(event)" title="勾选说明">❤️ 勾选说明</span>
+          <span class="pill-btn" onclick="showRelationshipGraph()" title="关系网图谱">🚻 关系网</span>
+          <span class="pill-btn" onclick="showNpcLibraryPopup()" title="NPC总库">📚 NPC总库</span>
+          <span id="summary-bar-btn" class="pill-btn" onclick="showLatestSummary()" title="查看上轮场景摘要">📘 上轮摘要</span>
+          <span id="word-count-btn" class="pill-btn" onclick="showWordCountPopup(event)" title="正文字数设置">🔤 字数</span>
+          <span id="prompt-lib-btn" class="pill-btn" onclick="showPromptLibPopup(event)" title="提示词库">🛠 提示词库</span>
         </span>
       </div>
       <div id="rec-grid">
@@ -2000,6 +2011,36 @@ function togglePlayerBall() {
     panel.style.transform = 'none';
   }
   setupPanelDrag();
+}
+
+// Show the author-written world history (world_facts.lore) for the current
+// session's worldview, e.g. everything that happened in Naruto's world.
+function showSessionWorldLore() {
+  var wvId = getCurrentWorldviewId();
+  if (!wvId) { alert('未获取到当前世界观'); return; }
+  var title = getCurrentWorldviewName() || wvId;
+  var lore = (charTemplates && charTemplates.world_facts && charTemplates.world_facts.lore) || '';
+  function openLore(text) {
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:30000;display:flex;align-items:center;justify-content:center;';
+    var box = document.createElement('div');
+    box.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-radius:12px;width:92vw;max-width:720px;height:80vh;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,0.5);';
+    box.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--panel)">' +
+      '<span style="font-size:15px;color:var(--accent);font-weight:bold">📜 ' + escHtml(title) + ' · 世界历史</span>' +
+      '<span id="lore-close" style="cursor:pointer;font-size:20px;color:var(--accent-dim);padding:2px 6px">✕</span></div>' +
+      '<div style="padding:16px 18px;overflow-y:auto;line-height:1.7;font-size:13px;color:var(--text);white-space:pre-wrap">' + escHtml(text) + '</div>';
+    box.querySelector('#lore-close').onclick = function() { document.body.removeChild(overlay); };
+    overlay.appendChild(box);
+    overlay.onclick = function(e) { if (e.target === overlay) document.body.removeChild(overlay); };
+    document.body.appendChild(overlay);
+  }
+  if (lore) { openLore(lore); return; }
+  // Templates may not be loaded yet — fetch them to get world_facts.lore.
+  apiFetch('/sessions/__any__/templates?worldview=' + encodeURIComponent(wvId)).then(function(r) { return r.json(); }).then(function(d) {
+    var l = (d && d.world_facts && d.world_facts.lore) || '';
+    if (l) openLore(l);
+    else alert('该世界观暂无作者撰写的世界历史');
+  }).catch(function() { alert('获取世界历史失败'); });
 }
 // ── Avatar / panel drag ──
 function setupPanelDrag() {
