@@ -34,6 +34,60 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: self-hosted
     steps:
+      # ── 部署保护 ─────────────────────────────────────────────
+      # 网页编辑器（designer 等）会把内容直接写到服务器磁盘的包文件
+      # （world_facts.json / system_prompt.txt / ui.json …），而下面的
+      # actions/checkout 会把已跟踪文件重置为仓库版本——手改内容会被
+      # 静默覆盖且无法找回。因此在 checkout 之前检测 worktree 是否有
+      # 未提交改动：有则先打包备份为 artifact，再中止部署。
+      - name: Detect server-side uncommitted edits (pre-checkout)
+        id: dirty
+        shell: bash
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          if [ ! -d .git ]; then
+            echo "dirty=no" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
+            echo "dirty=yes" >> "$GITHUB_OUTPUT"
+            echo "Server worktree has uncommitted changes:"
+            git status --porcelain
+          else
+            echo "dirty=no" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Backup server-side edits (pre-checkout)
+        if: steps.dirty.outputs.dirty == 'yes'
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/ane-server-backup"
+          cd "$GITHUB_WORKSPACE"
+          # 完整打包网页可编辑的世界观内容（当前磁盘状态，含未提交手改）
+          tar -czf "$RUNNER_TEMP/ane-server-backup/server-worldviews.tar.gz" backend/ane/worldviews 2>/dev/null || true
+          # 已跟踪文件的未提交 diff（覆盖所有被网页编辑器修改的文件）
+          git diff > "$RUNNER_TEMP/ane-server-backup/server-uncommitted.diff" 2>/dev/null || true
+          # 未提交文件清单
+          git status --porcelain > "$RUNNER_TEMP/ane-server-backup/server-status.txt" 2>/dev/null || true
+          ls -la "$RUNNER_TEMP/ane-server-backup"
+
+      - name: Upload server-edit backup artifact
+        if: steps.dirty.outputs.dirty == 'yes'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ane-server-edits-backup
+          path: ${{ runner.temp }}/ane-server-backup
+          if-no-files-found: warn
+
+      - name: Abort deploy to protect server-side edits
+        if: steps.dirty.outputs.dirty == 'yes'
+        shell: bash
+        run: |
+          echo "::error::检测到服务器端存在未提交修改（通常是网页编辑保存的世界观设定，如 world_facts.json）。"
+          echo "::error::已备份到 Actions artifact「ane-server-edits-backup」，请下载找回内容。"
+          echo "::error::处理方式：确认内容后 git add + commit + push 同步；或在服务器 git checkout -- . 丢弃后重新推送。"
+          exit 1
+
       - uses: actions/checkout@v5.1.0
         with:
           clean: false
