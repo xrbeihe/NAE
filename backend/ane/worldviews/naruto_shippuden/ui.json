@@ -20,7 +20,11 @@
       },
       {
         "label": "性别",
-        "composite": "性别：{gender} ｜ 年龄：{age}岁"
+        "key": "gender"
+      },
+      {
+        "label": "年龄",
+        "key": "age"
       },
       {
         "label": "身份",
