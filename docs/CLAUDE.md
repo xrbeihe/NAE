@@ -111,6 +111,41 @@
 > 注意：原则 1 不排斥开局时的静态模板数据（宗门列表、城市描述、NPC 名字池等）。
 > 这些是程序搭舞台的材料，属于原则 4 的范畴，不是 AI 需要维护的"动态状态"。
 
+## 世界观包权限（系统包隔离 + 白名单）
+
+### 系统包 vs 用户包
+- **系统包（内置公共包）**：`worldviews/` 下 manifest **无 `owner_user_id`** 的包
+  （xianxia_v1 / modern_city / fantasy_kingdom / naruto_shippuden / one_piece）。
+  属于项目公共资源：所有玩家可玩（角色创建下拉可见），但**只有白名单管理员可编辑**。
+- **用户包**：通过 `POST /worldviews/upload` 上传安装，manifest 写入 `owner_user_id`。
+  仅**作者本人或白名单管理员**可编辑。
+
+### API/网页层权限（后端强制）
+- 包写操作（form/ui/data/prompt/reload/delete/upload/share/unshare）一律要求登录：
+  匿名 401，无权 403。
+- 内置包写操作：仅白名单管理员。
+- 用户包写操作：仅作者或白名单管理员。
+- `GET /worldviews` 默认返回全部（游戏侧角色创建用）；
+  `?scope=mine` 按用户过滤（designer 用）：管理员见全部，普通用户只见
+  自己上传的 + 开源共享库中的包，匿名返回空。
+- designer 前端按 `editable` 标志隐藏编辑/删除按钮；普通账号对内置包显示「(只读)」。
+
+### 白名单配置
+- `config.json` → `worldview_admin_ids`（默认值）
+- 环境变量 `ANE_WORLDVIEW_ADMIN_IDS=id1,id2`（逗号分隔，**优先于** config.json）
+- 部署：ci.yml 在 Actions secret `ANE_WORLDVIEW_ADMIN_IDS` 非空时写入服务器
+  `/etc/ane/.env`；未配置则用 config.json 默认值
+- 当前管理员：服务器 `207d25fa7acf`（config.json 默认）；本地 `a076e986e205`（本地 .env）
+- 用户编号在 `/settings` 页面显示（登录后可见，可全选复制）
+
+### ⚠️ 本地 agent / 文件系统层（无防御，靠规则约束）
+- 白名单只拦截 **HTTP/网页** 操作（后端路由校验）。
+- **本地 agent（AI 助手）直接修改文件系统 + git push 部署，完全绕过权限层**——
+  agent 对 `worldviews/` 的文件改动不经过任何权限校验，等同于管理员。
+- **规则（必须遵守）**：agent 修改**系统包**（内置公共包）内容前，必须先向用户
+  说明具体改动，经用户确认后再修改；不得未经确认直接改内置包。
+  对用户上传的包，修改前也需确认归属与影响。
+
 ## 修改检查清单
 
 - [ ] 新代码是否引入了模块间直接耦合？

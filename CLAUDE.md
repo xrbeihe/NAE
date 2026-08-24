@@ -90,6 +90,7 @@ watch_backup.bat
 - **🧹 经济系统彻底移除**：清理 5 包 `manifest.savings_unit`、`panel` 存款字段、`system_prompt` 的 `economy_change` 说明、`ui.json` 经济尾巴推荐文案、designer 货币名称字段（后端已不消费）；文档同步清理
 - **🎭 naruto 移除职业/能力**：删除 `cultivations`（下忍/中忍/上忍/暗部/医疗忍者/村民）数据与 `form.json`「忍者等级」字段——与「身份」选项重复；面板忍者等级改由 `player.cultivation` 直接显示
 - 服务器端编辑：naruto `player_templates.json` 出身背景简化（label 去括号、清空 initial_resource/性格倾向、砂忍流亡→流亡忍者）
+- **🔒 世界观包权限（系统包隔离 + 白名单）**：内置公共包（manifest 无 `owner_user_id`，即 xianxia/modern_city/fantasy_kingdom/naruto_shippuden/one_piece）仅白名单管理员可编辑；用户上传安装的包仅作者或管理员可改；包写操作一律要求登录（匿名 401 / 无权 403）；`GET /worldviews?scope=mine` 让 designer 按用户过滤（普通账号只见自己上传的 + 开源共享库的包，内置包隐藏）；`/settings` 页显示用户编号；白名单 = `config.json worldview_admin_ids` / env `ANE_WORLDVIEW_ADMIN_IDS`（服务器 `207d25fa7acf` / 本地 `a076e986e205`）；**本地 agent 改文件系统绕过 API 权限层（无防御），修改内置包前须经用户确认**——详见 docs/CLAUDE.md「世界观包权限」
 
 ### 🎯 位置体系重构 + 卡片渲染修复 + 1v1 历史修复（v1.3+）
 - **初始无位置**：`_pick_start_location` 改为返回空，玩家初始无固定位置；第一轮 prompt 渲染「具体位置：未设定」，LLM 按角色身份/世界观/时间线自主决定位置（输出 location_change 确立）。解决砂忍角色被生成在木叶等身份-位置错配
