@@ -12,15 +12,23 @@
   "welcome_prefix": "已进入「",
   "welcome_suffix": "」",
   "character_card": {
-    "title": "📋 **角色创建成功**",
+    "title": "📋 **豪杰登记完成**",
     "lines": [
       {
         "label": "姓名",
         "key": "name"
       },
       {
+        "label": "字",
+        "key": "courtesy_name"
+      },
+      {
         "label": "性别",
-        "composite": "性别：{gender} ｜ 年龄：{age}岁"
+        "key": "gender"
+      },
+      {
+        "label": "年龄",
+        "key": "age"
       },
       {
         "label": "身份",
@@ -33,17 +41,13 @@
       {
         "label": "出身",
         "key": "background_summary"
-      },
-      {
-        "label": "衣物",
-        "key": "clothing",
-        "default": "未设定"
       }
     ],
     "conditional": [
       {
-        "label": "初始位置",
-        "key": "location"
+        "label": "特殊能力",
+        "key": "golden_finger_name",
+        "show_if": "truthy"
       }
     ]
   },

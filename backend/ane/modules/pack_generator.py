@@ -335,6 +335,7 @@ def _build_panel(author: dict) -> dict:
 
 def _build_ui(author: dict) -> dict:
     fields = _field_names(author)
+    genre = author.get("genre") or "fantasy"
     name = (author.get("name") or "").strip() or "新世界观"
     return {
         "labels": {
@@ -349,19 +350,22 @@ def _build_ui(author: dict) -> dict:
         "default_session_name": name,
         "welcome_prefix": "已进入「",
         "welcome_suffix": "」",
+        # 卡片只展示玩家创建时会填写的数据（与 form.json 字段一一对应），
+        # 不展示表单没有的字段（如衣物）或不由作者/玩家决定的数据（如初始位置）。
         "character_card": {
-            "title": "📋 **角色创建成功**",
+            "title": "📋 **" + (fields["role_label"] or "角色") + "登记完成**",
             "lines": [
                 {"label": "姓名", "key": "name"},
-                {"label": "性别", "composite": "性别：{gender} ｜ 年龄：{age}岁"},
+                *([] if genre != "historical" else [{"label": "字", "key": "courtesy_name"}]),
+                {"label": "性别", "key": "gender"},
+                {"label": "年龄", "key": "age"},
                 *([] if not fields["has_power"] else [{"label": fields["cultivation_label"], "key": "cultivation"}]),
                 {"label": "身份", "composite": "身份：{identity} — {identity_desc}"},
                 {"label": "性格", "key": "personality"},
                 {"label": "出身", "key": "background_summary"},
-                {"label": "衣物", "key": "clothing", "default": "未设定"},
             ],
             "conditional": [
-                {"label": "初始位置", "key": "location"},
+                {"label": "特殊能力", "key": "golden_finger_name", "show_if": "truthy"},
             ],
         },
         "initial_recommendations": {

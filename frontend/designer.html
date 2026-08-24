@@ -855,7 +855,7 @@ function renderCardEditor() {
     '<div style="font-size:13px;color:var(--accent);margin-bottom:8px">📋 角色创建成功卡片</div>' +
     '<div style="margin-bottom:8px"><label style="display:block;font-size:11px;color:var(--accent-dim);margin-bottom:2px">卡片标题</label>' +
     '<input id="card-title-input" value="' + _esc(title) + '" placeholder="📋 **角色创建成功**" style="width:100%;padding:6px 10px;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px"></div>' +
-    '<div style="font-size:11px;color:var(--accent-dim);margin-bottom:6px">内容行（普通行总是显示；条件行仅在对应数据存在时显示）。内容填数据键（如 name）或带花括号的模板（如 性别：{gender} ｜ 年龄：{age}岁）。</div>';
+    '<div style="font-size:11px;color:var(--accent-dim);margin-bottom:6px">内容行（普通行总是显示；条件行仅在对应数据存在时显示）。内容填<u>玩家数据键</u>（name=姓名、gender=性别、identity=身份…，可从下拉建议选）或带花括号的模板（如 身份：{identity} — {identity_desc}）。衣物/位置等由剧情或状态产生的数据，未填时自动隐藏，无需作者配置。</div>';
   _recEditor.cardRows.forEach(function(row, idx) {
     html += '<div data-card-row="' + idx + '" style="border:1px solid var(--border);border-radius:4px;padding:8px 10px;margin-bottom:6px;background:var(--panel)">' +
       '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">' +
@@ -869,7 +869,7 @@ function renderCardEditor() {
         '<button onclick="moveCardRow(' + idx + ',1)" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:2px 7px;border-radius:4px;cursor:pointer;font-size:11px">↓</button>' +
         '<button onclick="removeCardRow(' + idx + ')" style="background:none;border:1px solid var(--danger,#8a3a3a);color:#b06060;padding:2px 7px;border-radius:4px;cursor:pointer;font-size:11px">✕</button>' +
       '</div>' +
-      '<input data-cr="content" value="' + _esc(_cardRowContent(row)) + '" placeholder="数据键 或 模板（如：性别：{gender} ｜ 年龄：{age}岁）" style="width:100%;padding:5px 8px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px;box-sizing:border-box">' +
+      '<input data-cr="content" list="key-suggestions" value="' + _esc(_cardRowContent(row)) + '" placeholder="数据键（如 name）或 模板（如：身份：{identity} — {identity_desc}）" style="width:100%;padding:5px 8px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px;box-sizing:border-box">' +
       '<div data-cr-tagfield style="margin-top:4px;display:' + (row.cond && row.composite ? 'block' : 'none') + '">' +
         '<input data-cr="tag_field" value="' + _esc(row.tag_field || '') + '" placeholder="tag_field（可选，金手指尾注字段，如 golden_finger_tagline）" style="width:100%;padding:5px 8px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px;box-sizing:border-box">' +
       '</div>' +
@@ -972,7 +972,8 @@ function renderRecEditor() {
     ['这是什么', '编辑世界观包的「文案」：创建按钮/弹窗标题/对玩家的称呼 + 初始推荐行动 + 角色创建成功卡片'],
     ['通用文案', '按钮文案、弹窗主标题、默认会话名、对玩家的称呼（如 修士/忍者/旅人）'],
     ['初始推荐行动', '新玩家开局时输入框上方的推荐栏，按分组显示：基础推荐（前3条）、选了宗门时、有特殊能力时、无特殊能力时、收尾推荐（后3条），每行一条'],
-    ['角色创建成功卡片', '创建角色后聊天区显示的登记卡：标题 title + 行 lines（支持 {name} {identity} 等占位符）+ 条件项 conditional（如只有选了血继限界才显示）'],
+    ['角色创建成功卡片', '创建角色后聊天区显示的登记卡：标题 title + 行 lines（支持 {name} {identity} 等占位符）+ 条件项 conditional（如只有选了特殊能力才显示）'],
+    ['卡片数据键（玩家字段字典）', 'name=姓名 / gender=性别 / age=年龄 / courtesy_name=字（历史题材）/ cultivation=能力等级 / identity=身份 / identity_desc=身份描述 / personality=性格 / background_summary=出身 / golden_finger_name=特殊能力名 / clothing=衣物（由剧情或状态产生，未填自动隐藏）/ location=当前位置（由剧情移动产生，未填自动隐藏）'],
     ['保存后', '下次创建角色生效'],
   ]) + '<div style="border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:14px;background:var(--input-bg)">' +
     '<div style="font-size:13px;color:var(--accent);margin-bottom:8px">通用文案</div>';
