@@ -653,27 +653,37 @@ function _seedFormFromTemplates() {
 }
 
 // ── 常见字段模板库（一键添加/套用，配置完整无需手填）──
+// select 字段已内置 options_from 键名；pool_defaults 为数据源缺失时的预填默认选项
 var _COMMON_FIELD_TEMPLATES = {
   name:      {key:'name', label:'姓名', kind:'text', placeholder:'输入你的名字', default:'', maxlength:20, random_button:true, store:'player.name'},
   courtesy_name:{key:'courtesy_name', label:'字（表字）', kind:'text', placeholder:'如：玄德 / 云长（可不填）', store:'attrs.courtesy_name'},
   age:       {key:'age', label:'年龄', kind:'number', default:19, min:12, max:999, store:'attrs.age'},
-  gender:    {key:'gender', label:'性别', kind:'select', options_from:'genders', store:'attrs.gender'},
-  background:{key:'background', label:'出身', kind:'select', options_from:'backgrounds', hint_template:'{desc} ｜ 初始资源：{initial_resource}', store:'attrs.background', derive:['background_summary']},
-  personality:{key:'personality', label:'性格', kind:'select', options_from:'personalities', hint_template:'{desc}', allow_custom:true, custom_label:'自定义', store:'attrs.personality'},
-  identity:  {key:'identity', label:'身份', kind:'select', options_from:'identities', hint_template:' ｜ 衣着：{clothing}', allow_custom:true, custom_label:'自定义', store:'attrs.identity', derive:['identity_desc','clothing']},
+  gender:    {key:'gender', label:'性别', kind:'select', options_from:'genders', store:'attrs.gender',
+              pool_defaults:[{value:'男',label:'男'},{value:'女',label:'女'}]},
+  background:{key:'background', label:'出身', kind:'select', options_from:'backgrounds', hint_template:'{desc} ｜ 初始资源：{initial_resource}', store:'attrs.background', derive:['background_summary'],
+              pool_defaults:[{value:'普通',label:'普通出身',desc:'平凡人家，凭自己打拼。'},{value:'显赫',label:'名门之后',desc:'家世显赫，人脉与资源天成。'}]},
+  personality:{key:'personality', label:'性格', kind:'select', options_from:'personalities', hint_template:'{desc}', allow_custom:true, custom_label:'自定义', store:'attrs.personality',
+              pool_defaults:[{value:'随和',label:'随和',desc:'好相处，情绪稳定。'},{value:'外向',label:'外向开朗',desc:'爱交朋友，自来熟。'},{value:'谨慎',label:'谨慎多疑',desc:'凡事留三分。'}]},
+  identity:  {key:'identity', label:'身份', kind:'select', options_from:'identities', hint_template:' ｜ 衣着：{clothing}', allow_custom:true, custom_label:'自定义', store:'attrs.identity', derive:['identity_desc','clothing'],
+              pool_defaults:[{value:'平民',label:'平民',desc:'普通百姓。',clothing:'粗布衣衫'},{value:'武者',label:'武者',desc:'以武为生的习武之人。',clothing:'劲装'},{value:'商贾',label:'商贾',desc:'走南闯北的生意人。',clothing:'绸缎衣裳'}]},
   golden_finger:{key:'golden_finger', label:'特殊能力', kind:'card_grid', options_from:'golden_fingers', allow_custom:true, custom_label:'自定义', visible_if:'has_golden_fingers', option_map:{id:'golden_finger_id',name:'golden_finger_name',tagline:'golden_finger_tagline',desc:'golden_finger_desc'}, store:'attrs.golden_finger_id'},
-  cultivation:{key:'cultivation', label:'能力等级', kind:'select', options_from:'cultivations', hint_template:'{desc}', allow_custom:true, custom_label:'自定义', store:'player.cultivation'},
+  cultivation:{key:'cultivation', label:'能力等级', kind:'select', options_from:'cultivations', hint_template:'{desc}', allow_custom:true, custom_label:'自定义', store:'player.cultivation',
+              pool_defaults:[{value:'初学',label:'初学',desc:'刚入门，还需历练。'},{value:'熟练',label:'熟练',desc:'已能独当一面。'},{value:'大师',label:'大师',desc:'一方翘楚。'}]},
   sect:      {key:'sect', label:'宗门/组织', kind:'select', options_from:'sects', store:'attrs.sect'},
   faction:   {key:'faction', label:'阵营/势力', kind:'text', placeholder:'如：曹魏 / 草帽海贼团（可不填）', store:'attrs.faction'},
-  race:      {key:'race', label:'种族', kind:'select', options_from:'races', hint_template:'{desc}', allow_custom:true, custom_label:'自定义种族', store:'attrs.race'},
-  spiritual_root:{key:'spiritual_root', label:'灵根', kind:'select', options_from:'spiritual_roots', hint_template:'{desc}', allow_custom:true, custom_label:'自定义灵根', store:'attrs.spiritual_root'},
+  race:      {key:'race', label:'种族', kind:'select', options_from:'races', hint_template:'{desc}', allow_custom:true, custom_label:'自定义种族', store:'attrs.race',
+              pool_defaults:[{value:'人类',label:'人类',desc:'最常见也最有韧性的种族。'},{value:'精灵',label:'精灵',desc:'长寿优雅，亲近自然。'},{value:'矮人',label:'矮人',desc:'强壮坚韧，擅长锻造。'},{value:'兽人',label:'兽人',desc:'体格强壮，骁勇善战。'}]},
+  spiritual_root:{key:'spiritual_root', label:'灵根', kind:'select', options_from:'spiritual_roots', hint_template:'{desc}', allow_custom:true, custom_label:'自定义灵根', store:'attrs.spiritual_root',
+              pool_defaults:[{value:'金灵根',label:'金灵根',desc:'锋锐主杀伐。'},{value:'木灵根',label:'木灵根',desc:'生生不息，善愈。'},{value:'水灵根',label:'水灵根',desc:'绵柔多变。'},{value:'火灵根',label:'火灵根',desc:'爆裂主攻伐。'},{value:'土灵根',label:'土灵根',desc:'厚重主防御。'}]},
   talent_note:{key:'talent_note', label:'资质/天赋', kind:'text', placeholder:'如：中品 / 天资聪颖', store:'attrs.talent_note'},
   hometown:  {key:'hometown', label:'家乡/出生地', kind:'text', placeholder:'如：涿郡（可不填）', store:'attrs.hometown'},
   speech_style:{key:'speech_style', label:'说话风格', kind:'text', placeholder:'如：文绉绉 / 粗豪直爽（可不填）', store:'attrs.speech_style'},
-  weapon:    {key:'weapon', label:'武器/装备', kind:'select', options_from:'weapons', hint_template:'{desc}', allow_custom:true, custom_label:'自定义武器', store:'attrs.weapon'},
+  weapon:    {key:'weapon', label:'武器/装备', kind:'select', options_from:'weapons', hint_template:'{desc}', allow_custom:true, custom_label:'自定义武器', store:'attrs.weapon',
+              pool_defaults:[{value:'长剑',label:'长剑',desc:'最常见的随身兵刃。'},{value:'长枪',label:'长枪',desc:'一寸长一寸强。'},{value:'大刀',label:'大刀',desc:'势大力沉。'},{value:'弓箭',label:'弓箭',desc:'远程取敌。'},{value:'匕首',label:'匕首',desc:'轻巧贴身。'}]},
   pet:       {key:'pet', label:'伙伴/灵兽', kind:'text', placeholder:'如：赤兔马 / 灵猫（可不填）', store:'attrs.pet'},
   title:     {key:'title', label:'称号', kind:'text', placeholder:'如：卧龙 / 常山赵子龙（可不填）', store:'attrs.title'},
-  appearance:{key:'appearance_brief', label:'外貌简述', kind:'text', store:'attrs.appearance_brief'},
+  appearance:{key:'appearance_brief', label:'外貌简述', kind:'select', options_from:'appearances', hint_template:'{desc}', allow_custom:true, custom_label:'自定义外貌', store:'attrs.appearance_brief',
+              pool_defaults:[{value:'英武',label:'英武不凡',desc:'器宇轩昂，一看便是不凡之辈。'},{value:'儒雅',label:'儒雅文气',desc:'举止从容，气度温和。'},{value:'清秀',label:'清秀温润',desc:'面容清秀，气质柔和。'},{value:'粗犷',label:'粗犷豪迈',desc:'虎背熊腰，豪爽不羁。'},{value:'平凡',label:'相貌平平',desc:'混在人群里毫不起眼。'}]},
   height:    {key:'height', label:'身高', kind:'number', default:170, min:120, max:250, store:'attrs.height'},
   weight:    {key:'weight', label:'体重', kind:'number', default:60, min:30, max:200, store:'attrs.weight'},
 };
@@ -694,6 +704,7 @@ function applyFormPreset(name) {
   if (!confirm('套用「' + name + '」将替换当前全部字段，确定？')) return;
   _formEditor.form.fields = keys.map(function(k) { return JSON.parse(JSON.stringify(_COMMON_FIELD_TEMPLATES[k])); });
   renderFormEditor();
+  _ensurePoolsForForm(_formEditor.form.fields);
 }
 
 function addCommonField(key) {
@@ -702,6 +713,42 @@ function addCommonField(key) {
   if (_formEditor.form.fields.some(function(f) { return f.key === key; })) { alert('该字段已存在：' + t.label); return; }
   _formEditor.form.fields.push(JSON.parse(JSON.stringify(t)));
   renderFormEditor();
+  _ensurePoolsForForm(_formEditor.form.fields);
+}
+
+// 套用/添加字段后：自动检查并创建缺失的数据源池（带模板预填默认选项），
+// 作者无需手动去选项编辑器建池。sects 走动态接口，不建池。
+function _ensurePoolsForForm(fields) {
+  var need = [];
+  fields.forEach(function(f) {
+    if (f.options_from && f.options_from !== 'sects' && need.indexOf(f.options_from) === -1) need.push(f.options_from);
+  });
+  if (!need.length || !_formEditor.worldview) return;
+  apiFetch('/worldviews/' + encodeURIComponent(_formEditor.worldview) + '/data/player_templates.json')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var data = d.data || {};
+      var created = [];
+      need.forEach(function(k) {
+        if (data[k] !== undefined) return;
+        var defaults = null;
+        Object.keys(_COMMON_FIELD_TEMPLATES).forEach(function(tk) {
+          var t = _COMMON_FIELD_TEMPLATES[tk];
+          if (t.options_from === k && t.pool_defaults) defaults = t.pool_defaults;
+        });
+        data[k] = defaults ? JSON.parse(JSON.stringify(defaults)) : [];
+        created.push(k);
+      });
+      if (!created.length) return;
+      return apiFetch('/worldviews/' + encodeURIComponent(_formEditor.worldview) + '/data/player_templates.json', {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({data: data})
+      }).then(function() {
+        var msgEl = document.getElementById('form-editor-msg');
+        if (msgEl) msgEl.textContent = '✅ 已自动创建数据源池：' + created.join('、') + '（可在 📋 选项编辑器继续编辑）';
+      });
+    }).catch(function() {});
 }
 
 function renderFormEditor() {
