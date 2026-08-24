@@ -1130,15 +1130,24 @@ Object.keys(_OPT_TABS).forEach(function(k) {
   _OPT_HARDCODED_KEYS[t.list_key || (k === 'places' ? 'regions' : k)] = true;
 });
 
-// 扫描包数据，为顶层数组键生成动态池 tab（空数组也生成，便于作者添加首行）
-function _optDynamicTabs(data) {
+// 扫描包数据，为顶层数组键生成动态池 tab。
+// 规范约束：非空数组的首元素必须是对象且含 value 或 name（value/label/desc 池结构），
+// 避免把内部结构数组（如 quick_pick_sections 的 {key,label}、core_archetypes 等）
+// 误当普通池生成——那会破坏其结构。空数组允许生成（作者建池填首行）。
+function _optDynamicTabs(data, file) {
   var out = {};
   if (!data || typeof data !== 'object') return out;
   Object.keys(data).forEach(function(k) {
     if (_OPT_HARDCODED_KEYS[k]) return;      // 硬编码 tab 已覆盖
-    if (!Array.isArray(data[k])) return;     // 只处理数组池
+    var arr = data[k];
+    if (!Array.isArray(arr)) return;         // 只处理数组池
+    if (arr.length) {
+      var first = arr[0];
+      var ok = first && typeof first === 'object' && !Array.isArray(first) && ('value' in first || 'name' in first);
+      if (!ok) return;                        // 非池结构（str 数组/内部结构数组）→ 跳过
+    }
     out[k] = {
-      file: 'player_templates.json',
+      file: file || 'player_templates.json',
       label: _OPT_DYNAMIC_LABELS[k] || (k + '池'),
       cols: [['value','选项值'],['label','显示名'],['desc','说明']],
       dynamic: true,
@@ -1147,11 +1156,11 @@ function _optDynamicTabs(data) {
   return out;
 }
 
-// 硬编码 tab + 动态 tab 合并（动态键不与硬编码冲突）
+// 硬编码 tab + 动态 tab 合并（动态键不与硬编码冲突，file 跟随当前数据来源）
 function _allOptTabs(data) {
   var tabs = {};
   Object.keys(_OPT_TABS).forEach(function(k) { tabs[k] = _OPT_TABS[k]; });
-  var dyn = _optDynamicTabs(data);
+  var dyn = _optDynamicTabs(data, _optEditor.file || 'player_templates.json');
   Object.keys(dyn).forEach(function(k) { if (!tabs[k]) tabs[k] = dyn[k]; });
   return tabs;
 }
