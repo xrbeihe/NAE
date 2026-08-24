@@ -651,6 +651,45 @@ function _seedFormFromTemplates() {
   return {title:'创建你的角色', fields: fields};
 }
 
+// ── 常见字段模板库（一键添加/套用，配置完整无需手填）──
+var _COMMON_FIELD_TEMPLATES = {
+  name:      {key:'name', label:'姓名', kind:'text', placeholder:'输入你的名字', default:'', maxlength:20, random_button:true, store:'player.name'},
+  age:       {key:'age', label:'年龄', kind:'number', default:19, min:12, max:999, store:'attrs.age'},
+  gender:    {key:'gender', label:'性别', kind:'select', options_from:'genders', store:'attrs.gender'},
+  background:{key:'background', label:'出身', kind:'select', options_from:'backgrounds', hint_template:'{desc} ｜ 初始资源：{initial_resource}', store:'attrs.background', derive:['background_summary']},
+  personality:{key:'personality', label:'性格', kind:'select', options_from:'personalities', hint_template:'{desc}', allow_custom:true, custom_label:'自定义', store:'attrs.personality'},
+  identity:  {key:'identity', label:'身份', kind:'select', options_from:'identities', hint_template:' ｜ 衣着：{clothing}', allow_custom:true, custom_label:'自定义', store:'attrs.identity', derive:['identity_desc','clothing']},
+  golden_finger:{key:'golden_finger', label:'特殊能力', kind:'card_grid', options_from:'golden_fingers', allow_custom:true, custom_label:'自定义', visible_if:'has_golden_fingers', option_map:{id:'golden_finger_id',name:'golden_finger_name',tagline:'golden_finger_tagline',desc:'golden_finger_desc'}, store:'attrs.golden_finger_id'},
+  cultivation:{key:'cultivation', label:'能力等级', kind:'select', options_from:'cultivations', hint_template:'{desc}', allow_custom:true, custom_label:'自定义', store:'player.cultivation'},
+  sect:      {key:'sect', label:'宗门/组织', kind:'select', options_from:'sects', store:'attrs.sect'},
+  appearance:{key:'appearance_brief', label:'外貌简述', kind:'text', store:'attrs.appearance_brief'},
+  height:    {key:'height', label:'身高', kind:'number', default:170, min:120, max:250, store:'attrs.height'},
+  weight:    {key:'weight', label:'体重', kind:'number', default:60, min:30, max:200, store:'attrs.weight'},
+};
+
+// 整表预设：一键替换当前全部字段
+var _FORM_PRESETS = {
+  '标准角色表': ['name','age','gender','background','personality','identity','golden_finger'],
+  '精简表':     ['name','gender','age'],
+  '详细表':     ['name','age','gender','height','weight','appearance','background','personality','identity','golden_finger'],
+};
+
+function applyFormPreset(name) {
+  var keys = _FORM_PRESETS[name];
+  if (!keys) return;
+  if (!confirm('套用「' + name + '」将替换当前全部字段，确定？')) return;
+  _formEditor.form.fields = keys.map(function(k) { return JSON.parse(JSON.stringify(_COMMON_FIELD_TEMPLATES[k])); });
+  renderFormEditor();
+}
+
+function addCommonField(key) {
+  var t = _COMMON_FIELD_TEMPLATES[key];
+  if (!t) return;
+  if (_formEditor.form.fields.some(function(f) { return f.key === key; })) { alert('该字段已存在：' + t.label); return; }
+  _formEditor.form.fields.push(JSON.parse(JSON.stringify(t)));
+  renderFormEditor();
+}
+
 function renderFormEditor() {
   var f = _formEditor.form;
   var list = document.getElementById('form-fields-list');
@@ -666,7 +705,19 @@ function renderFormEditor() {
     ['允许自定义', '勾选后玩家可以选择「自定义」并自己填写（如自定义身份/性格）'],
     ['显隐 visible_if', '按世界观条件决定是否显示：有宗门时 has_sects / 有特殊能力时 has_golden_fingers'],
     ['保存联动 derive / 卡片映射 option_map', '选择某选项时自动带出的其他字段（如选身份自动写身份描述、衣物）。这两个字段在编辑中保留，不会丢失'],
-  ]) + '<div style="margin-bottom:10px"><label style="display:block;font-size:12px;color:var(--accent-dim)">主标题</label>' +
+  ]) + '<div style="margin-bottom:10px;border:1px solid var(--border);border-radius:6px;padding:8px 10px;background:var(--input-bg)">' +
+    '<div style="font-size:12px;color:var(--accent);margin-bottom:6px">📦 一键套用常见表单（替换当前全部字段）</div>' +
+    '<div style="margin-bottom:8px">' + Object.keys(_FORM_PRESETS).map(function(name) {
+      return '<button onclick="applyFormPreset(\'' + name + '\')" style="background:none;border:1px solid var(--border);color:var(--accent);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;margin-right:6px">' + name + '</button>';
+    }).join('') + '</div>' +
+    '<div style="font-size:12px;color:var(--accent-dim);margin-bottom:4px">🧩 常用字段（点击添加到末尾，配置自动带全）</div>' +
+    '<div>' + Object.keys(_COMMON_FIELD_TEMPLATES).map(function(k) {
+      var t = _COMMON_FIELD_TEMPLATES[k];
+      var hint = t.kind + (t.options_from ? ' / 选项:' + t.options_from : '') + ' / 存:' + t.store;
+      return '<span onclick="addCommonField(\'' + k + '\')" title="' + _esc(hint) + '" style="display:inline-block;padding:2px 8px;margin:2px;background:var(--panel);border:1px solid var(--border);border-radius:3px;cursor:pointer;font-size:11px;color:var(--accent-dim)">' + _esc(t.label) + '</span>';
+    }).join('') + '</div>' +
+  '</div>' +
+  '<div style="margin-bottom:10px"><label style="display:block;font-size:12px;color:var(--accent-dim)">主标题</label>' +
     '<input type="text" id="form-editor-title-input" value="' + _esc(f.title || '') + '" style="width:100%;padding:8px 12px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px;box-sizing:border-box"></div>';
   f.fields.forEach(function(field, idx) {
     html += '<div style="border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-bottom:8px;background:var(--input-bg)">' +
