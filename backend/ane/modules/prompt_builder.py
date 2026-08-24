@@ -945,7 +945,11 @@ class PromptBuilder:
             if qual_parts:
                 lines.append(f"资质：{'，'.join(qual_parts)}")
 
-            lines.append(f"修为：{p.cultivation}")
+            if p.cultivation:
+                lines.append(f"修为：{p.cultivation}")
+            else:
+                # 初始未设定：由 LLM 按剧情/身份自主决定，并通过状态变更确立
+                lines.append("能力等级：未设定（由你根据剧情与角色身份自主决定，确立后通过 status_change 更新并保持前后一致）")
 
             if p.background:
                 lines.append(f"出身：{p.background}")
@@ -1060,9 +1064,12 @@ class PromptBuilder:
         lines = [
             "【玩家信息】",
             f"姓名：{ctx.player_name}",
-            f"修为：{ctx.player_cultivation}",
-            f"当前位置：{ctx.player_location}",
         ]
+        if ctx.player_cultivation:
+            lines.append(f"修为：{ctx.player_cultivation}")
+        else:
+            lines.append("能力等级：未设定（由你根据剧情与角色身份自主决定，确立后通过状态变更更新）")
+        lines.append(f"当前位置：{ctx.player_location}")
         if ctx.player_status:
             status_items = _format_status(ctx.player_status)
             lines.append(f"状态：{status_items}")

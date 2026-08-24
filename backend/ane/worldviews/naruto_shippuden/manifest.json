@@ -15,7 +15,7 @@
   "assembly": "shell+kernel",
   "player_defaults": {
     "name": "无名忍者",
-    "cultivation": "下忍",
+    "cultivation": "",
     "location_hint": "木叶村",
     "status_label": "忍者"
   },

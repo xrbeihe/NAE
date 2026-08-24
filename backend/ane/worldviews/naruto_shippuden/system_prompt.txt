@@ -13,5 +13,6 @@
 【输出格式·忍者世界特定】
 - recommendations 推荐内容多样化时涵盖任务、修行、社交、探索等不同类型。
 - state_changes 各类型用法：
-  - status_change：target="player", field="忍者等级", value="中忍" → 更新玩家等级
+  - status_change：target="player", field="忍者等级", value="中忍" → 更新玩家属性
+  - cultivation_change：target="player", value="中忍" → 更新玩家忍者等级（玩家等级初始为「未设定」，由你根据角色身份与剧情自主决定并确立，例如：下忍 / 中忍 / 上忍 / 影级；确立后保持前后一致）
   - ninja_mission：target="player", field="当前任务", value="护送委托" → 记录玩家当前任务
