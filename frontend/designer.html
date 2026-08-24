@@ -656,33 +656,45 @@ function renderFormEditor() {
     '<input type="text" id="form-editor-title-input" value="' + _esc(f.title || '') + '" style="width:100%;padding:8px 12px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px;box-sizing:border-box"></div>';
   f.fields.forEach(function(field, idx) {
     html += '<div style="border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-bottom:8px;background:var(--input-bg)">' +
-      '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">' +
+      '<div style="display:flex;align-items:center;gap:6px">' +
         '<span style="font-size:12px;color:var(--accent-dim);width:26px">' + (idx+1) + '</span>' +
-        '<input type="text" data-f="label" value="' + _esc(field.label || field.key || '') + '" placeholder="子标题（如：修为）" style="flex:1;min-width:0;padding:6px 10px;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px">' +
+        '<input type="text" data-f="label" value="' + _esc(field.label || field.key || '') + '" placeholder="子标题（如：身份）" style="flex:1;min-width:0;padding:6px 10px;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px">' +
         '<select data-f="kind" style="padding:6px 8px;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px">' +
           _kindOptions(field.kind) +
         '</select>' +
-        '<button onclick="moveFormField(' + idx + ',-1)" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:11px">↑</button>' +
-        '<button onclick="moveFormField(' + idx + ',1)" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:11px">↓</button>' +
-        '<button onclick="removeFormField(' + idx + ')" style="background:none;border:1px solid var(--danger,#8a3a3a);color:#b06060;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:11px">✕</button>' +
+        '<button onclick="moveFormField(' + idx + ',-1)" title="上移" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:11px">↑</button>' +
+        '<button onclick="moveFormField(' + idx + ',1)" title="下移" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:11px">↓</button>' +
+        '<button onclick="removeFormField(' + idx + ')" title="删除" style="background:none;border:1px solid var(--danger,#8a3a3a);color:#b06060;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:11px">✕</button>' +
       '</div>' +
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">' +
-        '<div><label style="display:block;font-size:11px;color:var(--accent-dim)">字段键 key</label><input type="text" data-f="key" value="' + _esc(field.key || '') + '" style="width:100%;padding:6px 10px;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px"></div>' +
-        '<div><label style="display:block;font-size:11px;color:var(--accent-dim)">选项来源 options_from</label><input type="text" data-f="options_from" value="' + _esc(field.options_from || '') + '" placeholder="cultivations / identities / sects" style="width:100%;padding:6px 10px;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px"></div>' +
-      '</div>' +
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">' +
-        '<div><label style="display:block;font-size:11px;color:var(--accent-dim)">解释小字模板 hint_template</label><input type="text" data-f="hint_template" value="' + _esc(field.hint_template || '') + '" placeholder="{desc} ｜ 初始资源：{initial_resource}" style="width:100%;padding:6px 10px;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px"></div>' +
-        '<div><label style="display:block;font-size:11px;color:var(--accent-dim)">存储位置 store</label><input type="text" data-f="store" value="' + _esc(field.store || '') + '" placeholder="player.name / attrs.xxx" style="width:100%;padding:6px 10px;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px"></div>' +
-      '</div>' +
-      '<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">' +
-        '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--accent-dim)"><input type="checkbox" data-f="allow_custom"' + (field.allow_custom ? ' checked' : '') + '> 允许自定义</label>' +
-        '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--accent-dim)"><input type="checkbox" data-f="random_button"' + (field.random_button ? ' checked' : '') + '> 随机按钮</label>' +
-        '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--accent-dim)">自定义框文案 <input type="text" data-f="custom_label" value="' + _esc(field.custom_label || '') + '" style="padding:4px 8px;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px"></label>' +
-        '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--accent-dim)">显隐 <select data-f="visible_if" style="padding:4px 6px;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px"><option value=""' + (!field.visible_if ? ' selected' : '') + '>总是显示</option><option value="has_sects"' + (field.visible_if==='has_sects' ? ' selected' : '') + '>有宗门时</option><option value="has_golden_fingers"' + (field.visible_if==='has_golden_fingers' ? ' selected' : '') + '>有特殊能力时</option></select></label>' +
+      '<div onclick="toggleFieldAdvanced(this)" style="margin-top:6px;font-size:11px;color:var(--accent-dim);cursor:pointer;user-select:none;padding:4px 2px">⚙️ 高级配置（字段键/选项来源/存储位置等，一般不用改）</div>' +
+      '<div class="field-advanced" style="display:none;border-top:1px dashed var(--border);margin-top:4px;padding-top:8px">' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">' +
+          '<div><label style="display:block;font-size:11px;color:var(--accent-dim)">字段键 key</label><input type="text" data-f="key" value="' + _esc(field.key || '') + '" style="width:100%;padding:6px 10px;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px"></div>' +
+          '<div><label style="display:block;font-size:11px;color:var(--accent-dim)">选项来源 options_from</label><input type="text" data-f="options_from" value="' + _esc(field.options_from || '') + '" placeholder="cultivations / identities / sects" style="width:100%;padding:6px 10px;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px"></div>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">' +
+          '<div><label style="display:block;font-size:11px;color:var(--accent-dim)">解释小字模板 hint_template</label><input type="text" data-f="hint_template" value="' + _esc(field.hint_template || '') + '" placeholder="{desc} ｜ 初始资源：{initial_resource}" style="width:100%;padding:6px 10px;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px"></div>' +
+          '<div><label style="display:block;font-size:11px;color:var(--accent-dim)">存储位置 store</label><input type="text" data-f="store" value="' + _esc(field.store || '') + '" placeholder="player.name / attrs.xxx" style="width:100%;padding:6px 10px;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px"></div>' +
+        '</div>' +
+        '<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">' +
+          '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--accent-dim)"><input type="checkbox" data-f="allow_custom"' + (field.allow_custom ? ' checked' : '') + '> 允许自定义</label>' +
+          '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--accent-dim)"><input type="checkbox" data-f="random_button"' + (field.random_button ? ' checked' : '') + '> 随机按钮</label>' +
+          '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--accent-dim)">自定义框文案 <input type="text" data-f="custom_label" value="' + _esc(field.custom_label || '') + '" style="padding:4px 8px;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px"></label>' +
+          '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--accent-dim)">显隐 <select data-f="visible_if" style="padding:4px 6px;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px"><option value=""' + (!field.visible_if ? ' selected' : '') + '>总是显示</option><option value="has_sects"' + (field.visible_if==='has_sects' ? ' selected' : '') + '>有宗门时</option><option value="has_golden_fingers"' + (field.visible_if==='has_golden_fingers' ? ' selected' : '') + '>有特殊能力时</option></select></label>' +
+        '</div>' +
       '</div>' +
     '</div>';
   });
   list.innerHTML = html;
+}
+
+// 展开/收起字段卡片的「高级配置」区
+function toggleFieldAdvanced(headerEl) {
+  var wrap = headerEl.nextElementSibling;
+  if (!wrap) return;
+  var hidden = (wrap.style.display === 'none');
+  wrap.style.display = hidden ? 'block' : 'none';
+  headerEl.textContent = hidden ? '⚙️ 收起高级配置' : '⚙️ 高级配置（字段键/选项来源/存储位置等，一般不用改）';
 }
 
 function _kindOptions(cur) {
