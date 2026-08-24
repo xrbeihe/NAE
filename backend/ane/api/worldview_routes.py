@@ -11,7 +11,9 @@ from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ane.auth import get_optional_user
+from ane.config import DEFAULT_MODEL
 from ane.database.engine import get_db
+from ane.modules.model_adapter import model_adapter
 from ane.worldview import (
     list_worldviews,
     reload as reload_pack,
@@ -313,6 +315,15 @@ def _worldview_owner(wv_id: str) -> str | None:
     return m.get("owner_user_id") or None
 
 
+def _worldview_name(wv_id: str) -> str:
+    """包 manifest 中的显示名（供 AI 生成内容时参考）。"""
+    try:
+        m = json.loads((WORLDVIEWS_DIR / wv_id / "manifest.json").read_text(encoding="utf-8"))
+        return m.get("name") or wv_id
+    except Exception:
+        return wv_id
+
+
 async def _require_edit_permission(db: AsyncSession, user, wv_id: str) -> None:
     """写包文件 / 删除 / 覆盖安装前的统一权限校验（未登录 401，无权 403）。"""
     if not user:
@@ -434,6 +445,107 @@ async def put_worldview_prompt(
     from ane.worldview import clear_cache as _clear_cache
     _clear_cache()
     return {"ok": True, "worldview": worldview_id, "chars": len(prompt)}
+
+
+# ── AI 生成世界观内容（IP 包一键填充 world_facts）────────────
+
+def _extract_json_block(raw: str) -> dict | None:
+    """从 LLM 输出中提取 JSON 对象（代码块 → 平衡花括号 → 兜底）。"""
+    import re as _re
+    s = (raw or "").strip()
+    m = _re.search(r"```(?:json)?\s*([\s\S]*?)```", s)
+    if m:
+        s = m.group(1).strip()
+    try:
+        return json.loads(s)
+    except Exception:
+        pass
+    start, end = s.find("{"), s.rfind("}")
+    if start != -1 and end > start:
+        try:
+            return json.loads(s[start:end + 1])
+        except Exception:
+            pass
+    return None
+
+
+@router.post("/{worldview_id}/generate-facts")
+async def generate_worldview_facts(
+    worldview_id: str,
+    body: dict | None = None,
+    db: AsyncSession = Depends(get_db),
+    user = Depends(get_optional_user),
+):
+    """用 LLM 基于作品名生成 world_facts 内容（关键角色/历史/时间线），
+    合并写入该包并清缓存——IP 世界观（world_facts 空洞）一键填充用。
+
+    Body: {ip_work: "三国演义"}（可选；缺省从 must_follow 的《》解析）。
+    """
+    await _require_edit_permission(db, user, worldview_id)
+
+    existing = read_artifact(worldview_id, "world_facts.json") or {}
+    ip_work = ((body or {}).get("ip_work") or "").strip()
+    if not ip_work:
+        import re as _re
+        for mf in existing.get("must_follow") or []:
+            m = _re.search(r"《(.+?)》", str(mf))
+            if m:
+                ip_work = m.group(1)
+                break
+    if not ip_work:
+        ip_work = worldview_id
+    pack_name = _worldview_name(worldview_id)
+
+    prompt = (
+        "你是世界观设定生成助手，为 ANE 叙事引擎基于作品《{work}》生成权威设定内容（world_facts.json）。\n\n"
+        "作品：{work}\n世界观包：{pack}\n\n"
+        "严格输出 JSON（不要 markdown 代码块标记、不要任何多余文字）：\n"
+        "{{\n"
+        '  "characters": [{{"name": "角色名", "desc": "一句话核心设定，30字内"}}],\n'
+        '  "lore": "世界观历史与详细介绍，300-500字，用空行分段，覆盖时代背景、重大事件、势力格局",\n'
+        '  "timelines": [{{"id": "唯一小写id", "label": "时间线名", "description": "一句描述", '
+        '"must_follow": [], "forbidden": [], "characters": []}}]\n'
+        "}}\n\n"
+        "要求：characters 给出 8-12 个关键角色（名字+一句话人设）；lore 为一段可读的历史叙述；"
+        "timelines 给出 3-5 条可选起始时间线。内容基于原作，简明准确，不编造。"
+    ).format(work=ip_work, pack=pack_name)
+
+    try:
+        raw = await model_adapter.generate(
+            prompt, model=DEFAULT_MODEL,
+            user_id=user.id if user else None, session_id=None,
+            label="llm_worldfacts",
+        )
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"LLM 生成失败: {e}")
+
+    data = _extract_json_block(raw) or {}
+    if not data:
+        raise HTTPException(status_code=502, detail="LLM 输出无法解析为 JSON，请重试")
+
+    if isinstance(data.get("characters"), list):
+        existing["characters"] = [
+            c for c in data["characters"] if isinstance(c, dict) and (c.get("name") or "").strip()
+        ]
+    if isinstance(data.get("lore"), str) and data["lore"].strip():
+        existing["lore"] = data["lore"].strip()
+    if isinstance(data.get("timelines"), list):
+        existing["timelines"] = [
+            t for t in data["timelines"] if isinstance(t, dict) and (t.get("id") or "").strip()
+        ]
+    existing.setdefault("knowledge_mode", "hybrid")
+    try:
+        write_artifact(worldview_id, "world_facts.json", existing)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"写入失败: {e}")
+    reload_pack(worldview_id)
+    return {
+        "ok": True,
+        "worldview": worldview_id,
+        "characters": len(existing.get("characters") or []),
+        "lore_chars": len(existing.get("lore") or ""),
+        "timelines": len(existing.get("timelines") or []),
+    }
 
 
 @router.delete("/{worldview_id}")

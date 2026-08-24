@@ -1337,7 +1337,13 @@ function renderFactsEditor() {
     ['📜 世界观历史与详细介绍', '完整历史/关键事件/人物发展。建议每段一行、空行分段，LLM 每轮阅读，写得越清楚人设越稳'],
     ['关键角色', '每行「名字｜设定」，声明必须还原的角色人设，防止 LLM 演崩角色'],
     ['时间线', '玩家创建会话时可选起始节点（id/label/描述/必须遵守/禁止出现/关键角色），覆盖该时间线的世界状态'],
-  ]) + '<div style="margin-bottom:12px"><label style="display:block;font-size:12px;color:var(--accent-dim);margin-bottom:4px">知识使用模式</label>' +
+  ]) + '<div style="margin-bottom:10px;border:1px solid var(--border);border-radius:6px;padding:8px 10px;background:var(--input-bg)">' +
+    '<div style="font-size:12px;color:var(--accent);margin-bottom:4px">✨ AI 生成世界观内容（IP 包一键填充）</div>' +
+    '<div style="font-size:11px;color:var(--accent-dim);margin-bottom:6px">基于作品自动生成「关键角色 / 世界历史 / 时间线」，合并写入当前包（会覆盖这三部分已有内容，保留知识模式与约束）。</div>' +
+    '<button onclick="generateFactsAI()" style="background:var(--accent);color:var(--panel);border:none;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:12px">✨ 生成内容</button>' +
+    '<span id="facts-ai-msg" style="font-size:11px;color:var(--accent-dim);margin-left:8px"></span>' +
+  '</div>' +
+  '<div style="margin-bottom:12px"><label style="display:block;font-size:12px;color:var(--accent-dim);margin-bottom:4px">知识使用模式</label>' +
     '<select id="facts-mode" style="width:100%;padding:8px 12px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px">' +
       '<option value="pack_only"' + (f.knowledge_mode==='pack_only' ? ' selected' : '') + '>仅包内设定（严格，禁预训练知识）</option>' +
       '<option value="hybrid"' + (f.knowledge_mode==='hybrid' || !f.knowledge_mode ? ' selected' : '') + '>包内设定 + 常识补全（推荐）</option>' +
@@ -1363,6 +1369,31 @@ function updateFactsLoreCount() {
   var el = document.getElementById('facts-lore');
   var c = document.getElementById('facts-lore-count');
   if (el && c) c.textContent = el.value.length + ' 字（建议每段一行、空行分段）';
+}
+
+// ✨ AI 生成 world_facts 内容（IP 包一键填充角色/历史/时间线）
+function generateFactsAI() {
+  var msgEl = document.getElementById('facts-ai-msg');
+  if (!msgEl) return;
+  msgEl.textContent = '⏳ 生成中（约 10-30 秒）…';
+  apiFetch('/worldviews/' + encodeURIComponent(_factsEditor.worldview) + '/generate-facts', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({}),
+  }).then(function(r) { return r.json().then(function(d) { return {ok: r.ok, d: d}; }); })
+  .then(function(res) {
+    if (!res.ok) { msgEl.textContent = '❌ 失败: ' + (res.d.detail || '未知错误'); return; }
+    msgEl.textContent = '✅ 已生成：关键角色 ' + res.d.characters + ' 个 ｜ 历史 ' + res.d.lore_chars + ' 字 ｜ 时间线 ' + res.d.timelines + ' 条';
+    // 重新加载编辑器内容
+    apiFetch('/worldviews/' + encodeURIComponent(_factsEditor.worldview) + '/data/world_facts.json')
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        var f = d.data || {};
+        if (!f.knowledge_mode) f = { knowledge_mode: 'hybrid', must_follow: [], forbidden: [], characters: [] };
+        _factsEditor.facts = f;
+        renderFactsEditor();
+      }).catch(function() {});
+  }).catch(function(e) { msgEl.textContent = '❌ 失败: ' + e.message; });
 }
 
 /* ── 时间线编辑器（world_facts.json 的 timelines）── */
