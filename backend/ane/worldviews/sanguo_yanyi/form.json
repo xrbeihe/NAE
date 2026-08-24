@@ -85,6 +85,16 @@
         "desc": "golden_finger_desc"
       },
       "store": "attrs.golden_finger_id"
+    },
+    {
+      "key": "appearance_brief",
+      "label": "外貌简述",
+      "kind": "select",
+      "options_from": "appearances",
+      "hint_template": "{desc}",
+      "store": "attrs.appearance_brief",
+      "allow_custom": true,
+      "custom_label": "自定义外貌"
     }
   ]
 }

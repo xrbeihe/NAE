@@ -1091,6 +1091,7 @@ var _OPT_TABS = {
   cultivations: { file: 'player_templates.json', label: '职业/能力', cols: [['value','选项值'],['label','显示名'],['desc','说明']] },
   races:        { file: 'player_templates.json', label: '种族池', cols: [['value','选项值'],['label','显示名'],['desc','说明']] },
   spiritual_roots:{ file: 'player_templates.json', label: '灵根池', cols: [['value','选项值'],['label','显示名'],['desc','说明']] },
+  appearances:  { file: 'player_templates.json', label: '外貌池', cols: [['value','选项值'],['label','显示名'],['desc','说明']] },
   backgrounds:  { file: 'player_templates.json', label: '出身背景', cols: [['value','选项值'],['label','显示名'],['desc','说明'],['initial_resource','初始资源'],['personality_tendency','性格倾向']] },
   personalities:{ file: 'player_templates.json', label: '性格', cols: [['value','选项值'],['label','显示名'],['desc','说明']] },
   identities:   { file: 'player_templates.json', label: '身份', cols: [['label','显示名'],['desc','说明'],['clothing','衣物']] },
@@ -1111,14 +1112,72 @@ var _OPT_TABS = {
   npc_haki:{file: 'npc_templates.json', label: '霸气池', cols: [['name','霸气']], kind: 'str_list', list_key: 'haki' }
 };
 
+// ── 动态池 tab：player_templates 顶层数组键自动生成通用「XXX池」tab ──
+// 解决普遍问题：表单 options_from 引用的数据源，只要包数据里有该数组，
+// 选项编辑器就自动出现对应 tab，无需改代码（未知键 fallback 为「键名池」）。
+var _OPT_DYNAMIC_LABELS = {
+  genders: '性别池', appearances: '外貌池', races: '种族池',
+  spiritual_roots: '灵根池', sects: '宗门/组织池',
+  weapons: '武器装备池', titles: '称号池', hometowns: '家乡池',
+  pets: '伙伴/灵兽池', speech_styles: '说话风格池', factions: '阵营势力池',
+  heights: '身高档', builds: '体型档', cultivations2: '能力等级池',
+};
+
+// 硬编码 tab 已覆盖的数据键（含 list_key），动态生成时跳过
+var _OPT_HARDCODED_KEYS = {};
+Object.keys(_OPT_TABS).forEach(function(k) {
+  var t = _OPT_TABS[k];
+  _OPT_HARDCODED_KEYS[t.list_key || (k === 'places' ? 'regions' : k)] = true;
+});
+
+// 扫描包数据，为顶层数组键生成动态池 tab（空数组也生成，便于作者添加首行）
+function _optDynamicTabs(data) {
+  var out = {};
+  if (!data || typeof data !== 'object') return out;
+  Object.keys(data).forEach(function(k) {
+    if (_OPT_HARDCODED_KEYS[k]) return;      // 硬编码 tab 已覆盖
+    if (!Array.isArray(data[k])) return;     // 只处理数组池
+    out[k] = {
+      file: 'player_templates.json',
+      label: _OPT_DYNAMIC_LABELS[k] || (k + '池'),
+      cols: [['value','选项值'],['label','显示名'],['desc','说明']],
+      dynamic: true,
+    };
+  });
+  return out;
+}
+
+// 硬编码 tab + 动态 tab 合并（动态键不与硬编码冲突）
+function _allOptTabs(data) {
+  var tabs = {};
+  Object.keys(_OPT_TABS).forEach(function(k) { tabs[k] = _OPT_TABS[k]; });
+  var dyn = _optDynamicTabs(data);
+  Object.keys(dyn).forEach(function(k) { if (!tabs[k]) tabs[k] = dyn[k]; });
+  return tabs;
+}
+
+function _tabDef(tabKey) {
+  return _OPT_TABS[tabKey] || { file: 'player_templates.json', label: tabKey + '池', cols: [['value','选项值'],['label','显示名'],['desc','说明']], dynamic: true };
+}
+
 function openOptEditor(wvId) {
   _optEditor.worldview = wvId;
   _optEditor.tab = 'cultivations';
   _optEditor.dirty = false;
+  _optEditor.formSources = [];
   document.getElementById('opt-editor-title').textContent = '📋 编辑选项数据 — ' + wvId;
   document.getElementById('opt-editor-msg').textContent = '加载中…';
   document.getElementById('opt-editor-overlay').style.display = 'flex';
   _optLoadTab();
+  // 收集表单引用的数据源（options_from），缺失时在选项编辑器提示可一键创建
+  apiFetch('/worldviews/' + encodeURIComponent(wvId) + '/form').then(function(r) { return r.json(); }).then(function(d) {
+    var fields = (d.form && d.form.fields) || [];
+    _optEditor.formSources = [];
+    fields.forEach(function(f) {
+      if (f.options_from && _optEditor.formSources.indexOf(f.options_from) === -1) _optEditor.formSources.push(f.options_from);
+    });
+    renderOptBody();
+  }).catch(function() {});
 }
 
 function closeOptEditor() {
@@ -1127,7 +1186,7 @@ function closeOptEditor() {
 
 function _tabDataKey(tabKey) {
   var t = _OPT_TABS[tabKey];
-  return t.list_key || (tabKey === 'places' ? 'regions' : tabKey);
+  return (t && t.list_key) || (tabKey === 'places' ? 'regions' : tabKey);
 }
 
 // A pool tab is shown only when the pack's loaded data actually contains
@@ -1138,7 +1197,8 @@ function _tabPresent(tabKey, data) {
 }
 
 function _optLoadTab() {
-  var tab = _OPT_TABS[_optEditor.tab];
+  var tabs = _allOptTabs(_optEditor.data || {});
+  var tab = tabs[_optEditor.tab] || _tabDef(_optEditor.tab);
   var f = tab.file;
   document.getElementById('opt-editor-msg').textContent = '加载 ' + f + ' …';
   apiFetch('/worldviews/' + encodeURIComponent(_optEditor.worldview) + '/data/' + f).then(function(r) { return r.json(); }).then(function(d) {
@@ -1147,8 +1207,9 @@ function _optLoadTab() {
     // If the current tab's pool is absent in this pack, fall back to the
     // first tab that actually has data for this pack.
     if (!_tabPresent(_optEditor.tab, _optEditor.data)) {
-      var firstKey = Object.keys(_OPT_TABS).find(function(k) { return _tabPresent(k, _optEditor.data); });
-      _optEditor.tab = firstKey || 'cultivations';
+      var allTabs = _allOptTabs(_optEditor.data);
+      var firstKey = Object.keys(allTabs).find(function(k) { return _tabPresent(k, _optEditor.data); });
+      _optEditor.tab = firstKey || Object.keys(allTabs)[0] || 'cultivations';
     }
     renderOptTabs();
     renderOptBody();
@@ -1160,10 +1221,11 @@ function _optLoadTab() {
 
 function renderOptTabs() {
   var tabsEl = document.getElementById('opt-tabs');
-  tabsEl.innerHTML = Object.keys(_OPT_TABS).filter(function(k) {
+  var allTabs = _allOptTabs(_optEditor.data);
+  tabsEl.innerHTML = Object.keys(allTabs).filter(function(k) {
     return _tabPresent(k, _optEditor.data);
   }).map(function(k) {
-    var t = _OPT_TABS[k];
+    var t = allTabs[k];
     var active = k === _optEditor.tab;
     return '<button onclick="optSwitchTab(\'' + k + '\')" style="padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-family:inherit;background:' + (active ? 'var(--accent)' : 'none') + ';color:' + (active ? 'var(--panel)' : 'var(--accent-dim)') + ';border:1px solid var(--border)">' + t.label + '</button>';
   }).join('');
@@ -1177,7 +1239,7 @@ function optSwitchTab(k) {
 }
 
 function _optRows() {
-  var tab = _OPT_TABS[_optEditor.tab];
+  var tab = _tabDef(_optEditor.tab);
   var data = _optEditor.data;
   var key = tab.list_key || ((_optEditor.tab === 'places') ? 'regions' : _optEditor.tab);
   var rows = data[key];
@@ -1196,16 +1258,17 @@ function _optRows() {
 }
 
 function renderOptBody() {
-  var tab = _OPT_TABS[_optEditor.tab];
+  var tab = _tabDef(_optEditor.tab);
   var rows = _optRows();
   var cols = tab.cols;
   var html = _helpBlock([
     ['这是什么', '编辑「角色创建弹窗」下拉框的选项数据（职业/出身/性格/身份/特殊能力）与地图地点，以及 NPC 生成池'],
-    ['各 tab 的数据文件', '职业/种族/灵根/出身/性格/身份/特殊能力 = player_templates.json；地点 = world_templates.json；姓氏/男名/女名/NPC性格/修为/体型/衣着/体质/NPC原型 = npc_templates.json'],
+    ['各 tab 的数据文件', '职业/种族/灵根/出身/性格/身份/特殊能力/外貌等 = player_templates.json；地点 = world_templates.json；姓氏/男名/女名/NPC性格/修为/体型/衣着/体质/NPC原型 = npc_templates.json'],
+    ['自动发现', '表单里 options_from 引用的数据源，只要包数据里有对应数组，这里就自动出现「XXX池」tab（无需改代码）；缺失时会提示并可一键创建'],
     ['表格操作', '直接改单元格内容，点「＋ 添加一行」新增、「✕」删除，保存后下次创建角色生效'],
     ['空数组', '作者明确表示"此世界观没有这项"，该区块会自动隐藏（如现代都市没有灵根）'],
     ['NPC 池', '姓名池/性格池等是「新建建模NPC」弹窗提示库的数据源，可自由增删'],
-  ]) + '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+  ]) + _optSourcesHtml() + '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
   // header
   html += '<tr>' + cols.map(function(c) { return '<th style="padding:6px 8px;border:1px solid var(--border);text-align:left;color:var(--accent-dim);background:var(--input-bg)">' + c[1] + '</th>'; }).join('') + '<th style="padding:6px;border:1px solid var(--border);width:60px"></th></tr>';
   rows.forEach(function(row, i) {
@@ -1223,8 +1286,52 @@ function renderOptBody() {
   });
 }
 
+// 表单引用的数据源缺失提示 + 新建数据池（解决 options_from 无编辑入口）
+function _optSourcesHtml() {
+  var missing = (_optEditor.formSources || []).filter(function(k) {
+    return _optEditor.data && _optEditor.data[k] === undefined;
+  });
+  var h = '';
+  if (missing.length) {
+    h += '<div style="margin-bottom:8px;border:1px solid #8a5a3a;border-radius:6px;padding:8px 10px;background:rgba(138,90,58,0.08)">' +
+      '<div style="font-size:12px;color:#b08060;margin-bottom:4px">⚠️ 表单引用了以下数据源，但包数据中不存在（下拉会是空的）——点「创建」一键建池：</div>' +
+      missing.map(function(k) {
+        return '<span style="display:inline-block;margin:2px;padding:2px 8px;background:var(--panel);border:1px solid var(--border);border-radius:3px;font-size:11px;color:var(--accent-dim)">' + _esc(k) + ' <button onclick="createOptPool(\'' + _esc(k) + '\')" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:11px">创建</button></span>';
+      }).join('') + '</div>';
+  }
+  h += '<div style="margin-bottom:8px;font-size:11px;color:var(--accent-dim)">新建数据池：<input id="opt-new-pool" placeholder="键名，如 appearances / weapons" style="padding:4px 8px;background:var(--panel);border:1px solid var(--border);border-radius:3px;color:var(--text);font-size:11px;width:200px;box-sizing:border-box"> <button onclick="createOptPoolFromInput()" style="background:none;border:1px solid var(--accent);color:var(--accent);padding:4px 10px;border-radius:3px;cursor:pointer;font-size:11px">＋ 创建</button></div>';
+  return h;
+}
+
+function _optSaveWholeData(msg) {
+  var msgEl = document.getElementById('opt-editor-msg');
+  if (!msgEl) msgEl = document.getElementById('opt-editor-title');
+  apiFetch('/worldviews/' + encodeURIComponent(_optEditor.worldview) + '/data/player_templates.json', {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({data: _optEditor.data})
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.detail) { msgEl.textContent = '保存失败: ' + d.detail; return; }
+    msgEl.textContent = msg || '✅ 已保存';
+    _optLoadTab();
+  }).catch(function(e) { msgEl.textContent = '保存失败: ' + e.message; });
+}
+
+function createOptPool(key) {
+  key = (key || '').trim();
+  if (!/^[a-z_][a-z0-9_]*$/.test(key)) { alert('键名需小写字母/数字/下划线开头'); return; }
+  if (_optEditor.data[key] !== undefined) { alert('数据源已存在: ' + key); return; }
+  _optEditor.data[key] = [];
+  _optSaveWholeData('✅ 已创建数据池「' + key + '」');
+}
+
+function createOptPoolFromInput() {
+  var inp = document.getElementById('opt-new-pool');
+  createOptPool(inp ? inp.value : '');
+}
+
 function optAddRow() {
-  var tab = _OPT_TABS[_optEditor.tab];
+  var tab = _tabDef(_optEditor.tab);
   var rows = _optRows();
   var newRow = {};
   tab.cols.forEach(function(c) { newRow[c[0]] = ''; });
@@ -1245,7 +1352,7 @@ function optAddRow() {
 }
 
 function optDelRow(i) {
-  var tab = _OPT_TABS[_optEditor.tab];
+  var tab = _tabDef(_optEditor.tab);
   var key = tab.list_key || ((_optEditor.tab === 'places') ? 'regions' : _optEditor.tab);
   var rows = _optRows();
   if (tab.kind === 'str_list') {
@@ -1265,7 +1372,7 @@ function optDelRow(i) {
 }
 
 function saveOptEditor() {
-  var tab = _OPT_TABS[_optEditor.tab];
+  var tab = _tabDef(_optEditor.tab);
   var data = _optEditor.data;
   var key = tab.list_key || ((_optEditor.tab === 'places') ? 'regions' : _optEditor.tab);
 
