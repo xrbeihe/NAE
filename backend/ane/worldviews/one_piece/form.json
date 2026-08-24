@@ -65,8 +65,23 @@
       "options_from": "golden_fingers",
       "allow_custom": true,
       "visible_if": "has_golden_fingers",
-      "option_map": {"id": "golden_finger_id", "name": "golden_finger_name", "tagline": "golden_finger_tagline", "desc": "golden_finger_desc"},
+      "option_map": {
+        "id": "golden_finger_id",
+        "name": "golden_finger_name",
+        "tagline": "golden_finger_tagline",
+        "desc": "golden_finger_desc"
+      },
       "store": "attrs.golden_finger_id"
+    },
+    {
+      "key": "appearance_brief",
+      "label": "外貌简述",
+      "kind": "select",
+      "options_from": "appearances",
+      "hint_template": "{desc}",
+      "store": "attrs.appearance_brief",
+      "allow_custom": true,
+      "custom_label": "自定义外貌"
     }
   ]
 }
