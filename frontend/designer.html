@@ -1341,7 +1341,13 @@ function renderOptBody() {
     }).join('') + '<td style="padding:3px;border:1px solid var(--border);text-align:center"><button onclick="optDelRow(' + i + ')" style="background:none;border:none;color:#b06060;cursor:pointer;font-size:12px">✕</button></td></tr>';
   });
   html += '</table></div>';
-  html += '<button onclick="optAddRow()" style="margin-top:8px;padding:6px 14px;background:none;border:1px dashed var(--border);color:var(--accent-dim);border-radius:4px;cursor:pointer;font-size:12px;width:100%">＋ 添加一行</button>';
+  var tabDef = _tabDef(_optEditor.tab);
+  html += '<div style="display:flex;gap:8px;margin-top:8px">' +
+    '<button onclick="optAddRow()" style="flex:1;padding:6px 14px;background:none;border:1px dashed var(--border);color:var(--accent-dim);border-radius:4px;cursor:pointer;font-size:12px">＋ 添加一行</button>' +
+    (tabDef.dynamic
+      ? '<button onclick="deleteOptPool()" title="删除整个数据池（表单若仍引用该键，选项编辑器会提示可重建）" style="padding:6px 14px;background:none;border:1px solid var(--danger,#8a3a3a);color:#b06060;border-radius:4px;cursor:pointer;font-size:12px">🗑 删除此数据池</button>'
+      : '') +
+  '</div>';
   document.getElementById('opt-editor-body').innerHTML = html;
   document.querySelectorAll('#opt-editor-body input').forEach(function(inp) {
     inp.addEventListener('input', function() { _optEditor.dirty = true; });
@@ -1408,6 +1414,28 @@ function createOptPool(key) {
 function createOptPoolFromInput() {
   var inp = document.getElementById('opt-new-pool');
   createOptPool(inp ? inp.value : '');
+}
+
+// 删除整个动态数据池（作者自建的数组池）；内置/特殊结构池不可删
+function deleteOptPool() {
+  var tab = _tabDef(_optEditor.tab);
+  if (!tab.dynamic) { alert('内置数据池不可删除'); return; }
+  var key = _optEditor.tab;
+  if (!confirm('删除数据池「' + tab.label + '」？将从包数据中移除数组 ' + key + '。表单若仍引用该键，下拉会变空（选项编辑器会提示可重建）。')) return;
+  var data = _optEditor.playerData || _optEditor.data || {};
+  delete data[key];
+  _optEditor.playerData = data;
+  var file = tab.file || 'player_templates.json';
+  var msgEl = document.getElementById('opt-editor-msg');
+  apiFetch('/worldviews/' + encodeURIComponent(_optEditor.worldview) + '/data/' + file, {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({data: data})
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.detail) { msgEl.textContent = '删除失败: ' + d.detail; return; }
+    msgEl.textContent = '✅ 已删除数据池「' + key + '」';
+    _optLoadTab();
+  }).catch(function(e) { msgEl.textContent = '删除失败: ' + e.message; });
 }
 
 function optAddRow() {
