@@ -31,9 +31,26 @@ router = APIRouter(prefix="/worldviews", tags=["worldviews"])
 
 
 @router.get("")
-async def get_worldviews():
-    """List all installed worldview packs (manifest summaries)."""
-    return {"worldviews": list_worldviews()}
+async def get_worldviews(
+    db: AsyncSession = Depends(get_db),
+    user = Depends(get_optional_user),
+):
+    """List all installed worldview packs (manifest summaries + edit permission)."""
+    wvs = list_worldviews()
+    out = []
+    for wv in wvs:
+        wv_id = wv.get("id")
+        editable = False
+        if wv_id and user:
+            owner = _worldview_owner(wv_id)
+            admin = await _admin_user_id(db)
+            if owner:
+                editable = (user.id == owner) or (admin and user.id == admin)
+            else:
+                editable = bool(admin and user.id == admin)
+        wv["editable"] = editable
+        out.append(wv)
+    return {"worldviews": out}
 
 
 @router.get("/{worldview_id}/validate")
@@ -64,6 +81,7 @@ async def put_worldview_form(
     """Save the pack's form.json (author edits the character-creation form)."""
     if not _is_valid_id(worldview_id):
         raise HTTPException(status_code=400, detail=f"无效的世界观 ID: {worldview_id!r}")
+    await _require_edit_permission(db, user, worldview_id)
     form = body.get("form") if isinstance(body, dict) else None
     if not isinstance(form, dict):
         raise HTTPException(status_code=400, detail="请求需包含 form 对象")
@@ -93,6 +111,7 @@ async def put_worldview_ui(
     """Save the pack's ui.json (author edits frontend copy / recommendations)."""
     if not _is_valid_id(worldview_id):
         raise HTTPException(status_code=400, detail=f"无效的世界观 ID: {worldview_id!r}")
+    await _require_edit_permission(db, user, worldview_id)
     ui = body.get("ui") if isinstance(body, dict) else None
     if not isinstance(ui, dict):
         raise HTTPException(status_code=400, detail="请求需包含 ui 对象")
@@ -103,10 +122,13 @@ async def put_worldview_ui(
 
 
 @router.post("/{worldview_id}/reload")
-async def reload_worldview(worldview_id: str):
+async def reload_worldview(
+    worldview_id: str,
+    db: AsyncSession = Depends(get_db),
+    user = Depends(get_optional_user),
+):
     """Drop the loader cache for a pack (after editing files on disk)."""
-    if not _is_valid_id(worldview_id):
-        raise HTTPException(status_code=400, detail=f"无效的世界观 ID: {worldview_id!r}")
+    await _require_edit_permission(db, user, worldview_id)
     reload_pack(worldview_id)
     return {"reloaded": worldview_id}
 
@@ -146,6 +168,8 @@ async def upload_worldview(
     The zip must contain a top-level manifest.json (or a single top-level
     directory whose name is a valid worldview id and contains manifest.json).
     """
+    if not user:
+        raise HTTPException(status_code=401, detail="请先登录")
     raw = await file.read()
     if not raw:
         raise HTTPException(status_code=400, detail="空文件")
@@ -194,6 +218,10 @@ async def upload_worldview(
     if not str(target).startswith(str(WORLDVIEWS_DIR.resolve())):
         raise HTTPException(status_code=400, detail="非法的包路径")
 
+    # 覆盖已安装的包：必须是作者（或管理员），且内置公共包仅管理员可覆盖
+    if target.exists():
+        await _require_edit_permission(db, user, wv_id)
+
     if target.exists():
         shutil.rmtree(target)
     target.mkdir(parents=True, exist_ok=True)
@@ -212,6 +240,15 @@ async def upload_worldview(
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(zf.read(n))
         written += 1
+
+    # 标记包作者：manifest 写入 owner_user_id（内置公共包无此字段 → 仅管理员可改）
+    m_path = target / "manifest.json"
+    try:
+        m = json.loads(m_path.read_text(encoding="utf-8"))
+    except Exception:
+        m = {}
+    m["owner_user_id"] = user.id
+    m_path.write_text(json.dumps(m, ensure_ascii=False, indent=2), encoding="utf-8")
 
     # Validate the installed pack
     report = validate_pack(wv_id)
@@ -239,6 +276,48 @@ _EDITABLE_ARTIFACTS = {
 }
 
 
+# ── 包编辑权限 ────────────────────────────────────────────────
+# 内置包（manifest 无 owner_user_id）= 项目公共资源，仅管理员可改；
+# 用户上传安装的包 = 作者或管理员可改；所有写操作一律要求登录。
+
+async def _admin_user_id(db: AsyncSession) -> str | None:
+    """第一个注册的用户视为管理员（负责维护内置公共包）。"""
+    from ane.database.models import User as _User
+    from sqlalchemy import select as _select
+    row = await db.execute(
+        _select(_User.id).order_by(_User.created_at.asc(), _User.id.asc()).limit(1)
+    )
+    return row.scalar_one_or_none()
+
+
+def _worldview_owner(wv_id: str) -> str | None:
+    """包 manifest 中记录的作者 user_id；无 = 内置公共包。"""
+    try:
+        m = json.loads((WORLDVIEWS_DIR / wv_id / "manifest.json").read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    return m.get("owner_user_id") or None
+
+
+async def _require_edit_permission(db: AsyncSession, user, wv_id: str) -> None:
+    """写包文件 / 删除 / 覆盖安装前的统一权限校验（未登录 401，无权 403）。"""
+    if not user:
+        raise HTTPException(status_code=401, detail="请先登录")
+    if not _is_valid_id(wv_id):
+        raise HTTPException(status_code=400, detail=f"无效的世界观 ID: {wv_id!r}")
+    if not (WORLDVIEWS_DIR / wv_id).is_dir():
+        raise HTTPException(status_code=404, detail=f"世界观 {wv_id} 不存在")
+    owner = _worldview_owner(wv_id)
+    admin = await _admin_user_id(db)
+    if owner:
+        if user.id == owner or (admin and user.id == admin):
+            return
+        raise HTTPException(status_code=403, detail="只能修改自己上传安装的世界观")
+    if admin and user.id == admin:
+        return
+    raise HTTPException(status_code=403, detail="内置世界观为公共资源，仅管理员可修改")
+
+
 @router.get("/{worldview_id}/data/{filename}")
 async def get_worldview_data(worldview_id: str, filename: str):
     """Read a pack JSON artifact (player/world/npc templates, constraints, …)."""
@@ -262,6 +341,7 @@ async def put_worldview_data(
         raise HTTPException(status_code=400, detail=f"无效的世界观 ID: {worldview_id!r}")
     if filename not in _EDITABLE_ARTIFACTS:
         raise HTTPException(status_code=400, detail=f"不允许写入该文件: {filename!r}")
+    await _require_edit_permission(db, user, worldview_id)
     data = body.get("data") if isinstance(body, dict) else None
     if not isinstance(data, dict):
         raise HTTPException(status_code=400, detail="请求需包含 data 对象")
@@ -296,7 +376,9 @@ async def unshare_worldview(
     if not share:
         raise HTTPException(status_code=404, detail=f"世界观 {wv_id} 不在共享库")
     if share.user_id != user.id:
-        raise HTTPException(status_code=403, detail="只能撤销自己推送的世界观")
+        admin = await _admin_user_id(db)
+        if not (admin and user.id == admin):
+            raise HTTPException(status_code=403, detail="只能撤销自己推送的世界观")
     await db.delete(share)
     await db.commit()
     return {"unshared": wv_id}
@@ -319,11 +401,13 @@ async def get_worldview_prompt(worldview_id: str):
 async def put_worldview_prompt(
     worldview_id: str,
     body: dict,
+    db: AsyncSession = Depends(get_db),
     user = Depends(get_optional_user),
 ):
     """保存世界观的 system_prompt.txt（文本），并清 loader 缓存。"""
     if not _is_valid_id(worldview_id):
         raise HTTPException(status_code=400, detail=f"无效的世界观 ID: {worldview_id!r}")
+    await _require_edit_permission(db, user, worldview_id)
     prompt = body.get("prompt") if isinstance(body, dict) else None
     if prompt is None:
         raise HTTPException(status_code=400, detail="请求需包含 prompt 文本")
@@ -346,9 +430,8 @@ async def delete_worldview(
     db: AsyncSession = Depends(get_db),
     user = Depends(get_optional_user),
 ):
-    """Delete an installed pack (default pack is protected)."""
-    if not _is_valid_id(worldview_id):
-        raise HTTPException(status_code=400, detail=f"无效的世界观 ID: {worldview_id!r}")
+    """Delete an installed pack (default pack protected; built-in packs admin-only)."""
+    await _require_edit_permission(db, user, worldview_id)
     if worldview_id == DEFAULT_WORLDVIEW_ID:
         raise HTTPException(status_code=400, detail="不允许删除默认世界观")
 
@@ -386,10 +469,11 @@ async def share_worldview(
     if wv_id == DEFAULT_WORLDVIEW_ID:
         raise HTTPException(status_code=400, detail="默认世界观不需要开源共享")
 
-    # The pack must be installed on disk.
+    # The pack must be installed on disk, and only its author (or admin) may share it.
     pack_dir = WORLDVIEWS_DIR / wv_id
     if not pack_dir.is_dir():
         raise HTTPException(status_code=404, detail=f"世界观 {wv_id} 不存在")
+    await _require_edit_permission(db, user, wv_id)
 
     title = (req.get("title") or "").strip() or wv_id
     description = (req.get("description") or "").strip()

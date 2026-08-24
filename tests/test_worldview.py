@@ -356,13 +356,25 @@ async def test_list_shared_worldviews_includes_lore(db):
 
 
 @pytest.mark.asyncio
-async def test_upload_worldview_via_asgi(tmp_path):
-    """End-to-end: build a minimal pack zip, upload via the ASGI app."""
+async def test_upload_worldview_via_asgi(tmp_path, db):
+    """End-to-end: build a minimal pack zip, upload via the ASGI app (login required)."""
     import io
     import zipfile
     import httpx
     from ane.main import app
     from ane.worldview import WORLDVIEWS_DIR
+    from ane.database.engine import get_db
+    from ane.auth import create_access_token
+    from ane.database.models import User
+
+    uid = "uploader_user"
+    db.add(User(id=uid, username=uid, password_hash="x", display_name=uid, is_adult=True))
+    await db.commit()
+    token = create_access_token({"sub": uid})
+
+    async def _db_override():
+        yield db
+    app.dependency_overrides[get_db] = _db_override
 
     wv_id = "test_pack_upload"
     # Build a minimal pack zip
@@ -386,18 +398,23 @@ async def test_upload_worldview_via_asgi(tmp_path):
         }, ensure_ascii=False))
         zf.writestr("intent_keywords.json", json.dumps({}, ensure_ascii=False))
 
-    transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-        resp = await client.post(
-            "/worldviews/upload",
-            files={"file": (f"{wv_id}.zip", buf.getvalue(), "application/zip")},
-        )
-        assert resp.status_code == 200, resp.text
-        data = resp.json()
-        assert data["installed"] == wv_id
-        assert data["validation"]["ok"] is True
-
     try:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            client.headers["Authorization"] = f"Bearer {token}"
+            resp = await client.post(
+                "/worldviews/upload",
+                files={"file": (f"{wv_id}.zip", buf.getvalue(), "application/zip")},
+            )
+            assert resp.status_code == 200, resp.text
+            data = resp.json()
+            assert data["installed"] == wv_id
+            assert data["validation"]["ok"] is True
+
+        # 上传后 manifest 记录包作者
+        m = json.loads((WORLDVIEWS_DIR / wv_id / "manifest.json").read_text(encoding="utf-8"))
+        assert m.get("owner_user_id") == uid
+
         # The pack should now be loadable
         wv = get_worldview(wv_id)
         assert wv.manifest.get("name") == "测试世界观"
@@ -406,6 +423,7 @@ async def test_upload_worldview_via_asgi(tmp_path):
         ids = {w["id"] for w in list_worldviews()}
         assert wv_id in ids
     finally:
+        app.dependency_overrides.pop(get_db, None)
         # Cleanup: delete the test pack
         import shutil
         target = WORLDVIEWS_DIR / wv_id
@@ -415,16 +433,122 @@ async def test_upload_worldview_via_asgi(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_upload_rejects_bad_zip():
+async def test_upload_rejects_bad_zip(db):
     import httpx
     from ane.main import app
-    transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-        resp = await client.post(
-            "/worldviews/upload",
-            files={"file": ("bad.zip", b"not a zip", "application/zip")},
-        )
-        assert resp.status_code == 400
+    from ane.database.engine import get_db
+    from ane.auth import create_access_token
+    from ane.database.models import User
+
+    uid = "uploader_user2"
+    db.add(User(id=uid, username=uid, password_hash="x", display_name=uid, is_adult=True))
+    await db.commit()
+    token = create_access_token({"sub": uid})
+
+    async def _db_override():
+        yield db
+    app.dependency_overrides[get_db] = _db_override
+    try:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            client.headers["Authorization"] = f"Bearer {token}"
+            resp = await client.post(
+                "/worldviews/upload",
+                files={"file": ("bad.zip", b"not a zip", "application/zip")},
+            )
+            assert resp.status_code == 400
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.mark.asyncio
+async def test_upload_requires_login(db):
+    """未登录上传 → 401（包写操作必须登录）。"""
+    import io
+    import zipfile
+    import httpx
+    from ane.main import app
+    from ane.database.engine import get_db
+
+    async def _db_override():
+        yield db
+    app.dependency_overrides[get_db] = _db_override
+    try:
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr("manifest.json", json.dumps({"worldview_id": "anon_pack", "name": "匿名包"}))
+            zf.writestr("system_prompt.txt", "x")
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.post(
+                "/worldviews/upload",
+                files={"file": ("anon.zip", buf.getvalue(), "application/zip")},
+            )
+            assert resp.status_code == 401
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.mark.asyncio
+async def test_worldview_edit_permissions(db):
+    """包写权限：内置公共包仅管理员可改（他人 403 / 匿名 401）；用户上传的包仅作者可改。"""
+    import io
+    import zipfile
+    import shutil
+    import httpx
+    from ane.main import app
+    from ane.worldview import WORLDVIEWS_DIR, reload as _reload
+    from ane.database.engine import get_db
+    from ane.auth import create_access_token
+    from ane.database.models import User
+
+    admin = User(id="perm_admin", username="perm_admin", password_hash="x", display_name="A", is_adult=True)
+    other = User(id="perm_other", username="perm_other", password_hash="x", display_name="B", is_adult=True)
+    db.add_all([admin, other])
+    await db.commit()
+    admin_token = create_access_token({"sub": admin.id})
+    other_token = create_access_token({"sub": other.id})
+
+    async def _db_override():
+        yield db
+    app.dependency_overrides[get_db] = _db_override
+
+    wv_id = "perm_test_pack"
+    try:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            # ── 内置公共包：非管理员 403，匿名 401 ──
+            client.headers["Authorization"] = f"Bearer {other_token}"
+            r = await client.put("/worldviews/naruto_shippuden/ui", json={"ui": {"labels": {"role": "忍者"}}})
+            assert r.status_code == 403, r.text
+            client.headers.pop("Authorization")
+            r = await client.put("/worldviews/naruto_shippuden/ui", json={"ui": {}})
+            assert r.status_code == 401, r.text
+
+            # ── 用户上传的包：作者可改（200），他人 403 ──
+            client.headers["Authorization"] = f"Bearer {admin_token}"
+            buf = io.BytesIO()
+            with zipfile.ZipFile(buf, "w") as zf:
+                zf.writestr("manifest.json", json.dumps({"worldview_id": wv_id, "name": "权限测试包", "version": "0.1.0"}, ensure_ascii=False))
+                zf.writestr("system_prompt.txt", "测试。")
+            up = await client.post(
+                "/worldviews/upload",
+                files={"file": (wv_id + ".zip", buf.getvalue(), "application/zip")},
+            )
+            assert up.status_code == 200, up.text
+
+            r = await client.put(f"/worldviews/{wv_id}/ui", json={"ui": {"labels": {"role": "测试"}}})
+            assert r.status_code == 200, r.text  # 作者可改
+
+            client.headers["Authorization"] = f"Bearer {other_token}"
+            r = await client.put(f"/worldviews/{wv_id}/ui", json={"ui": {"labels": {"role": "捣乱"}}})
+            assert r.status_code == 403, r.text  # 他人不可改
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+        target = WORLDVIEWS_DIR / wv_id
+        if target.exists():
+            shutil.rmtree(target)
+        _reload(wv_id)
 
 
 def test_validate_missing_pack():

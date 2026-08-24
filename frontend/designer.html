@@ -330,25 +330,28 @@ async function loadWorldviewList() {
     listEl.innerHTML = _worldviews.map(function(w) {
       var isDefault = (w.id === 'xianxia_v1');
       var shared = sharedIds[w.id];
+      var canEdit = !!w.editable;  // 包作者或管理员可编辑，其余只读
       return '<div style="border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-bottom:8px">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">' +
           '<div style="min-width:0">' +
-            '<div style="font-size:13px;color:var(--text)">' + _esc(w.name) + (isDefault ? ' <span style="color:var(--accent-dim);font-size:11px">(默认)</span>' : '') + (shared ? ' <span style="color:var(--accent);font-size:11px">(已开源)</span>' : '') + '</div>' +
+            '<div style="font-size:13px;color:var(--text)">' + _esc(w.name) + (isDefault ? ' <span style="color:var(--accent-dim);font-size:11px">(默认)</span>' : '') + (shared ? ' <span style="color:var(--accent);font-size:11px">(已开源)</span>' : '') + (!canEdit ? ' <span style="color:var(--accent-dim);font-size:11px">(只读)</span>' : '') + '</div>' +
             '<div style="font-size:11px;color:var(--accent-dim);margin-top:2px">' + _esc(w.id) + ' · v' + _esc(w.version || '?') + '</div>' +
             '<div style="font-size:11px;color:var(--accent-dim);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _esc(w.description || '') + '</div>' +
           '</div>' +
           '<div style="display:flex;gap:6px;flex-shrink:0">' +
-            '<button onclick="openFormEditor(\'' + _esc(w.id) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">✏️ 表单</button>' +
-            '<button onclick="openRecEditor(\'' + _esc(w.id) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">💬 文案</button>' +
-            '<button onclick="openOptEditor(\'' + _esc(w.id) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">📋 选项</button>' +
-            '<button onclick="openFactsEditor(\'' + _esc(w.id) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">📖 设定</button>' +
-            '<button onclick="openPromptEditor(\'' + _esc(w.id) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">📝 prompt</button>' +
-            (shared
-              ? '<button onclick="unshareWorldview(\'' + _esc(w.id) + '\', \'' + _esc(shared.title || w.name) + '\')" style="background:none;border:1px solid var(--danger,#8a3a3a);color:#b06060;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">🚫 下架</button>'
-              : '<button onclick="openShareModal(\'' + _esc(w.id) + '\', \'' + _esc(w.name) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">📤 开源</button>') +
+            (canEdit ? '<button onclick="openFormEditor(\'' + _esc(w.id) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">✏️ 表单</button>' : '') +
+            (canEdit ? '<button onclick="openRecEditor(\'' + _esc(w.id) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">💬 文案</button>' : '') +
+            (canEdit ? '<button onclick="openOptEditor(\'' + _esc(w.id) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">📋 选项</button>' : '') +
+            (canEdit ? '<button onclick="openFactsEditor(\'' + _esc(w.id) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">📖 设定</button>' : '') +
+            (canEdit ? '<button onclick="openPromptEditor(\'' + _esc(w.id) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">📝 prompt</button>' : '') +
+            (canEdit
+              ? (shared
+                  ? '<button onclick="unshareWorldview(\'' + _esc(w.id) + '\', \'' + _esc(shared.title || w.name) + '\')" style="background:none;border:1px solid var(--danger,#8a3a3a);color:#b06060;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">🚫 下架</button>'
+                  : '<button onclick="openShareModal(\'' + _esc(w.id) + '\', \'' + _esc(w.name) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">📤 开源</button>')
+              : '') +
             '<button onclick="validateWorldview(\'' + _esc(w.id) + '\')" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">校验</button>' +
-            '<button onclick="reloadWorldview(\'' + _esc(w.id) + '\')" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">重载</button>' +
-            (isDefault ? '' : '<button onclick="deleteWorldview(\'' + _esc(w.id) + '\')" style="background:none;border:1px solid var(--danger,#8a3a3a);color:#b06060;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">删除</button>') +
+            (canEdit ? '<button onclick="reloadWorldview(\'' + _esc(w.id) + '\')" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">重载</button>' : '') +
+            (canEdit && !isDefault ? '<button onclick="deleteWorldview(\'' + _esc(w.id) + '\')" style="background:none;border:1px solid var(--danger,#8a3a3a);color:#b06060;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">删除</button>' : '') +
           '</div>' +
         '</div>' +
       '</div>';
