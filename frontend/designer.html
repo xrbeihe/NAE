@@ -168,8 +168,22 @@
       <span id="form-editor-title" style="font-size:15px;color:var(--accent)">✏️ 编辑角色创建表单</span>
       <span onclick="closeFormEditor()" style="cursor:pointer;font-size:20px;color:var(--accent-dim)">✕</span>
     </div>
-    <div style="padding:6px 18px;border-bottom:1px solid var(--border);font-size:12px;color:var(--accent-dim)">调整字段顺序、控件类型、选项来源与提示小字。保存后立即生效（下次创建角色时）。</div>
+    <div style="padding:6px 18px;border-bottom:1px solid var(--border);font-size:12px;color:var(--accent-dim)">调整字段顺序、控件类型、选项来源与提示小字。保存后立即生效（下次创建角色时）。字段键和存储位置可从下拉建议里选，也可手填。</div>
     <div style="flex:1;overflow-y:auto;padding:12px 18px">
+      <!-- 字段键 / 存储位置 建议列表（所有字段卡片共用） -->
+      <datalist id="key-suggestions">
+        <option value="name"><option value="age"><option value="gender"><option value="identity">
+        <option value="personality"><option value="background"><option value="background_summary">
+        <option value="cultivation"><option value="golden_finger"><option value="current_action">
+        <option value="current_pose"><option value="appearance_brief"><option value="height">
+      </datalist>
+      <datalist id="store-suggestions">
+        <option value="player.name"><option value="player.cultivation"><option value="player.location">
+        <option value="attrs.age"><option value="attrs.gender"><option value="attrs.identity">
+        <option value="attrs.personality"><option value="attrs.background">
+        <option value="attrs.background_summary"><option value="attrs.golden_finger_id">
+        <option value="attrs.current_action"><option value="attrs.current_pose">
+      </datalist>
       <div id="form-fields-list"></div>
       <button onclick="addFormField()" style="margin-top:10px;width:100%;padding:10px;background:none;border:1px dashed var(--border);color:var(--accent-dim);border-radius:6px;cursor:pointer;font-size:13px">＋ 添加字段</button>
     </div>
@@ -644,10 +658,10 @@ function renderFormEditor() {
   var html = _helpBlock([
     ['这是什么', '配置「角色创建弹窗」里有哪些输入项（姓名/年龄/性别/身份/特殊能力…），每张卡片对应一个字段'],
     ['子标题 label', '输入项上显示的文字，如「身份」「性格」'],
-    ['字段键 key', '字段的唯一标识（英文小写），一般不用改'],
+    ['字段键 key', '字段的唯一标识（英文小写）。填写时有下拉建议（name/age/gender/identity…），也可手填；建议键与子标题对应（如子标题「身份」→ key=identity）'],
     ['类型 kind', '文本框 text / 数字 number / 下拉框 select / 卡片网格 card_grid（特殊能力九宫格）'],
     ['选项来源 options_from', '下拉框的选项从 player_templates.json 的哪个数组取：genders=性别 / identities=身份 / backgrounds=出身 / golden_fingers=特殊能力'],
-    ['存储位置 store', '选中后保存到哪：player.name=玩家表字段；attrs.xxx=玩家属性（如 attrs.gender 存到属性里）'],
+    ['存储位置 store', '该字段保存到哪：player.xxx=玩家表字段（player.name 等）；attrs.xxx=玩家属性（attrs.gender/attrs.identity…）。填写时有下拉建议，也可手填'],
     ['解释小字模板 hint_template', '选项下方的小字提示模板，{desc} {clothing} 等会替换成该选项的字段值'],
     ['允许自定义', '勾选后玩家可以选择「自定义」并自己填写（如自定义身份/性格）'],
     ['显隐 visible_if', '按世界观条件决定是否显示：有宗门时 has_sects / 有特殊能力时 has_golden_fingers'],
@@ -666,15 +680,15 @@ function renderFormEditor() {
         '<button onclick="moveFormField(' + idx + ',1)" title="下移" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:11px">↓</button>' +
         '<button onclick="removeFormField(' + idx + ')" title="删除" style="background:none;border:1px solid var(--danger,#8a3a3a);color:#b06060;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:11px">✕</button>' +
       '</div>' +
-      '<div onclick="toggleFieldAdvanced(this)" style="margin-top:6px;font-size:11px;color:var(--accent-dim);cursor:pointer;user-select:none;padding:4px 2px">⚙️ 高级配置（字段键/选项来源/存储位置等，一般不用改）</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px">' +
+        '<div><label style="display:block;font-size:11px;color:var(--accent-dim)">字段键 key（必填，从建议选或手填）</label><input type="text" list="key-suggestions" data-f="key" value="' + _esc(field.key || '') + '" placeholder="如 name / age / identity" style="width:100%;padding:6px 10px;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px"></div>' +
+        '<div><label style="display:block;font-size:11px;color:var(--accent-dim)">存储位置 store（保存到哪）</label><input type="text" list="store-suggestions" data-f="store" value="' + _esc(field.store || '') + '" placeholder="如 attrs.gender" style="width:100%;padding:6px 10px;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px"></div>' +
+      '</div>' +
+      '<div onclick="toggleFieldAdvanced(this)" style="margin-top:6px;font-size:11px;color:var(--accent-dim);cursor:pointer;user-select:none;padding:4px 2px">⚙️ 可选增强（选项来源/解释模板/允许自定义等）</div>' +
       '<div class="field-advanced" style="display:none;border-top:1px dashed var(--border);margin-top:4px;padding-top:8px">' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">' +
-          '<div><label style="display:block;font-size:11px;color:var(--accent-dim)">字段键 key</label><input type="text" data-f="key" value="' + _esc(field.key || '') + '" style="width:100%;padding:6px 10px;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px"></div>' +
-          '<div><label style="display:block;font-size:11px;color:var(--accent-dim)">选项来源 options_from</label><input type="text" data-f="options_from" value="' + _esc(field.options_from || '') + '" placeholder="cultivations / identities / sects" style="width:100%;padding:6px 10px;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px"></div>' +
-        '</div>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">' +
+          '<div><label style="display:block;font-size:11px;color:var(--accent-dim)">选项来源 options_from（下拉框专用）</label><input type="text" data-f="options_from" value="' + _esc(field.options_from || '') + '" placeholder="cultivations / identities / sects" style="width:100%;padding:6px 10px;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px"></div>' +
           '<div><label style="display:block;font-size:11px;color:var(--accent-dim)">解释小字模板 hint_template</label><input type="text" data-f="hint_template" value="' + _esc(field.hint_template || '') + '" placeholder="{desc} ｜ 初始资源：{initial_resource}" style="width:100%;padding:6px 10px;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px"></div>' +
-          '<div><label style="display:block;font-size:11px;color:var(--accent-dim)">存储位置 store</label><input type="text" data-f="store" value="' + _esc(field.store || '') + '" placeholder="player.name / attrs.xxx" style="width:100%;padding:6px 10px;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px"></div>' +
         '</div>' +
         '<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">' +
           '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--accent-dim)"><input type="checkbox" data-f="allow_custom"' + (field.allow_custom ? ' checked' : '') + '> 允许自定义</label>' +
@@ -688,13 +702,13 @@ function renderFormEditor() {
   list.innerHTML = html;
 }
 
-// 展开/收起字段卡片的「高级配置」区
+// 展开/收起字段卡片的「可选增强」区
 function toggleFieldAdvanced(headerEl) {
   var wrap = headerEl.nextElementSibling;
   if (!wrap) return;
   var hidden = (wrap.style.display === 'none');
   wrap.style.display = hidden ? 'block' : 'none';
-  headerEl.textContent = hidden ? '⚙️ 收起高级配置' : '⚙️ 高级配置（字段键/选项来源/存储位置等，一般不用改）';
+  headerEl.textContent = hidden ? '⚙️ 收起可选增强' : '⚙️ 可选增强（选项来源/解释模板/允许自定义等）';
 }
 
 function _kindOptions(cur) {
