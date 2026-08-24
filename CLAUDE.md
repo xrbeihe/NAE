@@ -83,7 +83,7 @@ watch_backup.bat
 ## 功能变更记录
 
 ### 🛡️ 部署保护 + 服务器内容同步 + 世界观历史完善
-- **部署保护（ci.yml）**：deploy job 在 `actions/checkout` **之前**检测服务器 worktree 未提交改动（网页编辑器直接写磁盘的包文件，如 world_facts.json）——有改动则 tar 打包 `worldviews/` + `git diff` 上传为 artifact `ane-server-edits-backup`，并**中止部署**，防止 checkout 静默覆盖手改内容。worktree 干净时正常部署
+- **部署保护（ci.yml）**：deploy job 在 `actions/checkout` **之前**检测服务器 worktree 未提交改动（网页编辑器直接写磁盘的包文件，如 world_facts.json）——有改动则 tar 打包 `worldviews/` + `git diff` 上传为 artifact `ane-server-edits-backup`，并**中止部署**，防止 checkout 静默覆盖手改内容。worktree 干净时正常部署。**⚠️ 已暂时停用**（`9b5cf77`，恢复见 `af599de`）——停用期间服务器未提交的网页改动会被部署直接覆盖，请网页编辑后手动 commit + push
 - **服务器 ↔ GitHub 双向同步**：网页编辑保存 → 服务器 `git add -A && git commit && git push`（HTTPS + PAT）→ 本地 `git pull`。图片库数据（`data/images/` + `image_categories` 表）是运行时数据，不在 git 内，无需推送也不受部署影响
 - **📜 世界观历史（lore）**：naruto `world_facts.lore` 写入完整木叶编年史——表格版（木叶前 24 年—木叶 68 年，时间/大事记/人物出生）+ 浓缩年表（按木叶年纪年）+ 关键事件散文 + 人物成长线（春野樱/井野/纲手/手鞠/雏田/白/夕日红，含年龄戳如雏田 12/14/19/32）；聊天页 📜 弹窗展示
 - **🛠 提示词库双击取消选择**：新增 `promptLibToggle`——双击提示词条目切换启用/取消，允许"不启用任何提示词"；`promptLibEnable` 勾选时只同步 radio 与高亮、不再重建 DOM（否则双击事件丢失）；后端 `PUT /prompts/{id}` 原生支持 `enabled:false`
