@@ -16,7 +16,6 @@
     "name": "无名修士",
     "cultivation": "凡人",
     "location_hint": "山门",
-    "savings_unit": "块下品灵石",
     "status_label": "修士"
   },
   "extra_event_types": [

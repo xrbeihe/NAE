@@ -14,5 +14,4 @@
 - recommendations 推荐内容多样化时涵盖任务、修行、社交、探索等不同类型。
 - state_changes 各类型用法：
   - status_change：target="player", field="忍者等级", value="中忍" → 更新玩家等级
-  - economy_change：target="player", change=-3, unit="张委托单" → 增减委托报酬（负数=支出，正数=收入）。可用 reason 字段注明原因。
   - ninja_mission：target="player", field="当前任务", value="护送委托" → 记录玩家当前任务

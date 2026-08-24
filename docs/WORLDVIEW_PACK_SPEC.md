@@ -276,7 +276,6 @@ zip 结构：顶层 `manifest.json`（或单一顶层目录内含 manifest）。
 | `description` | — | 一句话设定 |
 | `genre` | — | 风格基调：fantasy / modern / scifi / xianxia |
 | `power_name` | — | 能力体系名称（注入面板与 state_change 用法） |
-| `money_name` | — | 货币名称 |
 | `role_label` | — | 对玩家的称呼 |
 | `professions` | — | 职业列表（顿号分隔） |
 | `places` | — | 地点列表（顿号分隔，第一个为出生地） |

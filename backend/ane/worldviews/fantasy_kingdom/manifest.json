@@ -17,7 +17,6 @@
     "name": "无名旅人",
     "cultivation": "平民",
     "location_hint": "村口",
-    "savings_unit": "枚银币",
     "status_label": "旅人"
   },
   "extra_event_types": [

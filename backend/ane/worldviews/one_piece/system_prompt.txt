@@ -14,4 +14,3 @@
 - recommendations 推荐内容多样化时涵盖航海、冒险、战斗、交易、社交等不同类型。
 - state_changes 各类型用法：
   - status_change：target="player", field="悬赏金", value="5000万贝利" → 更新玩家赏金
-  - economy_change：target="player", change=<数值>, unit="贝利" → 增减存款

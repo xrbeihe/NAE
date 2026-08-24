@@ -17,7 +17,6 @@
     "name": "无名忍者",
     "cultivation": "下忍",
     "location_hint": "木叶村",
-    "savings_unit": "张委托单",
     "status_label": "忍者"
   },
   "extra_event_types": [

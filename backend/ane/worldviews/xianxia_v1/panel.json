@@ -72,14 +72,6 @@
       "show_if": "truthy"
     },
     {
-      "label": "灵石",
-      "key": "_savings_amount",
-      "source": "attrs",
-      "unit_attr": "_savings_unit",
-      "default_unit": "块下品灵石",
-      "show_if": "nonzero"
-    },
-    {
       "label": "扩展",
       "key": "_extensions",
       "source": "exts",

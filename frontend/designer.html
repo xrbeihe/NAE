@@ -103,8 +103,6 @@
       </select>
       <label style="display:block;margin-bottom:2px;font-size:11px;color:var(--accent-dim)">能力体系名称（如：工艺等级 / 修为 / 职业）</label>
       <input type="text" id="gen-power" placeholder="工艺等级" style="width:100%;padding:8px 12px;margin-bottom:8px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px;box-sizing:border-box">
-      <label style="display:block;margin-bottom:2px;font-size:11px;color:var(--accent-dim)">货币名称（如：金币 / 灵石 / 元）</label>
-      <input type="text" id="gen-money" placeholder="金币" style="width:100%;padding:8px 12px;margin-bottom:8px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px;box-sizing:border-box">
       <label style="display:block;margin-bottom:2px;font-size:11px;color:var(--accent-dim)">对玩家的称呼（如：修士 / 市民 / 旅人）</label>
       <input type="text" id="gen-role" placeholder="旅人" style="width:100%;padding:8px 12px;margin-bottom:8px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px;box-sizing:border-box">
       <label style="display:block;margin-bottom:2px;font-size:11px;color:var(--accent-dim)">职业列表（顿号分隔，如：发明家、机械师、钟表匠）</label>
@@ -530,7 +528,6 @@ async function generateWorldview() {
     description: document.getElementById('gen-desc').value.trim(),
     genre: document.getElementById('gen-genre').value,
     power_name: document.getElementById('gen-power').value.trim(),
-    money_name: document.getElementById('gen-money').value.trim(),
     role_label: document.getElementById('gen-role').value.trim(),
     professions: document.getElementById('gen-professions').value.trim(),
     places: document.getElementById('gen-places').value.trim(),
@@ -803,7 +800,7 @@ var _REC_GROUPS = [
   ['with_sect', '选了宗门时的推荐', ['前往宗门大殿报到，领取身份令牌', '拜访同门师兄弟，结交新朋友']],
   ['with_golden_finger', '有特殊能力时的推荐', ['找个安静的地方探查自己的机缘']],
   ['without_golden_finger', '无特殊能力时的推荐', ['尝试感应天地灵气，熟悉自己的根骨']],
-  ['tail', '收尾推荐（总是显示，后 3 条）', ['检查随身物品，清点灵石', '向遇到的修士打听附近的风土人情', '去藏书阁或经楼翻阅本地志']]
+  ['tail', '收尾推荐（总是显示，后 3 条）', ['向遇到的修士打听附近的风土人情', '去藏书阁或经楼翻阅本地志']]
 ];
 
 /* General copy fields (button labels / titles / role称呼). */

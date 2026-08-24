@@ -39,16 +39,6 @@
       ]
     },
     {
-      "key": "cultivation",
-      "label": "忍者等级",
-      "kind": "select",
-      "options_from": "cultivations",
-      "hint_template": "{desc}",
-      "allow_custom": true,
-      "custom_label": "自定义等级",
-      "store": "player.cultivation"
-    },
-    {
       "key": "personality",
       "label": "性格",
       "kind": "select",

@@ -14,5 +14,4 @@
 - recommendations 推荐内容多样化时涵盖冒险、委托、社交、探索等不同类型。
 - state_changes 各类型用法：
   - status_change：target="player", field="职业", value="游侠" → 更新玩家属性
-  - economy_change：target="player", change=-3, unit="枚银币" → 增减货币（负数=支出，正数=收入）。可用 reason 字段注明原因。
   - magic_progress：target="player", field="魔力", value="学徒级" → 更新玩家魔力等级

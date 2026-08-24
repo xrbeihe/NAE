@@ -132,10 +132,6 @@ attributes 是 Player 的核心扩展字段，采用 JSON 对象存储，分组�
   "location_hierarchy": "青云山·山门",
   "travel_log": [],                       // [{action, destination, time}, ...]
 
-  // ── Economy ──
-  "savings": "10块下品灵石",
-  "monthly_income": "5块下品灵石",
-
   // ── Relations ──
   "relations": []                         // [{npc_id, affinity, ...}, ...]
 }

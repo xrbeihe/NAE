@@ -211,7 +211,7 @@ Token 有效期 7 天。前端存储在 `localStorage`，每次请求自动附�
 返回世界观包的 `player_templates.json` + 附加字段，前端渲染角色创建弹窗：
 - `genders` / `backgrounds` / `cultivations` / `personalities` / `identities` / `golden_fingers` — 选项数据（按世界观）
 - `ui` — 前端文案（labels/create_button/modal_title/initial_recommendations）
-- `player_defaults` — 默认名/能力/存款单位
+- `player_defaults` — 默认名/能力
 - `form` — form.json（声明式表单 spec，可能为 null → 前端回退 legacy 表单）
 - `world_templates` — 世界地理（供 has_sects/has_golden_fingers 显隐判断）
 - `npc_templates` — NPC 提示库数据（姓名池/原型/quick-pick，供「新建建模NPC」弹窗）
@@ -254,7 +254,7 @@ Token 有效期 7 天。前端存储在 `localStorage`，每次请求自动附�
 {
   "id": "my_world", "name": "我的世界", "description": "一句话设定",
   "genre": "fantasy",              // fantasy / modern / scifi / xianxia
-  "power_name": "工艺等级", "money_name": "金币", "role_label": "旅人",
+  "power_name": "工艺等级", "role_label": "旅人",
   "professions": "发明家、机械师", "places": "齿轮工坊、蒸汽广场",
   "create_button": "踏入蒸汽城",
   "world_setting": "长描述（可选）", "era": "时代背景（可选）",

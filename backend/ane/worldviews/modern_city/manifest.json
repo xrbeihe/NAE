@@ -16,7 +16,6 @@
     "name": "无名市民",
     "cultivation": "无",
     "location_hint": "出租屋",
-    "savings_unit": "元",
     "status_label": "市民"
   },
   "extra_event_types": [],

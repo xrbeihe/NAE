@@ -18,14 +18,6 @@
       "source": "player"
     },
     {
-      "label": "悬赏金",
-      "key": "_savings_amount",
-      "source": "attrs",
-      "unit_attr": "_savings_unit",
-      "default_unit": "贝利",
-      "show_if": "nonzero"
-    },
-    {
       "label": "恶魔果实",
       "key": "golden_finger_name",
       "source": "attrs",

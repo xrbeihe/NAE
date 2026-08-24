@@ -13,4 +13,3 @@
 - recommendations 推荐内容多样化时涵盖社交、工作、消费、探索等不同类型。
 - state_changes 各类型用法：
   - status_change：target="player", field="职业", value="产品经理" → 更新玩家属性
-  - economy_change：target="player", change=-500, unit="元" → 增减存款（负数=支出，正数=收入）。可用 reason 字段注明原因。
