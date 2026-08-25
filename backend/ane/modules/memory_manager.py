@@ -286,7 +286,57 @@ class MemoryManager:
             await db.delete(entry)
         await db.flush()
 
-    # ── Info panel (📋 信息栏 持续化) ──────────────────────────
+    # ── Info panel / Player panel (📋 每轮持续化, 供下一轮 prompt 回喂) ──
+
+    async def _save_latest_text(
+        self,
+        db: AsyncSession,
+        session_id: str,
+        turn_number: int,
+        content: str,
+        memory_type: str,
+    ) -> None:
+        """Store the latest text memory of a type (overwrite previous). One per session.
+
+        Only stores non-empty content — a turn with no content keeps the last one.
+        """
+        if not content or not content.strip():
+            return
+        # Remove previous entry so we keep only the latest
+        old = await db.execute(
+            select(Memory).where(
+                Memory.session_id == session_id,
+                Memory.memory_type == memory_type,
+            )
+        )
+        for entry in old.scalars().all():
+            await db.delete(entry)
+        db.add(Memory(
+            session_id=session_id,
+            memory_type=memory_type,
+            content=content.strip(),
+            turn_number=turn_number,
+        ))
+        await db.flush()
+
+    async def _get_latest_text(
+        self,
+        db: AsyncSession,
+        session_id: str,
+        memory_type: str,
+    ) -> str:
+        """Return the most recent stored text memory of a type ('' if none)."""
+        result = await db.execute(
+            select(Memory)
+            .where(
+                Memory.session_id == session_id,
+                Memory.memory_type == memory_type,
+            )
+            .order_by(Memory.turn_number.desc())
+            .limit(1)
+        )
+        row = result.scalar_one_or_none()
+        return row.content if row else ""
 
     async def save_info_panel(
         self,
@@ -295,28 +345,8 @@ class MemoryManager:
         turn_number: int,
         content: str,
     ) -> None:
-        """Store the latest info_panel (overwrite previous). One per session.
-
-        Only stores non-empty panels — a turn with no panel keeps the last one.
-        """
-        if not content or not content.strip():
-            return
-        # Remove previous panel entry so we keep only the latest
-        old = await db.execute(
-            select(Memory).where(
-                Memory.session_id == session_id,
-                Memory.memory_type == "info_panel",
-            )
-        )
-        for entry in old.scalars().all():
-            await db.delete(entry)
-        db.add(Memory(
-            session_id=session_id,
-            memory_type="info_panel",
-            content=content.strip(),
-            turn_number=turn_number,
-        ))
-        await db.flush()
+        """Store the latest info_panel (overwrite previous). One per session."""
+        await self._save_latest_text(db, session_id, turn_number, content, "info_panel")
 
     async def get_latest_info_panel(
         self,
@@ -324,17 +354,25 @@ class MemoryManager:
         session_id: str,
     ) -> str:
         """Return the most recent stored info_panel ('' if none)."""
-        result = await db.execute(
-            select(Memory)
-            .where(
-                Memory.session_id == session_id,
-                Memory.memory_type == "info_panel",
-            )
-            .order_by(Memory.turn_number.desc())
-            .limit(1)
-        )
-        row = result.scalar_one_or_none()
-        return row.content if row else ""
+        return await self._get_latest_text(db, session_id, "info_panel")
+
+    async def save_player_panel(
+        self,
+        db: AsyncSession,
+        session_id: str,
+        turn_number: int,
+        content: str,
+    ) -> None:
+        """Store the latest player_panel（主角信息）— overwrite previous. One per session."""
+        await self._save_latest_text(db, session_id, turn_number, content, "player_panel")
+
+    async def get_latest_player_panel(
+        self,
+        db: AsyncSession,
+        session_id: str,
+    ) -> str:
+        """Return the most recent stored player_panel（主角信息）('' if none)."""
+        return await self._get_latest_text(db, session_id, "player_panel")
 
     # ── Compact summaries (llm_summary / 📕) ───────────────────
 

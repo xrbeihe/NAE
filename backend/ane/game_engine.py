@@ -447,6 +447,25 @@ class GameEngine:
             )
             logger.info("Info panel persisted: previous turn panel fed back to LLM")
 
+        # ── 主角信息持续化：上一轮主角面板（程序生成的权威状态）整块回喂 ──
+        prev_player_panel = await memory_manager.get_latest_player_panel(db, session_id)
+        if not prev_player_panel:
+            # 第一轮（尚无存储）：现场渲染当前主角面板，确保每一轮都有主角信息
+            try:
+                from ane.panels import render_player_panel as _rpp
+                from ane.worldview import get as _gw, DEFAULT_WORLDVIEW_ID as _DID
+                _wv0 = _gw(worldview or _DID)
+                if _wv0.panel_spec:
+                    prev_player_panel = _rpp(player, _wv0.panel_spec)
+            except Exception as _e:
+                logger.warning(f"First-turn player panel render failed: {_e}")
+                prev_player_panel = ""
+        if prev_player_panel:
+            ctx.custom_pre_prompts.append(
+                "【上一轮主角信息】程序生成的权威主角面板，以它为准保持主角状态前后一致：\n" + prev_player_panel
+            )
+            logger.info("Player panel persisted: previous turn panel fed back to LLM")
+
         # Authoritative canon (IP worldviews) — injected from world_facts.json
         _wv_obj = get_worldview(worldview or DEFAULT_WORLDVIEW_ID)
         ctx.world_facts = _resolve_world_facts_for_timeline(
@@ -976,25 +995,6 @@ class GameEngine:
             else:
                 player_panel_str += "（无玩家数据）\n"
 
-        # Step 16: Build player and important NPC panels for frontend display
-        from ane.panels import render_player_panel
-        from ane.worldview import get as get_worldview, DEFAULT_WORLDVIEW_ID
-        _wv = get_worldview(worldview or DEFAULT_WORLDVIEW_ID)
-        _panel_spec = _wv.panel_spec or {}
-        if _panel_spec:
-            player_panel_str = render_player_panel(player, _panel_spec)
-        else:
-            # No panel spec (missing pack) — minimal fallback
-            player_panel_str = "【主角面板】\n"
-            if player:
-                p_attrs = dict(player.attributes or {}) if isinstance(player.attributes, dict) else {}
-                player_panel_str += " ｜ ".join([
-                    f"姓名：{player.name}",
-                    f"位置：{player.location or '未知'}",
-                ])
-            else:
-                player_panel_str += "（无玩家数据）\n"
-
         # ── Build modeled_npcs: NPCs with model data mentioned in this turn's input ──
         all_npcs = await npc_manager.get_by_session(db, session_id)
         modeled_npcs = []
@@ -1011,8 +1011,9 @@ class GameEngine:
                     })
 
         # Step 17: Commit and return
-        # 持久化本轮 info_panel（供下一轮回喂持续更新）
+        # 持久化本轮 info_panel + player_panel（供下一轮回喂持续更新）
         await memory_manager.save_info_panel(db, session_id, turn_number, parsed.info_panel)
+        await memory_manager.save_player_panel(db, session_id, turn_number, player_panel_str)
         await db.commit()
 
         # Fire background summary AFTER commit — avoids concurrent SQLite write
