@@ -178,6 +178,35 @@ class MemoryManager:
         )
         return list(result.scalars().all())
 
+    async def get_last_narratives(
+        self, db: AsyncSession, session_id: str, limit: int = 1
+    ) -> list[str]:
+        """最近 N 轮完整对话正文（【玩家】+【AI】原样），供下一轮 prompt 注入。
+
+        与 shortmemory 摘要不同——保留最新一轮的叙事细节；
+        去掉【附近人物】等副产物尾巴。返回按时间正序。
+        """
+        result = await db.execute(
+            select(Memory)
+            .where(
+                Memory.session_id == session_id,
+                Memory.memory_type == "conversation",
+            )
+            .order_by(Memory.turn_number.desc())
+            .limit(limit)
+        )
+        rows = list(result.scalars().all())
+        rows.reverse()  # 时间正序
+        out = []
+        for m in rows:
+            content = m.content or ""
+            idx = content.find("【附近人物】")
+            if idx != -1:
+                content = content[:idx].rstrip()
+            if content.strip():
+                out.append(content)
+        return out
+
     async def get_prompts(
         self, db: AsyncSession, session_id: str
     ) -> list[Memory]:

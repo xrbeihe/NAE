@@ -659,6 +659,8 @@ class PromptContext:
     summary: str = ""
     conversation: list[Memory] = field(default_factory=list)
     longmemory_entries: list[Memory] = field(default_factory=list)
+    # 最近 N 轮完整对话正文（原样），补足摘要丢失的叙事细节
+    last_narratives: list[str] = field(default_factory=list)
     suggestions: list[str] = field(default_factory=list)
     user_input: str = ""
 
@@ -1427,7 +1429,13 @@ class PromptBuilder:
             era_lines.append(e.content)
         era_block = ("\n\n".join(era_lines) + "\n\n") if era_lines else ""
 
-        return f"{era_block}💾短记忆区 {current_count}/{CONVERSATION_WINDOW_SIZE}：\n{conv_text}"
+        # 最新一轮完整正文（补足摘要丢失的叙事细节——玩家说什么、上一轮到底发生了什么）
+        nav_block = ""
+        if ctx.last_narratives:
+            nav_lines = [f"第 {i+1} 轮原文：\n{t}" for i, t in enumerate(ctx.last_narratives)]
+            nav_block = "【最近叙事·完整原文】\n" + "\n\n".join(nav_lines) + "\n\n"
+
+        return f"{era_block}{nav_block}💾短记忆区 {current_count}/{CONVERSATION_WINDOW_SIZE}：\n{conv_text}"
 
 
 def _format_status(status: dict) -> str:

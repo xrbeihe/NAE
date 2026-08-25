@@ -538,6 +538,11 @@ class GameEngine:
         # Conversation
         ctx.conversation = conversation
 
+        # Latest turn full narrative (raw conversation memory) for the next prompt
+        ctx.last_narratives = await memory_manager.get_last_narratives(
+            db, session_id, limit=1
+        )
+
         # NOTE: recommendations are NOT injected into the next prompt —
         # they are only shown to the player in the UI (see frontend).
 
