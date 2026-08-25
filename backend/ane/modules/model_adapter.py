@@ -124,15 +124,6 @@ def get_usage(user_id: str = "") -> list[dict]:
     return [e.to_dict() for e in _usage_log]
 
 
-def get_last_usage(label: str = "") -> dict | None:
-    """最近一次该 label 的 usage dict（无记录返回 None）。
-
-    turn 管线用它取回本次 llm_main 的 prompt/completion tokens + 耗时。
-    """
-    entry = _last_usage_by_label.get(label)
-    return entry.to_dict() if entry else None
-
-
 def get_usage_summary(user_id: str = "") -> dict:
     """Aggregate token totals + elapsed time per label."""
     entries = _usage_log if not user_id else [e for e in _usage_log if e.user_id == user_id]
@@ -625,6 +616,14 @@ class ModelAdapter:
         if any(x in model_lower for x in ["llama", "mistral", "qwen", "phi"]):
             return "ollama"
         return "ollama"  # default fallback
+
+    def get_last_usage(self, label: str = "") -> dict | None:
+        """最近一次该 label 的 usage dict（无记录返回 None）。
+
+        turn 管线用它取回本次 llm_main 的 prompt/completion tokens + 耗时。
+        """
+        entry = _last_usage_by_label.get(label)
+        return entry.to_dict() if entry else None
 
 
 # Singleton
