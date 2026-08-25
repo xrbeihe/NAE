@@ -1726,16 +1726,20 @@ function appendTurnMeta(wrapper, u) {
   if (!wrapper || !u) return;
   var pt = u.prompt_tokens || 0, ct = u.completion_tokens || 0;
   var tot = pt + ct;
-  if (!tot) return;
+  var secs = (u.elapsed_seconds != null && !isNaN(u.elapsed_seconds)) ? u.elapsed_seconds : 0;
+  if (!tot && !(secs > 0)) return;  // 无 token 也无耗时 → 不显示
   var meta = document.createElement('div'); meta.className = 'turn-meta';
   var bar = document.createElement('div'); bar.className = 'tm-bar';
   var inEl = document.createElement('span'); inEl.className = 'tm-in'; inEl.style.flex = String(Math.max(pt, 1));
   var outEl = document.createElement('span'); outEl.className = 'tm-out'; outEl.style.flex = String(Math.max(ct, 1));
   bar.appendChild(inEl); bar.appendChild(outEl);
   var txt = document.createElement('div'); txt.className = 'tm-text';
-  var secs = (u.elapsed_seconds != null && !isNaN(u.elapsed_seconds)) ? u.elapsed_seconds : 0;
   var timeStr = secs >= 60 ? Math.floor(secs / 60) + '分' + Math.round(secs % 60) + '秒' : secs.toFixed(1) + '秒';
-  txt.textContent = '⚡ 输入 ' + pt.toLocaleString() + ' · 输出 ' + ct.toLocaleString() + ' · 共 ' + tot.toLocaleString() + ' tokens · 生成 ' + timeStr;
+  if (tot) {
+    txt.textContent = '⚡ 输入 ' + pt.toLocaleString() + ' · 输出 ' + ct.toLocaleString() + ' · 共 ' + tot.toLocaleString() + ' tokens · 生成 ' + timeStr;
+  } else {
+    txt.textContent = '⚡ 生成 ' + timeStr + '（token 数据未返回）';
+  }
   meta.appendChild(bar); meta.appendChild(txt);
   var bubble = wrapper.querySelector('.msg-bubble');
   (bubble || wrapper).appendChild(meta);

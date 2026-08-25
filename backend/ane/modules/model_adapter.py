@@ -283,23 +283,23 @@ class OpenAICompatibleAdapter(BaseAdapter):
                 response.raise_for_status()
                 data = response.json()
                 elapsed = time.monotonic() - start
-                # Log usage from API response
-                usage = data.get("usage", {})
-                if usage:
-                    pt = usage.get("prompt_tokens", 0)
-                    ct = usage.get("completion_tokens", 0)
-                    log_usage(TokenUsage(
-                        provider="openai",
-                        model=model,
-                        label=label,
-                        user_id=user_id,
-                        session_id=session_id,
-                        prompt_tokens=pt,
-                        completion_tokens=ct,
-                        elapsed_seconds=elapsed,
-                    ))
-                    logger.info(f"[{label}] user={user_id or '-'} model={model} "
-                                f"prompt={pt} completion={ct} total={pt+ct} elapsed={elapsed:.1f}s")
+                # Log usage from API response — API 不返回 usage 时也记录耗时，
+                # 保证前端至少能显示生成耗时。
+                usage = data.get("usage") or {}
+                pt = usage.get("prompt_tokens", 0) or 0
+                ct = usage.get("completion_tokens", 0) or 0
+                log_usage(TokenUsage(
+                    provider="openai",
+                    model=model,
+                    label=label,
+                    user_id=user_id,
+                    session_id=session_id,
+                    prompt_tokens=pt,
+                    completion_tokens=ct,
+                    elapsed_seconds=elapsed,
+                ))
+                logger.info(f"[{label}] user={user_id or '-'} model={model} "
+                            f"prompt={pt} completion={ct} total={pt+ct} elapsed={elapsed:.1f}s")
                 msg = data["choices"][0]["message"]
                 # DeepSeek 偶发把内容全部写入 reasoning_content（思维链）而 content 为空。
                 # 此时回退读取 reasoning_content 作为内容源，避免"成功但无内容"。
@@ -364,23 +364,22 @@ class ClaudeAdapter(BaseAdapter):
                 response.raise_for_status()
                 data = response.json()
                 elapsed = time.monotonic() - start
-                # Log usage from API response
+                # Log usage from API response — 无 usage 也记录耗时
                 usage = data.get("usage", {})
-                pt = usage.get("input_tokens", 0)
-                ct = usage.get("output_tokens", 0)
-                if pt or ct:
-                    log_usage(TokenUsage(
-                        provider="claude",
-                        model=model,
-                        label=label,
-                        user_id=user_id,
-                        session_id=session_id,
-                        prompt_tokens=pt,
-                        completion_tokens=ct,
-                        elapsed_seconds=elapsed,
-                    ))
-                    logger.info(f"[{label}] user={user_id or '-'} model={model} "
-                                f"prompt={pt} completion={ct} total={pt+ct} elapsed={elapsed:.1f}s")
+                pt = usage.get("input_tokens", 0) or 0
+                ct = usage.get("output_tokens", 0) or 0
+                log_usage(TokenUsage(
+                    provider="claude",
+                    model=model,
+                    label=label,
+                    user_id=user_id,
+                    session_id=session_id,
+                    prompt_tokens=pt,
+                    completion_tokens=ct,
+                    elapsed_seconds=elapsed,
+                ))
+                logger.info(f"[{label}] user={user_id or '-'} model={model} "
+                            f"prompt={pt} completion={ct} total={pt+ct} elapsed={elapsed:.1f}s")
                 # Collect text blocks; Claude may return thinking-only when
                 # adaptive thinking finishes without producing visible text.
                 text_blocks = [
@@ -480,23 +479,22 @@ class GeminiAdapter(BaseAdapter):
                     if not parts:
                         raise KeyError("content.parts is missing or empty")
                     elapsed = time.monotonic() - start
-                    # Log usage from API response
+                    # Log usage from API response — 无 usageMetadata 也记录耗时
                     meta = data.get("usageMetadata") or {}
-                    pt = meta.get("promptTokenCount", 0)
-                    ct = meta.get("candidatesTokenCount", 0)
-                    if pt or ct:
-                        log_usage(TokenUsage(
-                            provider="gemini",
-                            model=model,
-                            label=label,
-                            user_id=user_id,
-                            session_id=session_id,
-                            prompt_tokens=pt,
-                            completion_tokens=ct,
-                            elapsed_seconds=elapsed,
-                        ))
-                        logger.info(f"[{label}] user={user_id or '-'} model={model} "
-                                    f"prompt={pt} completion={ct} total={pt+ct} elapsed={elapsed:.1f}s")
+                    pt = meta.get("promptTokenCount", 0) or 0
+                    ct = meta.get("candidatesTokenCount", 0) or 0
+                    log_usage(TokenUsage(
+                        provider="gemini",
+                        model=model,
+                        label=label,
+                        user_id=user_id,
+                        session_id=session_id,
+                        prompt_tokens=pt,
+                        completion_tokens=ct,
+                        elapsed_seconds=elapsed,
+                    ))
+                    logger.info(f"[{label}] user={user_id or '-'} model={model} "
+                                f"prompt={pt} completion={ct} total={pt+ct} elapsed={elapsed:.1f}s")
                     return parts[0]["text"]
                 except (KeyError, IndexError, TypeError) as e:
                     logger.error("Gemini unexpected response structure: %s", data)

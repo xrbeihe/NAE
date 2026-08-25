@@ -1039,7 +1039,11 @@ class GameEngine:
             modeled_npcs=modeled_npcs,
             recommendations=recommendations,
             info_panel=parsed.info_panel,
-            usage=model_adapter.get_last_usage(label="llm_main"),
+            # 本轮 llm_main 失败时不显示旧轮 usage
+            usage=(
+                model_adapter.get_last_usage(label="llm_main")
+                if raw_response else None
+            ),
         )
 
     # ── Background llm_summary (fires after commit to avoid SQLite lock) ──
