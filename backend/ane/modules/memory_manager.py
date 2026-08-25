@@ -318,8 +318,10 @@ class MemoryManager:
     ) -> list[str]:
         """Store an llm_summary result as compact memory for 📕 display.
 
-        Extracts the "推荐行动：" block and saves it as recommendations separately.
-        Returns the extracted recommendation list.
+        推荐部分暂时取消：llm_summary 的「推荐行动：」不再写入
+        recommendations memory——推荐栏唯一来源是主 LLM 每轮输出的
+        JSON recommendations（game_engine 写入）与创建角色时的初始推荐，
+        避免刷新后推荐栏被二次 LLM 内容覆盖。
         """
         # Clean out recommendations block if present
         cleaned_lines = []
@@ -347,40 +349,7 @@ class MemoryManager:
         ))
         await db.flush()
         await self._trim_conversation(db, session_id, "shortmemory", SHORTMEMORY_WINDOW_SIZE)
-
-        # Extract recommendations from the content
-        import re as _re
-        recs = []
-        in_rec_block = False
-        for line in content.split("\n"):
-            if line.startswith("推荐行动："):
-                in_rec_block = True
-                continue
-            if in_rec_block:
-                m = _re.match(r'\d+\.\s*(.*)', line.strip())
-                if m:
-                    recs.append(m.group(1).strip())
-                elif not line.strip():
-                    continue  # skip empty lines inside the block
-                else:
-                    break  # block ended
-        if recs:
-            # Save as recommendations (overwrite previous)
-            import json as _json
-            await db.execute(
-                delete(Memory).where(
-                    Memory.session_id == session_id,
-                    Memory.memory_type == "recommendations",
-                )
-            )
-            db.add(Memory(
-                session_id=session_id,
-                memory_type="recommendations",
-                content=_json.dumps(recs, ensure_ascii=False),
-                turn_number=turn_number,
-            ))
-            await db.flush()
-        return recs
+        return []
 
     # ── Long-term memory (epoch summaries) ─────────────────
 

@@ -1010,17 +1010,14 @@ class GameEngine:
         await db.commit()
 
         # Fire background summary AFTER commit — avoids concurrent SQLite write
-        # ── llm_summary 暂时停用 ────────────────────────────────────
-        # 原因：后台 llm_summary 会把其自写的「推荐行动：」覆盖到
-        # recommendations memory，导致刷新后推荐栏显示二次 LLM 的内容
-        # （与主 LLM 输出的 5 条短推荐不一致）。暂时停用观察；
-        # 恢复时取消下面代码的注释即可。
-        # if _bg_narrative:
-        #     import asyncio as _asyncio
-        #     _asyncio.ensure_future(self._run_bg_llm_summary(
-        #         _bg_sid, _bg_tn, _bg_narrative, _bg_changes,
-        #         _bg_user_id, _bg_input,
-        #     ))
+        # 后台 llm_summary 生成短/长记忆（叙事辅助核心）；推荐栏不受其影响
+        # （add_summary_entry 已不再写入 recommendations memory，见 memory_manager）
+        if _bg_narrative:
+            import asyncio as _asyncio
+            _asyncio.ensure_future(self._run_bg_llm_summary(
+                _bg_sid, _bg_tn, _bg_narrative, _bg_changes,
+                _bg_user_id, _bg_input,
+            ))
 
         return TurnResult(
             narrative=parsed.narrative,
