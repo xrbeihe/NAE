@@ -88,6 +88,13 @@
   .summary-btn { cursor: pointer; font-size: 11px; color: var(--accent-dim); align-self: flex-end; margin-top: 2px; padding: 0 4px; border-radius: 2px; display: none; }
   .summary-btn:hover { color: var(--accent); background: rgba(107,90,62,0.15); }
 
+  /* 每轮 token/耗时可视化（主输出末尾） */
+  .turn-meta { display: block; margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--border); min-width: 200px; }
+  .tm-bar { display: flex; height: 5px; border-radius: 3px; overflow: hidden; background: rgba(255,255,255,0.07); margin-bottom: 5px; }
+  .tm-in { background: rgba(122,162,247,0.8); }
+  .tm-out { background: var(--accent); }
+  .tm-text { font-size: 11px; color: var(--accent-dim); opacity: 0.85; text-align: right; line-height: 1.4; }
+
   /* ── input area ── */
   #input-area { background: var(--panel); border-top: 1px solid var(--border); padding: 10px 20px; flex-shrink: 0; }
   #input-row { display: flex; gap: 10px; }
@@ -1259,7 +1266,8 @@ async function sendTurn() {
   var tr = await apiFetch('/sessions/' + sessionId + '/turn', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({input: text, model: selectedModel, load_model_data: document.getElementById('load-model-check').checked, word_count_min: wcMin, word_count_max: wcMax, prompt_ids: getEnabledPromptIds(), max_tokens: getMaxTokens(), temperature: getTemperature()}) });
     var td = await tr.json();
     if (td.detail) { addMsg('system', '天道运转出错: ' + td.detail); sb.disabled = false; ld.classList.remove('active'); return; }
-    addMsg('ai', td.narrative, _currentTurnNumber); _currentTurnNumber++;
+    var aiWrapper = addMsg('ai', td.narrative, _currentTurnNumber); _currentTurnNumber++;
+    appendTurnMeta(aiWrapper, td.usage);  // 输入/输出 token + 耗时可视化（每轮主输出末尾）
     if (_pending_world_intro) { addMsg('system', _pending_world_intro); _pending_world_intro = null; }
     if (td.is_system_command && td.system_response) addMsg('system', td.system_response);
     addInfoPanel(td.info_panel, td.recommendations);  // 信息栏 + 推荐行动并入
@@ -1698,6 +1706,8 @@ function addMsg(type, text, turnNumber) {
     var div = document.createElement('div'); div.className = 'msg user'; div.textContent = text;
     wrapper.appendChild(div);
     chat.appendChild(wrapper);
+    chat.scrollTop = chat.scrollHeight;
+    return wrapper;
   } else {
     var wrapper = document.createElement('div'); wrapper.className = 'msg-wrapper';
     if (type === 'ai') {
@@ -1713,8 +1723,28 @@ function addMsg(type, text, turnNumber) {
     bubble.appendChild(div);
     wrapper.appendChild(bubble);
     chat.appendChild(wrapper);
+    chat.scrollTop = chat.scrollHeight;
+    return wrapper;
   }
-  chat.scrollTop = chat.scrollHeight;
+}
+// ── 每轮 token/耗时可视化（追加到主输出末尾）──
+function appendTurnMeta(wrapper, u) {
+  if (!wrapper || !u) return;
+  var pt = u.prompt_tokens || 0, ct = u.completion_tokens || 0;
+  var tot = pt + ct;
+  if (!tot) return;
+  var meta = document.createElement('div'); meta.className = 'turn-meta';
+  var bar = document.createElement('div'); bar.className = 'tm-bar';
+  var inEl = document.createElement('span'); inEl.className = 'tm-in'; inEl.style.flex = String(Math.max(pt, 1));
+  var outEl = document.createElement('span'); outEl.className = 'tm-out'; outEl.style.flex = String(Math.max(ct, 1));
+  bar.appendChild(inEl); bar.appendChild(outEl);
+  var txt = document.createElement('div'); txt.className = 'tm-text';
+  var secs = (u.elapsed_seconds != null && !isNaN(u.elapsed_seconds)) ? u.elapsed_seconds : 0;
+  var timeStr = secs >= 60 ? Math.floor(secs / 60) + '分' + Math.round(secs % 60) + '秒' : secs.toFixed(1) + '秒';
+  txt.textContent = '⚡ 输入 ' + pt.toLocaleString() + ' · 输出 ' + ct.toLocaleString() + ' · 共 ' + tot.toLocaleString() + ' tokens · 生成 ' + timeStr;
+  meta.appendChild(bar); meta.appendChild(txt);
+  var bubble = wrapper.querySelector('.msg-bubble');
+  (bubble || wrapper).appendChild(meta);
 }
 function showLatestSummary() {
   if (!sessionId) return;

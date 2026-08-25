@@ -155,6 +155,7 @@ class TurnResult:
     prompt: str = ""
     recommendations: list[str] = field(default_factory=list)
     info_panel: str = ""  # 独立信息区：主角信息 + 附近人物，一整个区别于正文的文本区域
+    usage: dict | None = None  # 本轮 llm_main 的 token/耗时（供前端可视化）
 
 
 # ── GameEngine ─────────────────────────────────────────────────
@@ -1037,6 +1038,7 @@ class GameEngine:
             modeled_npcs=modeled_npcs,
             recommendations=recommendations,
             info_panel=parsed.info_panel,
+            usage=model_adapter.get_last_usage(label="llm_main"),
         )
 
     # ── Background llm_summary (fires after commit to avoid SQLite lock) ──

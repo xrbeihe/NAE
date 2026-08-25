@@ -68,6 +68,9 @@ class TokenUsage:
 # In-memory accumulator (reset on server restart)
 _usage_log: list[TokenUsage] = []
 
+# 最近一次各 label 的 usage（供 turn 管线取回本次 llm_main 的 token/耗时）
+_last_usage_by_label: dict[str, TokenUsage] = {}
+
 # 持久化日志目录：user_logs/usage/年月.jsonl（重启不丢，可回溯）
 _USAGE_LOG_DIR = Path(__file__).resolve().parent.parent.parent / "user_logs" / "usage"
 
@@ -81,6 +84,8 @@ def log_usage(entry: TokenUsage) -> None:
     """Record a token usage entry in memory AND persist to user_logs/usage/年月.jsonl."""
     entry.timestamp = entry.timestamp or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     _usage_log.append(entry)
+    if entry.label:
+        _last_usage_by_label[entry.label] = entry
     try:
         _USAGE_LOG_DIR.mkdir(parents=True, exist_ok=True)
         with open(_usage_log_path(), "a", encoding="utf-8") as f:
@@ -117,6 +122,15 @@ def get_usage(user_id: str = "") -> list[dict]:
     if user_id:
         return [e.to_dict() for e in _usage_log if e.user_id == user_id]
     return [e.to_dict() for e in _usage_log]
+
+
+def get_last_usage(label: str = "") -> dict | None:
+    """最近一次该 label 的 usage dict（无记录返回 None）。
+
+    turn 管线用它取回本次 llm_main 的 prompt/completion tokens + 耗时。
+    """
+    entry = _last_usage_by_label.get(label)
+    return entry.to_dict() if entry else None
 
 
 def get_usage_summary(user_id: str = "") -> dict:
@@ -329,8 +343,13 @@ class ClaudeAdapter(BaseAdapter):
         self.base_url = base_url
 
     async def generate(self, prompt: str, **kwargs) -> str:
+        import time
+        start = time.monotonic()
         model = kwargs.get("model", "claude-sonnet-5")
         max_tokens = kwargs.get("max_tokens", LLM_MAX_TOKENS)
+        label = kwargs.get("label", "")
+        user_id = kwargs.get("user_id", "")
+        session_id = kwargs.get("session_id", "")
 
         async def _call():
             import logging as _log
@@ -353,6 +372,24 @@ class ClaudeAdapter(BaseAdapter):
                 )
                 response.raise_for_status()
                 data = response.json()
+                elapsed = time.monotonic() - start
+                # Log usage from API response
+                usage = data.get("usage", {})
+                pt = usage.get("input_tokens", 0)
+                ct = usage.get("output_tokens", 0)
+                if pt or ct:
+                    log_usage(TokenUsage(
+                        provider="claude",
+                        model=model,
+                        label=label,
+                        user_id=user_id,
+                        session_id=session_id,
+                        prompt_tokens=pt,
+                        completion_tokens=ct,
+                        elapsed_seconds=elapsed,
+                    ))
+                    logger.info(f"[{label}] user={user_id or '-'} model={model} "
+                                f"prompt={pt} completion={ct} total={pt+ct} elapsed={elapsed:.1f}s")
                 # Collect text blocks; Claude may return thinking-only when
                 # adaptive thinking finishes without producing visible text.
                 text_blocks = [
@@ -392,7 +429,12 @@ class GeminiAdapter(BaseAdapter):
         self.base_url = base_url.rstrip("/")
 
     async def generate(self, prompt: str, **kwargs) -> str:
+        import time
+        start = time.monotonic()
         model = kwargs.get("model", "gemini-3.5-flash")
+        label = kwargs.get("label", "")
+        user_id = kwargs.get("user_id", "")
+        session_id = kwargs.get("session_id", "")
 
         async def _call():
             async with httpx.AsyncClient(timeout=120.0) as client:
@@ -446,6 +488,24 @@ class GeminiAdapter(BaseAdapter):
                     parts = content.get("parts")
                     if not parts:
                         raise KeyError("content.parts is missing or empty")
+                    elapsed = time.monotonic() - start
+                    # Log usage from API response
+                    meta = data.get("usageMetadata") or {}
+                    pt = meta.get("promptTokenCount", 0)
+                    ct = meta.get("candidatesTokenCount", 0)
+                    if pt or ct:
+                        log_usage(TokenUsage(
+                            provider="gemini",
+                            model=model,
+                            label=label,
+                            user_id=user_id,
+                            session_id=session_id,
+                            prompt_tokens=pt,
+                            completion_tokens=ct,
+                            elapsed_seconds=elapsed,
+                        ))
+                        logger.info(f"[{label}] user={user_id or '-'} model={model} "
+                                    f"prompt={pt} completion={ct} total={pt+ct} elapsed={elapsed:.1f}s")
                     return parts[0]["text"]
                 except (KeyError, IndexError, TypeError) as e:
                     logger.error("Gemini unexpected response structure: %s", data)

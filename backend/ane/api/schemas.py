@@ -101,6 +101,7 @@ class TurnResponse(BaseModel):
     modeled_npcs: list[dict] = []
     recommendations: list[str] = []
     info_panel: str = ""  # 独立信息区：主角信息 + 附近人物（区别于正文的文本区域）
+    usage: dict | None = None  # 本轮 llm_main 的 token/耗时（前端可视化展示）
 
 
 # ── Character Creation ─────────────────────────────────────────
