@@ -443,7 +443,7 @@ class GameEngine:
         prev_panel = await memory_manager.get_latest_info_panel(db, session_id)
         if prev_panel:
             ctx.custom_pre_prompts.append(
-                "【上一轮信息栏】按 info_panel 规则重新输出，仅保留主角状态、正在交互人物、玩家要求的栏目：\n" + prev_panel
+                "【上一轮信息栏】按 info_panel 规则重新输出，仅保留主角动态状态（静态属性见权威主角面板，勿重复）、正在交互人物、玩家要求的栏目：\n" + prev_panel
             )
             logger.info("Info panel persisted: previous turn panel fed back to LLM")
 
