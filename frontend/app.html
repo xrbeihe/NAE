@@ -1011,8 +1011,8 @@ async function switchSession(sid) {
     try { localStorage.setItem('ane_last_session', sessionId); } catch(e) {};
     npcLibLoad();
     loadSessionList();
-    if (data.player_panel) updateInfoPanel(data.player_panel);
     if (data.info_panel || (data.recommendations && data.recommendations.length)) addInfoPanel(data.info_panel, data.recommendations);  // 刷新/切换后重建信息栏（含推荐行动）
+    if (data.player_panel) updateInfoPanel(data.player_panel);  // 主角面板并入信息栏（常驻第一段）
   } catch(e) { frontendLog('ERROR', 'Switch: ' + e.message); addMsg('system', '加载世界失败: ' + e.message); }
 }
 
@@ -1184,8 +1184,8 @@ async function applyCharacter() {
         if (data.golden_finger_name) { var gfTag = data.golden_finger_tagline || data.golden_finger_desc || ''; if (gfTag === data.golden_finger_name) gfTag = ''; parts.push(_wvLabel('golden_finger','金手指') + '：' + data.golden_finger_name + (gfTag ? ' — ' + gfTag : '')); }
         addMsg('system', parts.join('\n'));
       }
-      if (data.player_panel) updateInfoPanel(data.player_panel);
-    if (data.info_panel) addInfoPanel(data.info_panel);  // 刷新/切换后重建信息栏
+      if (data.info_panel) addInfoPanel(data.info_panel);  // 创建后重建信息栏
+      if (data.player_panel) updateInfoPanel(data.player_panel);  // 主角面板并入信息栏
       // ── 加载预填推荐行动（创建后立即显示，无需重进聊天）──
       try {
         var recRes = await apiFetch('/sessions/' + sid);
@@ -1803,9 +1803,11 @@ function addInfoPanel(text, recommendations) {
   if (text && text.trim()) {
     var header = document.createElement('div'); header.textContent = '📋 信息栏'; header.style.cssText = 'font-size:11px;color:var(--accent);margin-bottom:4px;font-weight:bold;';
     var box = document.createElement('div');
+    box.className = 'info-panel-box';
     box.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:6px;padding:8px 12px;font-size:12px;color:var(--text);line-height:1.6;white-space:pre-wrap;';
     box.textContent = text; // 纯文本渲染 — LLM 输出信息区，防 XSS
     container.appendChild(header); container.appendChild(box);
+    container.dataset.infoText = text; // 存 info 原文，供主角面板并入时拼接
   }
   // 推荐行动并入信息栏：纯展示（不可点击填入输入框）
   if (recs.length) {
@@ -2061,31 +2063,33 @@ function showRelationshipGraph() {
 }
 
 // ── Info panel ──
-// 主角信息写进信息栏：放在本轮信息栏容器顶部（🧑 主角信息区块），无容器时新建一个
+// 主角面板并入信息栏：作为 📋 信息栏 box 的第一段常驻普通信息（无独立标题区块）
 function updateInfoPanel(text) {
-  if (!text || text.startsWith('（无玩家数据）') || text === '【主角面板】\n（无）') {
-    var olds = document.querySelectorAll('#chat .player-info-box');
-    for (var i = 0; i < olds.length; i++) olds[i].remove();
-    return;
-  }
   var wraps = document.querySelectorAll('#chat .info-panel-wrap');
   var wrap = wraps.length ? wraps[wraps.length - 1] : null;
+  var box = wrap ? wrap.querySelector('.info-panel-box') : null;
+  if (!text || text.startsWith('（无玩家数据）') || text === '【主角面板】\n（无）') {
+    // 无主角数据：box 只保留 info 原文
+    if (box && wrap) box.textContent = wrap.dataset.infoText || '';
+    return;
+  }
   if (!wrap) {
     wrap = document.createElement('div');
     wrap.className = 'info-panel-wrap';
     wrap.style.cssText = 'align-self:stretch;margin-top:4px;max-width:100%;';
     document.getElementById('chat').appendChild(wrap);
   }
-  var old = wrap.querySelector('.player-info-box');
-  if (old) old.remove();
-  var header = document.createElement('div');
-  header.textContent = '🧑 主角信息';
-  header.style.cssText = 'font-size:11px;color:var(--accent);margin-bottom:4px;font-weight:bold;';
-  var box = document.createElement('div');
-  box.className = 'player-info-box';
-  box.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:6px;padding:8px 12px;font-size:12px;color:var(--text);line-height:1.6;white-space:pre-wrap;';
-  box.textContent = text; // 纯文本渲染 — 后端生成的主角面板，防 XSS
-  wrap.insertBefore(box, wrap.firstChild);
+  if (!box) {
+    var header = document.createElement('div'); header.textContent = '📋 信息栏'; header.style.cssText = 'font-size:11px;color:var(--accent);margin-bottom:4px;font-weight:bold;';
+    box = document.createElement('div');
+    box.className = 'info-panel-box';
+    box.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:6px;padding:8px 12px;font-size:12px;color:var(--text);line-height:1.6;white-space:pre-wrap;';
+    wrap.appendChild(header); wrap.appendChild(box);
+    wrap.dataset.infoText = wrap.dataset.infoText || '';
+  }
+  var infoText = wrap.dataset.infoText || '';
+  // 主角面板在前，info 原文在后，两者一体（无独立标题）
+  box.textContent = text + (infoText ? '\n\n' + infoText : '');
 }
 
 // Show the author-written world history (world_facts.lore) for the current
