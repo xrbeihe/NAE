@@ -786,3 +786,99 @@ async def test_form_attached_in_templates_endpoint():
         keys = [f["key"] for f in fields]
         assert "name" in keys and "cultivation" in keys and "golden_finger" in keys
 
+
+# ── 包默认聊天背景（ui.json 的 chat_background + assets/ 静态资源）──────
+
+BUILTIN_WORLDVIEWS = ["xianxia_v1", "modern_city", "fantasy_kingdom",
+                      "naruto_shippuden", "one_piece", "sanguo_yanyi"]
+
+
+def test_every_builtin_pack_ships_default_chat_background():
+    """逻辑要求：每个世界观包内置一张背景图（声明可解析 + 资源文件存在）。"""
+    for wv_id in BUILTIN_WORLDVIEWS:
+        wv = get_worldview(wv_id)
+        bg = wv.chat_background
+        assert bg, f"{wv_id} 没有可用的包默认背景"
+        assert bg["url"] == f"/worldviews/{wv_id}/asset/chat_bg.jpg"
+        assert bg["position_y"]
+        assert 0.0 < bg["dim"] <= 0.9
+        assert (wv.path / "assets" / "chat_bg.jpg").is_file(), f"{wv_id} 缺 assets/chat_bg.jpg"
+
+
+def test_chat_background_declaration_guards():
+    """声明非法（路径穿越 / 不在 assets/ / 扩展名不允许 / 文件不存在）一律返回空。"""
+    from pathlib import Path as _Path
+    from ane.worldview import Worldview, WORLDVIEWS_DIR
+
+    base = _Path(WORLDVIEWS_DIR) / "naruto_shippuden"
+    bad = [
+        {"image": "../../etc/passwd"},
+        {"image": "assets/../../manifest.json"},
+        {"image": "system_prompt.txt"},
+        {"image": "assets/prompt.txt"},
+        {"image": "assets/nope.jpg"},          # 文件不存在
+        {"image": ""},
+        {},
+    ]
+    for ui in bad:
+        wv = Worldview(id="naruto_shippuden", path=base, ui={"chat_background": ui})
+        assert wv.chat_background == {}, f"应被拒绝: {ui}"
+
+    ok = Worldview(id="naruto_shippuden", path=base,
+                   ui={"chat_background": "assets/chat_bg.jpg"})   # 支持字符串简写
+    assert ok.chat_background["url"].endswith("/asset/chat_bg.jpg")
+
+
+@pytest.mark.asyncio
+async def test_pack_asset_route_serves_image_and_rejects_others():
+    """GET /worldviews/{id}/asset/{name}：正常图片 200，非白名单扩展名 400，不存在 404。"""
+    from ane.main import app
+    import httpx
+
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
+        r = await c.get("/worldviews/naruto_shippuden/asset/chat_bg.jpg")
+        assert r.status_code == 200
+        assert r.headers["content-type"] == "image/jpeg"
+        assert len(r.content) > 1000
+
+        r = await c.get("/worldviews/naruto_shippuden/asset/manifest.json")
+        assert r.status_code == 400
+
+        r = await c.get("/worldviews/naruto_shippuden/asset/nope.jpg")
+        assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_session_detail_returns_pack_chat_background(db):
+    """GET /sessions/{id} 带回会话所属包的默认背景，供前端在无自定义背景时使用。"""
+    import httpx
+    from ane.main import app
+    from ane.database.engine import get_db
+    from ane.auth import create_access_token
+    from ane.database.models import User
+    from ane.game_engine import game_engine
+
+    uid = "bg_user"
+    db.add(User(id=uid, username=uid, password_hash="x", display_name=uid, is_adult=True))
+    await db.commit()
+    info = await game_engine.create_session(db, user_id=uid, name="火影背景",
+                                            worldview="naruto_shippuden")
+
+    async def _db_override():
+        yield db
+    app.dependency_overrides[get_db] = _db_override
+    token = create_access_token({"sub": uid})
+    try:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
+            c.headers["Authorization"] = f"Bearer {token}"
+            r = await c.get(f"/sessions/{info['session_id']}")
+            assert r.status_code == 200, r.text
+            data = r.json()
+            assert data["worldview"] == "naruto_shippuden"
+            assert data["chat_background"]["url"].endswith("/asset/chat_bg.jpg")
+            assert data["chat_background"]["dim"] > 0
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+

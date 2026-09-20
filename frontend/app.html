@@ -552,6 +552,7 @@
     <input type="checkbox" id="bg-transparent-check" onchange="setChatBgTransparent(this.checked)">
     <span style="font-size:11px;color:var(--accent-dim)">聊天气泡半透明</span>
   </div>
+  <div id="bg-source-hint" style="font-size:11px;color:var(--accent-dim);line-height:1.4;margin-top:2px"></div>
 </div>
 <div id="word-count-popup" style="display:none;position:fixed;z-index:9999;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px;width:180px;box-shadow:0 4px 16px rgba(0,0,0,0.6)">
   <div style="font-size:13px;color:var(--accent);margin-bottom:8px;text-align:center">正文字数</div>
@@ -707,6 +708,7 @@ let _pending_world_intro = null;
 let lastTurnNumber = 0;
 let _npcLibData = [];
 let _npcImportedData = {};
+let sessionChatBg = null;   // 当前会话所属世界观包的默认聊天背景 {url, position_y, dim}（会话响应带回）
 
 // ── User menu ──
 function toggleUserMenu() {
@@ -843,12 +845,8 @@ function showColorPopup() {
     else { var c = getComputedStyle(document.documentElement).getPropertyValue('--color-' + t).trim(); if (c) { document.getElementById('color-picker-' + t).value = rgbToHex(c); document.getElementById('color-text-' + t).value = c; } }
   });
   document.getElementById('font-select').value = localStorage.getItem('font_family') || 'default';
-  // 背景图设置初始化
-  var bg = localStorage.getItem('chat_bg');
-  var bgOn = !!(bg && bg.length);
-  document.getElementById('bg-pos-slider').value = localStorage.getItem('chat_bg_pos') || 50;
-  document.getElementById('bg-pos-value').textContent = (localStorage.getItem('chat_bg_pos') || 50) + '%';
-  document.getElementById('bg-transparent-check').checked = localStorage.getItem('chat_bg_transparent') !== '0';
+  // 背景图设置初始化（按当前会话隔离）
+  syncChatBgControls();
   applyChatBg();
   // 定位：小屏居中，桌面端锚定按钮下方
   if (window.innerWidth <= 768) {
@@ -877,59 +875,85 @@ function showColorPopup() {
 }
 
 // ── 聊天空背景图 ──
+// 优先级：本次会话里玩家自己上传的（localStorage，按 session 隔离）> 世界观包默认背景（ui.json）
+// 自定义背景只作用于「该用户 · 该世界（session）」，换世界即回到那个包的默认背景。
+function _bgStoreKey(name) {
+  return 'chat_bg' + (name ? '_' + name : '') + ':' + (sessionId || '');
+}
+function _chatBgCustom() {
+  try { return sessionId ? (localStorage.getItem(_bgStoreKey('')) || '') : ''; } catch (e) { return ''; }
+}
+// 把浮窗里的背景控件同步成当前会话的值
+function syncChatBgControls() {
+  var posEl = document.getElementById('bg-pos-slider');
+  var posVal = document.getElementById('bg-pos-value');
+  var trEl = document.getElementById('bg-transparent-check');
+  var pos = sessionId ? (localStorage.getItem(_bgStoreKey('pos')) || 50) : 50;
+  if (posEl) posEl.value = pos;
+  if (posVal) posVal.textContent = pos + '%';
+  if (trEl) trEl.checked = (sessionId ? (localStorage.getItem(_bgStoreKey('transparent')) || '1') : '1') !== '0';
+}
 function applyChatBg() {
-  var bg = localStorage.getItem('chat_bg');
   var panel = document.getElementById('chat-panel');
   if (!panel) return;
-  var hasBg = !!(bg && bg.length);
+  var custom = _chatBgCustom();
+  var pack = sessionChatBg || null;
+  var url = custom ? custom : (pack && pack.url ? pack.url : '');
+  var hasBg = !!url;
   panel.classList.toggle('bg-enabled', hasBg);
   if (hasBg) {
-    panel.style.backgroundImage = "url('" + bg + "')";
-    panel.style.setProperty('--bg-pos-y', (localStorage.getItem('chat_bg_pos') || 50) + '%');
+    var posY = custom ? ((localStorage.getItem(_bgStoreKey('pos')) || 50) + '%')
+                      : (pack && pack.position_y ? pack.position_y : '50%');
+    // 包默认背景叠一层压暗，保证气泡与正文可读（玩家自己的背景沿用原行为，不加压暗）
+    var dim = custom ? 0 : parseFloat((pack && pack.dim != null) ? pack.dim : 0.35);
+    var layers = (dim > 0 ? ('linear-gradient(rgba(10,12,16,' + dim + '), rgba(10,12,16,' + dim + ')), ') : '');
+    panel.style.backgroundImage = layers + "url('" + url + "')";
+    panel.style.setProperty('--bg-pos-y', posY);
   } else {
     panel.style.backgroundImage = '';
   }
-  var transparent = localStorage.getItem('chat_bg_transparent') !== '0';
+  var transparent = (sessionId ? (localStorage.getItem(_bgStoreKey('transparent')) || '1') : '1') !== '0';
   panel.classList.toggle('bg-transparent', transparent);
+  var hint = document.getElementById('bg-source-hint');
+  if (hint) {
+    hint.textContent = custom
+      ? '当前：本世界自定义背景（仅这个世界可见）'
+      : (hasBg ? '当前：世界观「' + (getCurrentWorldviewName() || '') + '」默认背景（上传图片可覆盖）' : '');
+  }
+  syncChatBgControls();
 }
 function setChatBgPos(val) {
-  localStorage.setItem('chat_bg_pos', val);
+  if (sessionId) localStorage.setItem(_bgStoreKey('pos'), val);
   document.getElementById('bg-pos-value').textContent = val + '%';
   var panel = document.getElementById('chat-panel');
   if (panel) panel.style.setProperty('--bg-pos-y', val + '%');
 }
 function setChatBgTransparent(checked) {
-  localStorage.setItem('chat_bg_transparent', checked ? '1' : '0');
+  if (sessionId) localStorage.setItem(_bgStoreKey('transparent'), checked ? '1' : '0');
   var panel = document.getElementById('chat-panel');
   if (panel) panel.classList.toggle('bg-transparent', checked);
 }
 function clearChatBg() {
-  localStorage.removeItem('chat_bg');
-  var panel = document.getElementById('chat-panel');
-  if (panel) {
-    panel.classList.remove('bg-enabled');
-    panel.style.backgroundImage = '';
-  }
+  if (sessionId) localStorage.removeItem(_bgStoreKey(''));
   document.getElementById('bg-image-input').value = '';
+  applyChatBg();   // 移除自定义后自动回落到世界观包默认背景
 }
 function onChatBgSelected(input) {
   var file = input.files && input.files[0];
   if (!file) return;
+  if (!sessionId) { alert('请先进入一个世界，再设置背景图'); return; }
   var reader = new FileReader();
   reader.onload = function(e) {
     var dataUrl = e.target.result;
-    localStorage.setItem('chat_bg', dataUrl);
-    localStorage.setItem('chat_bg_transparent', '1');
+    localStorage.setItem(_bgStoreKey(''), dataUrl);      // 只写当前 session 的键
+    localStorage.setItem(_bgStoreKey('transparent'), '1');
     document.getElementById('bg-transparent-check').checked = true;
     applyChatBg();
   };
   reader.readAsDataURL(file);
 }
-// 恢复背景图（页面加载时）
-(function() {
-  var bg = localStorage.getItem('chat_bg');
-  if (bg && bg.length) applyChatBg();
-})();
+// 背景图在进入会话时应用（switchSession / 角色创建），此处仅同步一次浮窗控件
+(function() { syncChatBgControls(); })();
 
 // ── Session List ──
 async function loadSessionList() {
@@ -992,6 +1016,8 @@ async function switchSession(sid) {
     if (!res.ok) throw new Error(res.statusText);
     var data = await res.json();
     sessionId = data.session_id;
+    sessionChatBg = data.chat_background || null;   // 世界观包默认背景（用户自定义优先）
+    applyChatBg();
     try { localStorage.setItem('ane_last_session', sessionId); } catch(e) {};
     refreshAvatarBtn();
     document.getElementById('session-id-display').textContent = '会话: ' + data.session_id.substring(0,8) + '... | ' + data.name;
@@ -1172,6 +1198,8 @@ async function applyCharacter() {
     if (res.ok) {
       var data = await res.json();
       clearChat();
+      sessionChatBg = data.chat_background || null;   // 新会话立即应用该世界观的默认背景
+      applyChatBg();
       // 显示世界进入信息
       var statusLabel = (worldviewState.ui && worldviewState.ui.labels && worldviewState.ui.labels.role) || '角色';
       var sr = await apiFetch('/sessions/' + sid);

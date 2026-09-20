@@ -6,6 +6,7 @@ import logging
 import shutil
 import zipfile
 from datetime import datetime
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import Response
@@ -376,6 +377,33 @@ async def put_worldview_data(
         return write_artifact(worldview_id, filename, data)
     except (ValueError, FileNotFoundError) as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/{worldview_id}/asset/{filename}")
+async def get_worldview_asset(worldview_id: str, filename: str):
+    """Serve a pack's static asset (包内 assets/ 下的图片等，如 ui.json 的 chat_background)。
+
+    只允许 assets/<单层文件名>，扩展名白名单，且解析后必须仍在包目录内（防路径穿越）。
+    """
+    from fastapi.responses import FileResponse
+    from ane.worldview import _ASSETS_DIR, _ASSET_EXTS
+
+    if not _is_valid_id(worldview_id):
+        raise HTTPException(status_code=400, detail=f"无效的世界观 ID: {worldview_id!r}")
+    if filename != Path(filename).name or filename.startswith("."):
+        raise HTTPException(status_code=400, detail="非法资源名")
+    ext = Path(filename).suffix.lower()
+    if ext not in _ASSET_EXTS:
+        raise HTTPException(status_code=400, detail=f"不支持的资源类型: {ext or '（无扩展名）'}")
+    asset_dir = (WORLDVIEWS_DIR / worldview_id / _ASSETS_DIR).resolve()
+    path = (asset_dir / filename).resolve()
+    if not str(path).startswith(str(asset_dir)) or not path.is_file():
+        raise HTTPException(status_code=404, detail=f"资源不存在: {filename}")
+    media = {
+        ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
+        ".webp": "image/webp", ".gif": "image/gif",
+    }.get(ext, "application/octet-stream")
+    return FileResponse(path, media_type=media, headers={"Cache-Control": "public, max-age=86400"})
 
 
 @router.delete("/share")

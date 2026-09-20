@@ -9,6 +9,11 @@
   "default_session_name": "修仙世界",
   "welcome_prefix": "已进入「",
   "welcome_suffix": "」",
+  "chat_background": {
+    "image": "assets/chat_bg.jpg",
+    "position_y": "50%",
+    "dim": 0.35
+  },
   "character_card": {
     "title": "角色创建成功",
     "lines": [

@@ -11,6 +11,11 @@
   "default_session_name": "三国演义",
   "welcome_prefix": "已进入「",
   "welcome_suffix": "」",
+  "chat_background": {
+    "image": "assets/chat_bg.jpg",
+    "position_y": "50%",
+    "dim": 0.40
+  },
   "character_card": {
     "title": "豪杰登记完成",
     "lines": [

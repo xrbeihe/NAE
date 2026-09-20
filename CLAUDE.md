@@ -82,6 +82,32 @@ watch_backup.bat
 
 ## 功能变更记录
 
+### 🖼️ 世界观包默认聊天背景（`ui.json` 的 `chat_background` + 包内 `assets/`）
+- **需求**：把一张图设为火影忍者包的默认背景
+- **机制**：`ui.json` 新增 `chat_background` = `{image, position_y, dim}`（也支持字符串简写）；
+  `image` 只允许 `assets/<单层文件名>`，扩展名限 jpg/jpeg/png/webp/gif；`dim` 为压暗强度（0–0.9，默认 0.35）
+- **后端**：`Worldview.chat_background` 解析成 `{url, position_y, dim}`（校验目录/扩展名/文件存在，防路径穿越）；
+  新增资源路由 `GET /worldviews/{id}/asset/{filename}`（`FileResponse` + `Cache-Control: max-age=86400`）；
+  `GET /sessions/{id}` 与角色创建响应都带回 `worldview` + `chat_background`（schemas.SessionSummary 加两个字段）
+- **前端**（app.html）：`applyChatBg()` 优先级 = 玩家自定义（localStorage）> 包默认 > 无；包默认叠一层
+  `linear-gradient(rgba(10,12,16,dim),…)` 压暗保证可读；`clearChatBg()` 清掉自定义后**回落到包默认**；
+  🎨 浮窗新增「当前背景来源」提示；`sessionChatBg` 在会话切换/角色创建时由响应赋值
+- **配置**：`naruto_shippuden` 配 `assets/chat_bg.jpg`（1920×1344，473 KB，源自 `D:\图\thumb-1920-602092.jpg`），
+  `position_y=50%`、`dim=0.42`
+- **测试**：`test_worldview.py` +4（包声明与文件存在 / 非法声明全被拒（穿越·非 assets·扩展名·不存在）/
+  资源路由 200·400·404 / `GET /sessions/{id}` 带回包背景）→ 全量 290 通过
+- **文档**：WORLDVIEW_PACK_SPEC.md 新增「chat_background 字段」+ 目录结构补 `assets/`
+- **注意**：设计器「文案」编辑器是在已加载的 ui 对象上改字段，不会丢 `chat_background`；资源改动需重启服务生效
+- **后续（同一功能的补充逻辑要求）**：
+  - **每个世界观包内置一张背景图** → 6 个包全部配 `assets/chat_bg.jpg` + `ui.json` 声明（火影=原作风格群像插画；
+    其余 5 包=程序生成的氛围占位图：修仙雾山/都市夜景/西幻暮色城堡/海贼落日帆船/三国尘雾军旗，1600×1000，130–210 KB，无版权问题；
+    换图只需覆盖对应包的 `assets/chat_bg.jpg`，名字不变即可）。每包 `dim` 按明暗分别调过（0.25–0.42）
+  - **自定义背景限制在该用户的此次世界（session）内** → localStorage 键改为按会话隔离
+    `chat_bg:<sid>` / `chat_bg_pos:<sid>` / `chat_bg_transparent:<sid>`（新增 `_bgStoreKey()` / `_chatBgCustom()` /
+    `syncChatBgControls()`）；换世界回到该包的默认背景，清除自定义也回落包默认；旧的全局 `chat_bg` 键不再读取（不迁移，避免跨世界串味）
+  - 测试：`test_every_builtin_pack_ships_default_chat_background`（逐包校验声明+文件）+ JS 侧
+    12 项会话隔离验证（用页面里真实函数 + 假 localStorage 跑：A 世界自定义不影响 B 世界、切回仍在、清除回落包默认、位置/半透明也按会话存）
+
 ### 🐛 修复：pytest 跑完全套后进程不退出（aiosqlite 非守护线程卡住解释器关闭）
 - **症状**：`pytest tests/` 打印完 `286 passed` 后永久挂住（CI 里 job 一直跑到超时）
 - **根因**：① `aiosqlite 0.22.1` 每个连接起一个**非守护**工作线程（`Thread(target=_connection_worker_thread)` 无 `daemon=True`），Python 退出时 `threading._shutdown()` 会 join 它们；② 测试里有连接没人关——turn 提交后 fire-and-forget 的后台 llm_summary 用**全局 session 工厂**（指向真实 `data/ane.db`）另开 session，测试只 dispose 自己的内存引擎

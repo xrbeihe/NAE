@@ -15,13 +15,14 @@ worldviews/<worldview_id>/
   player_templates.json      必需 — 角色创建模板
   npc_templates.json         可选 — NPC 姓名池/身份池
   panel.json                 可选 — 主角面板字段 spec
-  ui.json                    可选 — 前端文案（按钮/标签/推荐语）
+  ui.json                    可选 — 前端文案（按钮/标签/推荐语/默认背景）
   events.json                可选 — NPC 离线演化事件池
   form.json                  可选 — 声明式角色创建表单（无则前端回退 legacy 表单）
   world_facts.json           可选 — IP 世界观权威设定（控制 LLM 预训练记忆使用）
   modeler/role.txt           可选 — 角色建模师 prompt 模板
   modeler/age_rules.txt      可选 — 建模年龄规则
   modeler/schema.json        可选 — NPC 建模字段树（包级替换修仙默认 90+ 字段；无则降级 xianxia 模板）
+  assets/<图片>              可选 — 包内静态资源（jpg/jpeg/png/webp/gif），经 /worldviews/{id}/asset/{名} 提供
 ```
 
 `worldview_id` 只允许 `[a-z0-9_]`，最长 48 字符（防路径注入）。
@@ -58,7 +59,6 @@ worldviews/<worldview_id>/
 - `"full"`：`system_prompt.txt` 就是完整 System Prompt，引擎原样使用（作者完全掌控全文）。保留兼容旧包，无包时兜底用引擎内建 legacy 修仙提示词。
 
 ### open_source 字段（默认开源）
-
 | 值 | 行为 |
 |----|------|
 | `true` | 包**默认开源**：服务启动时（以及每次打开开源广场时）自动往 `worldview_shares` 补一条条目（`is_official=True`，广场作者显示「官方内置」），所有账号都能在角色创建和广场看到/使用它。**不可用「撤销开源」下架**——要下架就把这个字段去掉。 |
@@ -67,6 +67,32 @@ worldviews/<worldview_id>/
 **权限语义（重要）**：`open_source` 与「开源」只**授使用权限**——任何登录账号都能用这个包开局（`POST /sessions`，`GET /worldviews` 默认列出全部已安装包）。
 
 **修改权限与开源无关**，仍由 manifest 的 `owner_user_id` 决定：有 owner → 仅作者或白名单管理员可改；无 owner（内置系统包）→ 仅白名单管理员可改（`config.json` 的 `worldview_admin_ids` / env `ANE_WORLDVIEW_ADMIN_IDS`）。非白名单账号即使包已开源，编辑接口仍返回 403。
+
+### chat_background 字段（包默认聊天背景）
+
+在 `ui.json` 里声明，进入该世界观的会话时**自动作为聊天区背景**（玩家自己上传的背景优先级更高）：
+
+```json
+"chat_background": {
+  "image": "assets/chat_bg.jpg",
+  "position_y": "50%",
+  "dim": 0.42
+}
+```
+
+| 键 | 必填 | 说明 |
+|----|------|------|
+| `image` | 是 | 包内路径，**只允许 `assets/<单层文件名>`**；扩展名限 `jpg/jpeg/png/webp/gif`。也可直接写成字符串简写 `"chat_background": "assets/chat_bg.jpg"` |
+| `position_y` | 否 | CSS `background-position` 的纵向取值，默认 `50%`（想突出画面下半部可写 `80%`） |
+| `dim` | 否 | 背景压暗强度 0–0.9（默认 0.35）：在图片上叠一层 `rgba(10,12,16,dim)`，保证气泡与正文可读 |
+
+行为要点：
+
+- **每个世界观包都应内置一张背景图**（`assets/chat_bg.jpg`）：`tests/test_worldview.py` 会逐个校验内置包的声明可解析且文件存在
+- 后端把它解析成 `{url, position_y, dim}`（`url` = `/worldviews/{id}/asset/{文件名}`），随 `GET /sessions/{id}` 与会话创建响应返回；前端在本次会话没有自定义背景时使用它
+- **玩家自定义背景按「用户 × 会话」隔离**：存在 `localStorage` 的 `chat_bg:<sessionId>` / `chat_bg_pos:<sessionId>` / `chat_bg_transparent:<sessionId>`，只影响该世界；换世界即回到那个包默认背景，点「清除」也回落到包默认（🎨 面板显示当前背景来源）
+- 资源路由只允许 `assets/` 下的单层文件 + 扩展名白名单 + 解析后仍在包目录内（防路径穿越 / 任意文件读取），带 `Cache-Control: public, max-age=86400`
+- 内置包现状：`naruto_shippuden` = 原作风格群像插画（1920×1344）；`xianxia_v1` / `modern_city` / `fantasy_kingdom` / `one_piece` / `sanguo_yanyi` = 生成的氛围占位图（1600×1000，130–210 KB，程序生成无版权问题）——**换成真实插画只需覆盖该包的 `assets/chat_bg.jpg`**（文件名保持不变即可，`dim` 可按图片明暗调 0–0.9）
 
 ### player_defaults
 

@@ -65,6 +65,8 @@ class SessionSummary(BaseModel):
     recommendations: list[str] = []
     player_panel: str = ""  # 主角面板文本（前端悬浮球显示用）
     info_panel: str = ""  # 最新信息栏（刷新/切换会话后前端重建显示）
+    worldview: str = ""  # 会话所属世界观包 id
+    chat_background: dict = {}  # 包默认聊天背景 {url, position_y, dim}；未声明则为空
 
 
 class DeleteSessionResponse(BaseModel):

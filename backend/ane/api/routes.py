@@ -433,7 +433,20 @@ async def get_session(
         ),
         # 最新信息栏：刷新/切换会话后前端重建显示
         info_panel=await memory_manager.get_latest_info_panel(db, session_id),
+        # 世界观包 + 包默认聊天背景（前端在用户没自定义背景时使用）
+        worldview=getattr(session, "worldview", "") or "",
+        chat_background=_session_chat_background(session),
     )
+
+
+def _session_chat_background(session) -> dict:
+    """会话所属世界观包声明的默认聊天背景（无则空 dict）。"""
+    try:
+        from ane.worldview import get as get_worldview, DEFAULT_WORLDVIEW_ID
+        wv = get_worldview(getattr(session, "worldview", None) or DEFAULT_WORLDVIEW_ID)
+        return wv.chat_background
+    except Exception:
+        return {}
 
 
 def _build_player_panel(db: AsyncSession, session, player) -> str:
@@ -784,6 +797,9 @@ async def apply_character(
         "player_panel": player_panel_str,
         "llm_introduction": llm_intro,
         "card_content": card_content,
+        # 包默认聊天背景（新会话进入聊天区时立即生效）
+        "worldview": wv.id if wv else "",
+        "chat_background": (wv.chat_background if wv else {}),
             }
 
 

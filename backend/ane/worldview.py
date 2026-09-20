@@ -42,6 +42,10 @@ _EVENTS = "events.json"
 _FORM = "form.json"
 _WORLD_FACTS = "world_facts.json"
 
+# 包内静态资源目录（图片等）：只允许这个目录下的单层文件，扩展名白名单。
+_ASSETS_DIR = "assets"
+_ASSET_EXTS = frozenset({".jpg", ".jpeg", ".png", ".webp", ".gif"})
+
 _REQUIRED_FILES = (_MANIFEST,)
 # Optional per-pack files. Missing ones fall back to xianxia_v1, then engine constants.
 
@@ -99,6 +103,42 @@ class Worldview:
 
     def has_golden_fingers(self) -> bool:
         return bool(self.player_templates.get("golden_fingers"))
+
+    @property
+    def chat_background(self) -> dict:
+        """包声明的聊天默认背景（ui.json 的 chat_background），解析成前端可直接用的形式。
+
+        声明形如 `{"image": "assets/chat_bg.jpg", "position_y": "50%", "dim": 0.42}`
+        （`image` 也可直接写成字符串）。返回 {url, position_y, dim}；未声明/文件不存在/扩展名
+        不允许时返回 {}，前端会退回普通背景。
+        """
+        raw = (self.ui or {}).get("chat_background")
+        if isinstance(raw, str):
+            raw = {"image": raw}
+        if not isinstance(raw, dict):
+            return {}
+        image = str(raw.get("image") or "").strip().lstrip("/")
+        if not image:
+            return {}
+        # 只允许 assets/<单层文件名>，且扩展名在白名单内（防路径穿越 / 任意文件读取）
+        parts = [p for p in image.split("/") if p not in ("", ".")]
+        if len(parts) != 2 or parts[0] != _ASSETS_DIR or ".." in parts[1]:
+            return {}
+        if Path(parts[1]).suffix.lower() not in _ASSET_EXTS:
+            return {}
+        if not (self.path / _ASSETS_DIR / parts[1]).is_file():
+            return {}
+        position_y = str(raw.get("position_y") or "50%")
+        try:
+            dim = float(raw.get("dim", 0.35))
+        except (TypeError, ValueError):
+            dim = 0.35
+        dim = min(max(dim, 0.0), 0.9)
+        return {
+            "url": f"/worldviews/{self.id}/asset/{parts[1]}",
+            "position_y": position_y,
+            "dim": dim,
+        }
 
 
 def _is_valid_id(wv_id: str) -> bool:
