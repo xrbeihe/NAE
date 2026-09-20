@@ -48,6 +48,12 @@
   /* ── 气泡 ── */
   --bubble-ai: #221C15;
   --bubble-user: #2E2519;
+  /* 气泡/信息栏背景的 RGB 分量：配合 --bubble-alpha（🎨 里的透明度滑块）做「只透明背景、文字不透明」。
+     改这两个色号时记得同步下面的 rgb 值。 */
+  --bubble-ai-rgb: 34, 28, 21;
+  --bubble-user-rgb: 46, 37, 25;
+  --bubble-system-rgb: 0, 0, 0;
+  --bubble-alpha: 1;          /* 1 = 完全不透明；由 🎨 滑块按会话写入 */
 
   /* ── 交互底色（列表/卡片 hover 用；不要拿 --input-bg 当 hover，输入框是凹陷色）── */
   --surface-hover: rgba(255, 255, 255, .04);

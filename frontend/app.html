@@ -79,9 +79,10 @@
     padding: 8px 12px; border-radius: 6px;
     font-size: 13px; line-height: 1.6; white-space: pre-wrap;
   }
-  .msg.ai { background: var(--panel); border: 1px solid var(--border); color: var(--color-ai); }
-  .msg.system { background: transparent; color: var(--color-system); font-size: 13px; font-style: italic; border: 1px dashed var(--border); }
-  .msg.user { background: var(--bubble-user); color: var(--color-user); }
+  /* 气泡背景统一由 --bubble-alpha 控制透明度（颜色浮窗的滑块，按会话存）；文字颜色不受影响 */
+  .msg.ai { background: rgba(var(--bubble-ai-rgb), var(--bubble-alpha, 1)); border: 1px solid var(--border); color: var(--color-ai); }
+  .msg.system { background: rgba(var(--bubble-system-rgb), var(--bubble-alpha-soft, .5)); color: var(--color-system); font-size: 13px; font-style: italic; border: 1px dashed var(--border); }
+  .msg.user { background: rgba(var(--bubble-user-rgb), var(--bubble-alpha, 1)); color: var(--color-user); }
   /* Wrappers: #chat columns, wrappers align to ends */
   .msg-wrapper { display: flex; flex-direction: row; align-items: flex-start; gap: 8px; max-width: 100%; }
   .msg-wrapper.user { flex-direction: row-reverse; margin-left: auto; }
@@ -211,9 +212,9 @@
   .bg-row label { flex: 0 0 70px; font-size: 13px; color: var(--text); }
   .bg-row input[type="range"] { flex: 1; accent-color: var(--accent); }
   #chat-panel.bg-enabled { background-size: cover; background-repeat: no-repeat; background-position: center var(--bg-pos-y, 50%); }
-  #chat-panel.bg-transparent .msg.ai { background: rgba(20, 24, 32, 0.72); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
-  #chat-panel.bg-transparent .msg.user { background: rgba(45, 52, 68, 0.66); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
-  #chat-panel.bg-transparent .msg.system { background: rgba(0, 0, 0, 0.35); }
+  /* 「气泡半透明」勾选时只增加毛玻璃与投影；透明度数值由 --bubble-alpha（滑块）决定 */
+  #chat-panel.bg-transparent .msg.ai,
+  #chat-panel.bg-transparent .msg.user { backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
   #chat-panel.bg-transparent .msg-wrapper .msg { box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
 
   /* ── session avatar preview ── */
@@ -552,6 +553,12 @@
     <input type="checkbox" id="bg-transparent-check" onchange="setChatBgTransparent(this.checked)">
     <span style="font-size:11px;color:var(--accent-dim)">聊天气泡半透明</span>
   </div>
+  <div class="bg-row">
+    <label>气泡不透明度</label>
+    <input type="range" id="bg-alpha-slider" min="10" max="100" value="72" oninput="setChatBgAlpha(this.value)">
+    <span id="bg-alpha-value" style="font-size:11px;color:var(--accent-dim);width:34px;text-align:right">72%</span>
+  </div>
+  <div style="font-size:11px;color:var(--accent-dim);line-height:1.4;margin:-2px 0 2px 78px">越低越透（只影响气泡与信息栏背景，文字不透明）</div>
   <div id="bg-source-hint" style="font-size:11px;color:var(--accent-dim);line-height:1.4;margin-top:2px"></div>
 </div>
 <div id="word-count-popup" style="display:none;position:fixed;z-index:9999;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px;width:180px;box-shadow:0 4px 16px rgba(0,0,0,0.6)">
@@ -888,10 +895,33 @@ function syncChatBgControls() {
   var posEl = document.getElementById('bg-pos-slider');
   var posVal = document.getElementById('bg-pos-value');
   var trEl = document.getElementById('bg-transparent-check');
+  var aEl = document.getElementById('bg-alpha-slider');
+  var aVal = document.getElementById('bg-alpha-value');
   var pos = sessionId ? (localStorage.getItem(_bgStoreKey('pos')) || 50) : 50;
   if (posEl) posEl.value = pos;
   if (posVal) posVal.textContent = pos + '%';
   if (trEl) trEl.checked = (sessionId ? (localStorage.getItem(_bgStoreKey('transparent')) || '1') : '1') !== '0';
+  var alpha = _chatBgAlpha();
+  if (aEl) { aEl.value = alpha; aEl.disabled = !(trEl ? trEl.checked : true); }
+  if (aVal) aVal.textContent = alpha + '%';
+}
+// 气泡/信息栏背景不透明度（10–100，按会话存，默认 72）
+function _chatBgAlpha() {
+  var v = 72;
+  try {
+    var raw = sessionId ? localStorage.getItem(_bgStoreKey('alpha')) : null;
+    if (raw != null) v = parseInt(raw, 10);
+  } catch (e) {}
+  if (isNaN(v)) v = 72;
+  return Math.max(10, Math.min(100, v));
+}
+// 把不透明度写到 --bubble-alpha（只影响背景；「气泡半透明」未勾选时强制不透明）
+function _applyBubbleAlpha(panel) {
+  if (!panel) return;
+  var transparent = (sessionId ? (localStorage.getItem(_bgStoreKey('transparent')) || '1') : '1') !== '0';
+  var alpha = transparent ? (_chatBgAlpha() / 100) : 1;
+  panel.style.setProperty('--bubble-alpha', String(alpha));
+  panel.style.setProperty('--bubble-alpha-soft', String(Math.round(alpha * 50) / 100));  // 系统消息底色更淡
 }
 function applyChatBg() {
   var panel = document.getElementById('chat-panel');
@@ -914,6 +944,7 @@ function applyChatBg() {
   }
   var transparent = (sessionId ? (localStorage.getItem(_bgStoreKey('transparent')) || '1') : '1') !== '0';
   panel.classList.toggle('bg-transparent', transparent);
+  _applyBubbleAlpha(panel);
   var hint = document.getElementById('bg-source-hint');
   if (hint) {
     hint.textContent = custom
@@ -928,10 +959,19 @@ function setChatBgPos(val) {
   var panel = document.getElementById('chat-panel');
   if (panel) panel.style.setProperty('--bg-pos-y', val + '%');
 }
+function setChatBgAlpha(val) {
+  val = Math.max(10, Math.min(100, parseInt(val, 10) || 72));
+  if (sessionId) localStorage.setItem(_bgStoreKey('alpha'), val);
+  var el = document.getElementById('bg-alpha-value');
+  if (el) el.textContent = val + '%';
+  _applyBubbleAlpha(document.getElementById('chat-panel'));
+}
 function setChatBgTransparent(checked) {
   if (sessionId) localStorage.setItem(_bgStoreKey('transparent'), checked ? '1' : '0');
   var panel = document.getElementById('chat-panel');
   if (panel) panel.classList.toggle('bg-transparent', checked);
+  _applyBubbleAlpha(panel);
+  syncChatBgControls();   // 取消勾选时把滑块置灰
 }
 function clearChatBg() {
   if (sessionId) localStorage.removeItem(_bgStoreKey(''));
@@ -1878,7 +1918,7 @@ function addInfoPanel(text) {
   var header = document.createElement('div'); header.textContent = '信息栏'; header.style.cssText = 'font-size:11px;color:var(--accent);margin-bottom:4px;font-weight:bold;';
   var box = document.createElement('div');
   box.className = 'info-panel-box';
-  box.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:6px;padding:8px 12px;font-size:12px;color:var(--text);line-height:1.6;white-space:pre-wrap;';
+  box.style.cssText = 'background:rgba(var(--bubble-ai-rgb), var(--bubble-alpha, 1));border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:6px;padding:8px 12px;font-size:12px;color:var(--text);line-height:1.6;white-space:pre-wrap;';
   box.textContent = text; // 纯文本渲染 — LLM 输出信息区，防 XSS
   container.appendChild(header); container.appendChild(box);
   container.dataset.infoText = text; // 存 info 原文，供主角面板并入时拼接
@@ -2109,7 +2149,7 @@ function updateInfoPanel(text) {
     var header = document.createElement('div'); header.textContent = '信息栏'; header.style.cssText = 'font-size:11px;color:var(--accent);margin-bottom:4px;font-weight:bold;';
     box = document.createElement('div');
     box.className = 'info-panel-box';
-    box.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:6px;padding:8px 12px;font-size:12px;color:var(--text);line-height:1.6;white-space:pre-wrap;';
+    box.style.cssText = 'background:rgba(var(--bubble-ai-rgb), var(--bubble-alpha, 1));border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:6px;padding:8px 12px;font-size:12px;color:var(--text);line-height:1.6;white-space:pre-wrap;';
     wrap.appendChild(header); wrap.appendChild(box);
     wrap.dataset.infoText = wrap.dataset.infoText || '';
   }

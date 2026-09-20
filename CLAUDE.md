@@ -82,6 +82,30 @@ watch_backup.bat
 
 ## 功能变更记录
 
+### 🗃️ 前端资源改为回源校验（修「改了前端页面没变」）
+- **现象**：用户报告气泡透明度滑块/勾选框"没反应"，但同一份代码在 headless Chrome 里驱动真实页面完全正常
+  （实测 0.72 → 拖到 25% → 0.1 → 取消勾选变 `rgb(34,28,21)` 全不透明 → 勾回 0.1）
+- **根因**：`StaticFiles` 默认**不发 `Cache-Control`** → 浏览器按"启发式缓存"直接用旧副本不回源。
+  用户恰好在两次编辑之间刷过页（先加了滑块控件、后加的 JS 函数），缓存里那份"有滑块、没函数"，点它自然没反应
+- **修法**：`main.py` 加 HTTP 中间件，凡是 `text/html` / `text/css` / `javascript` / `image/svg+xml` 一律
+  `Cache-Control: no-cache, must-revalidate`（仍靠 ETag 走 304，不浪费带宽）；图片（jpg/png/webp）不受影响，
+  包内背景图仍走 assets 路由的 `max-age=86400`
+- **测试**：新增 `tests/test_frontend_cache.py`（HTML/CSS/JS 必须 no-cache；背景图必须仍是长缓存）
+- **定位手法（可复用）**：静态服务（API 用桩）+ `Page.addScriptToEvaluateOnNewDocument` 预置假 JWT（`ane_token`）
+  + CDP `Runtime.evaluate` 驱动真实页面读 `getComputedStyle`——比手抄 CSS 做预览更可靠（手抄会绕过真实层叠/缓存）
+
+### 🎚️ 气泡透明度滑块（信息栏 + 正文输出栏只透明背景、文字不透明）
+- **需求**：信息栏与正文气泡完全不透明，想要一个透明度滑块（文字不要求透明）
+- **做法**：`theme.css` 把气泡色拆出 RGB token（`--bubble-ai-rgb` / `--bubble-user-rgb` / `--bubble-system-rgb`）
+  + 变量 `--bubble-alpha`（1=不透明）与 `--bubble-alpha-soft`（系统消息用一半）；`app.html` 的
+  `.msg.ai` / `.msg.user` / `.msg.system` 与**信息栏盒子内联样式**都改成 `rgba(var(--…-rgb), var(--bubble-alpha))`
+  —— 只动背景 alpha，`color` 不变，所以文字始终不透明
+- **浮窗**：🖼 背景图区块新增「气泡不透明度」滑块（10–100%，默认 72%）+ 说明；勾掉「聊天气泡半透明」时强制不透明并置灰滑块；
+  `.bg-transparent` 现在只管毛玻璃与投影，不再写死透明度
+- **按会话隔离**：新键 `chat_bg_alpha:<sid>`（与背景/位置/半透明同一套）；`setChatBgAlpha()` 做了上下限夹取
+- **验证**：JS 侧断言扩到 23 项全 PASS（含默认 0.72、25%→0.25、系统消息 0.13、越界夹取、B 世界不继承 A 的数值、
+  取消勾选强制 1 且滑块置灰）；headless Chrome 截图确认 72%/25%/100% 三档真实渲染正确；全量 290 通过
+
 ### 🖼️ 世界观包默认聊天背景（`ui.json` 的 `chat_background` + 包内 `assets/`）
 - **需求**：把一张图设为火影忍者包的默认背景
 - **机制**：`ui.json` 新增 `chat_background` = `{image, position_y, dim}`（也支持字符串简写）；

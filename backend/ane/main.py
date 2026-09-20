@@ -406,6 +406,21 @@ if _static_dir.exists():
     logger.info(f"Serving static files from {_static_dir}")
 
 
+@app.middleware("http")
+async def _frontend_revalidate(request, call_next):
+    """前端 HTML/CSS/JS 一律要求回源校验（no-cache + ETag → 命中就 304）。
+
+    StaticFiles 不带 Cache-Control 时浏览器会按"启发式缓存"直接用旧副本，
+    改了前端却看不到（本仓库开发期反复踩到）。图片类资源不在此列，
+    仍按各自的长缓存/或 assets 路由的 max-age 走。
+    """
+    resp = await call_next(request)
+    ctype = resp.headers.get("content-type", "")
+    if ctype.startswith(("text/html", "text/css", "application/javascript", "text/javascript", "image/svg+xml")):
+        resp.headers["Cache-Control"] = "no-cache, must-revalidate"
+    return resp
+
+
 # ── Runner ───────────────────────────────────────────────────
 
 if __name__ == "__main__":
