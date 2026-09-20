@@ -82,6 +82,27 @@ watch_backup.bat
 
 ## 功能变更记录
 
+### 📋 信息栏合并（取消附近人物 / 推荐行动的独立渲染）
+- **需求**：「取消附近人物的独立渲染，取消推荐行动的独立渲染。所有信息类内容都进入信息栏」
+- **提示词（两份都改：SYSTEM_PROMPT + NARRATIVE_KERNEL）**：输出 JSON 骨架从 `narrative/state_changes/player_relationships/nearby_characters/recommendations` 收敛为 `narrative/state_changes/player_relationships/info_panel`；删除 `recommendations 规则`/`nearby_characters 规则` 两个独立块，改为 **`info_panel 规则`**——「信息栏 = 所有信息类内容的唯一去处」，固定四段 `【主角动态】/【交互人物】/【附近人物】/【推荐行动】`（各段用【…】小标题、段间空行、无内容整段省略），并保留「禁止复述主角面板已有内容」
+- **后端**：`output_parser` / `TurnResult` 的 `nearby_characters` / `recommendations` 字段**保留为兼容字段**（老输出仍可解析、API 不破坏），但 prompt 不再要求模型产出
+- **前端（app.html）**：`addInfoPanel(text)` 改为纯文本单参数（原 `recommendations` 参数与分节渲染删除）；删除 `addNearbyCards()` 与历史恢复里的 `【附近人物】` 分支（该前缀现在只作为 conversation 里的块边界，防止旧 JSON 尾巴渲染成正文）；新增 `_recsToText(recs)` 把世界观包 `ui.json` 的初始推荐行动按同一 `【推荐行动】` 格式并入信息栏文本；会话创建/切换路径由两次 `addInfoPanel` 收敛为**一次**（原来会连出两个「信息栏」框），`#rec-area` 现在只放工具按钮（❤️ 🚻 📚）
+- **测试**：`test_modules.py::TestPromptBuilder::test_build_does_not_inject_suggestions` 断言口径更新（`【推荐行动】` 现在是 info_panel 的必备分节名，故只断言"推荐**内容**不泄漏"+ 不成列表注入）；`test_prompts.py` 25 通过、`test_modules.py` 92 通过
+- **文档**：DATA_FLOW.md 的「Nearby Characters 架构详解」改写为「信息栏（info_panel）架构详解」（含兼容字段表）；NPC_CLASSIFICATION / MODULES_REFERENCE / API / MOBILE / RELATIONSHIP_GRAPH 同步
+- **🐛 后续修复（同一改动上线后实测发现）**：模型把信息栏段名改写成「【无名忍者】【当前交互人物】」且**漏掉【推荐行动】段** → ① 提示词两份都补「段标题固定照抄这四个，不要改名」；② `_withRecs()` 每轮把 `td.recommendations` 并入信息栏文本（模型已自带【推荐行动】段则不重复追加）——否则推荐行动在回合流程里会彻底不显示（原来靠独立推荐栏）；③ `_mergePlayerDynamic()` 把**主角面板**与 info_panel 的【主角动态】段**合并成一个块**（面板静态行 + 动态状态行，重复行如面板已有的「位置：…」自动去重，其余段落后接），修复"同一个主角信息显示成两块"
+
+### 🔁 修复扩展栏目重复注入（面板 × prompt × info_panel 回声）
+- **症状**：同一个 prompt 里 `_extensions` 栏目渲染两遍——`panels.py` 的「扩展：」（主角面板内）+ `prompt_builder.py` 的 `extension:` 行；LLM 看到两遍后又把它抄成 info_panel 的 `【栏目名】` 分节，而 info_panel 每轮原样回喂 → 这份重复被固化、逐轮累积（提示词膨胀 + 正文跟着复述同一批设定）
+- **修法**：① 只保留主角面板一条权威路径（删掉 `prompt_builder` 的 `extension:` 渲染，并把引用它的提示词说明改为"见主角面板「扩展：」项"）；② 新增 `panels.strip_extension_echo_sections()`，在**存库前**与**回喂前**剔除"标题 == 扩展栏目名"的分节（删到空行为止，精确匹配，不碰主角动态状态行/交互人物行）；③ info_panel 规则补一条「禁止复述主角面板已有内容」
+- **测试**：`test_prompts.py::test_strip_extension_echo_sections_unit`（单元）+ `test_extension_echo_stripped_from_info_panel`（端到端：栏目仍在权威面板、info_panel 回声被剔除、落库版本已清洗且同轮其他内容保留）
+- **回退**：不想要"删分节"行为，去掉 `game_engine.py` 里那两处调用即可（`panels.py` 的函数保留不影响其他逻辑）
+
+### 🌌 主页背景「墨卷」+ 随机天气（雨/雪）
+- **背景层**（`theme.css` 的 `.ink-backdrop`，可复用层）：天光 + 双层缓慢漂移墨雾 + 双层远山剪影 + 全局纸纹；`position: fixed` 钉在视口（滚动时不动），接入新页面时容器需 `position:relative;z-index:0`、内容 `z-index:1`、页面外固定 UI 需 `z-index:2`；关闭 `<body data-no-ink-bg>`，强弱 `--ink-bg-opacity`
+- **天气层**（同一 backdrop 内的 `.weather`，三层景深）：雨 = 短划线贴图 + 整层倾斜（**不能用无限竖线**——竖线沿自身方向平移看不出运动）；雪 = 雪场贴图 + 左右轻摆。每层仅 1 个 DOM 元素，上千粒子靠可平铺 SVG 贴图；只动 `transform`（合成器线程），密度/速度由 `--tile` / `--wx-duration` 单值控制，粒子不加 `will-change`
+- **方向与曲线**：位移一律 `+Y`（向下）；两组动画都用 **`linear`**——雪的水平摆动把 12 段正弦采样**烘焙进关键帧**，因为 `ease-in-out` 是**逐段**生效的，会在每个关键帧把垂直速度归零（实测最慢段只有均速 54% → 肉眼是"一顿一顿"）。雨速约 141 / 258 / 458 px/s（远/中/近），雪约 23 / 27 / 36 px/s（恒速）
+- **玩家不可调整**：无任何 UI 开关；每次页面载入 `initWeather()` 随机启用雨或雪（强度 1/2/3 加权随机：0.4/0.45/0.15），选择不持久化；系统「减少动态效果」开启时整层隐藏（WCAG 2.3.3）
+
 ### 🛡️ 部署保护 + 服务器内容同步 + 世界观历史完善
 - **部署保护（ci.yml）**：deploy job 在 `actions/checkout` **之前**检测服务器 worktree 未提交改动（网页编辑器直接写磁盘的包文件，如 world_facts.json）——有改动则 tar 打包 `worldviews/` + `git diff` 上传为 artifact `ane-server-edits-backup`，并**中止部署**，防止 checkout 静默覆盖手改内容。worktree 干净时正常部署。**⚠️ 已暂时停用**（`9b5cf77`，恢复见 `af599de`）——停用期间服务器未提交的网页改动会被部署直接覆盖，请网页编辑后手动 commit + push
 - **服务器 ↔ GitHub 双向同步**：网页编辑保存 → 服务器 `git add -A && git commit && git push`（HTTPS + PAT）→ 本地 `git pull`。图片库数据（`data/images/` + `image_categories` 表）是运行时数据，不在 git 内，无需推送也不受部署影响
@@ -90,7 +111,7 @@ watch_backup.bat
 - **🧹 经济系统彻底移除**：清理 5 包 `manifest.savings_unit`、`panel` 存款字段、`system_prompt` 的 `economy_change` 说明、`ui.json` 经济尾巴推荐文案、designer 货币名称字段（后端已不消费）；文档同步清理
 - **🎭 naruto 移除职业/能力**：删除 `cultivations`（下忍/中忍/上忍/暗部/医疗忍者/村民）数据与 `form.json`「忍者等级」字段——与「身份」选项重复；面板忍者等级改由 `player.cultivation` 直接显示
 - 服务器端编辑：naruto `player_templates.json` 出身背景简化（label 去括号、清空 initial_resource/性格倾向、砂忍流亡→流亡忍者）
-- **🔒 世界观包权限（系统包隔离 + 白名单）**：内置公共包（manifest 无 `owner_user_id`，即 xianxia/modern_city/fantasy_kingdom/naruto_shippuden/one_piece）仅白名单管理员可编辑；用户上传安装的包仅作者或管理员可改；包写操作一律要求登录（匿名 401 / 无权 403）；`GET /worldviews?scope=mine` 让 designer 按用户过滤（普通账号只见自己上传的 + 开源共享库的包，内置包隐藏）；`/settings` 页显示用户编号；白名单 = `config.json worldview_admin_ids` / env `ANE_WORLDVIEW_ADMIN_IDS`（服务器 `207d25fa7acf` / 本地 `a076e986e205`）；**本地 agent 改文件系统绕过 API 权限层（无防御），修改内置包前须经用户确认**——详见 docs/CLAUDE.md「世界观包权限」
+- **🔒 世界观包权限（系统包隔离 + 白名单）**：内置公共包（manifest 无 `owner_user_id`，即 xianxia/modern_city/fantasy_kingdom/naruto_shippuden/one_piece）仅白名单管理员可编辑；用户上传安装的包仅作者或管理员可改；包写操作一律要求登录（匿名 401 / 无权 403）；`GET /worldviews?scope=mine` 让 designer 按用户过滤（普通账号只见自己上传的 + 开源共享库的包，内置包隐藏）；`/settings` 页显示用户编号；白名单 = `config.json worldview_admin_ids` / env `ANE_WORLDVIEW_ADMIN_IDS`（服务器 `207d25fa7acf` / 本地 `3bc7553ba877`）；**本地 agent 改文件系统绕过 API 权限层（无防御），修改内置包前须经用户确认**——详见 docs/CLAUDE.md「世界观包权限」
 
 ### 🎯 位置体系重构 + 卡片渲染修复 + 1v1 历史修复（v1.3+）
 - **初始无位置**：`_pick_start_location` 改为返回空，玩家初始无固定位置；第一轮 prompt 渲染「具体位置：未设定」，LLM 按角色身份/世界观/时间线自主决定位置（输出 location_change 确立）。解决砂忍角色被生成在木叶等身份-位置错配

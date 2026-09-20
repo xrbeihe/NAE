@@ -10,7 +10,7 @@
   "welcome_prefix": "已进入「",
   "welcome_suffix": "」",
   "character_card": {
-    "title": "📋 **角色创建成功**",
+    "title": "角色创建成功",
     "lines": [
       {
         "label": "姓名",

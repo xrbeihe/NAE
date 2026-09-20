@@ -2,22 +2,16 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>用户设置 — AI Narrative Engine</title>
+<link rel="icon" href="/public/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/public/theme.css">
 <style>
-  :root {
-    --bg: #1a1410;
-    --panel: #231d16;
-    --border: #3a3026;
-    --text: #d4c8b8;
-    --accent: #c9a96e;
-    --accent-dim: #6b5a3e;
-    --input-bg: #2a2218;
-  }
+  /* 颜色 / 字体 / 圆角 / 间距 token → /public/theme.css（墨卷设计系统 v1）*/
   * { margin:0; padding:0; box-sizing:border-box; }
   body {
-    font-family: "Microsoft YaHei", "SimSun", serif;
-    background: var(--bg); color: var(--text);
+    font-family: var(--font-ui);
+    background: var(--surface-canvas); color: var(--text-primary);
     height: 100vh; height: 100dvh;
     display: flex; flex-direction: column;
   }
@@ -58,25 +52,25 @@
 <body>
 
 <div id="header">
-  <h1 onclick="location.href='/'">⚔ AI Narrative Engine</h1>
+  <h1 onclick="location.href='/'"><svg class="icon" aria-hidden="true"><use href="/public/icons.svg#i-book"></use></svg>AI Narrative Engine</h1>
   <div style="margin-left:auto;display:flex;align-items:center;gap:6px;position:relative">
-    <div id="user-avatar" onclick="toggleUserMenu()" style="width:30px;height:30px;border-radius:50%;background:var(--accent);color:var(--panel);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;overflow:hidden;flex-shrink:0;border:1px solid var(--border)">🧑</div>
+    <div id="user-avatar" onclick="toggleUserMenu()" style="width:30px;height:30px;border-radius:50%;background:var(--accent);color:var(--panel);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;overflow:hidden;flex-shrink:0;border:1px solid var(--border)"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-npc"></use></svg></div>
     <div id="user-menu" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:4px;min-width:140px;z-index:500;box-shadow:0 4px 12px rgba(0,0,0,0.4)">
-      <button onclick="handleLogout()" style="display:block;width:100%;padding:8px 12px;background:none;border:none;color:var(--danger);cursor:pointer;font-size:13px;text-align:left;border-radius:4px">🚪 退出登录</button>
+      <button onclick="handleLogout()" style="display:block;width:100%;padding:8px 12px;background:none;border:none;color:var(--danger);cursor:pointer;font-size:13px;text-align:left;border-radius:4px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-logout"></use></svg>退出登录</button>
     </div>
   </div>
 </div>
 
 <div id="settings-page">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-    <h2 style="margin:0;color:var(--accent)">⚙️ 用户设置</h2>
+    <h2 style="margin:0;color:var(--accent)">用户设置</h2>
     <button onclick="location.href='/'" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:6px 14px;border-radius:4px;cursor:pointer;font-size:12px">← 返回</button>
   </div>
   <div style="max-width:400px">
 
     <!-- Avatar -->
     <div style="margin-bottom:16px;text-align:center">
-      <div id="settings-avatar-preview" style="width:72px;height:72px;border-radius:50%;background:var(--accent);color:var(--panel);display:inline-flex;align-items:center;justify-content:center;font-size:28px;overflow:hidden;border:2px solid var(--border);margin-bottom:8px;cursor:pointer">🧑</div>
+      <div id="settings-avatar-preview" style="width:72px;height:72px;border-radius:50%;background:var(--accent);color:var(--panel);display:inline-flex;align-items:center;justify-content:center;font-size:28px;overflow:hidden;border:2px solid var(--border);margin-bottom:8px;cursor:pointer"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-npc"></use></svg></div>
       <div style="font-size:11px;color:var(--accent-dim)">点击上方更换头像</div>
     </div>
     <input type="file" id="avatar-file-input" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none">
@@ -97,17 +91,17 @@
     <hr style="border:none;border-top:1px solid var(--border);margin:24px 0">
 
     <!-- Logs -->
-    <h3 style="color:var(--accent);font-size:15px;margin-bottom:12px">🗑 日志管理</h3>
+    <h3 style="color:var(--accent);font-size:15px;margin-bottom:12px">日志管理</h3>
     <p style="font-size:12px;color:var(--accent-dim);margin-bottom:10px">清空前端与后端的所有日志文件。</p>
-    <button onclick="clearLogs()" style="background:transparent;border:1px solid var(--border);color:var(--accent-dim);padding:8px 20px;border-radius:4px;cursor:pointer;font-size:13px">🗑 清空日志</button>
+    <button onclick="clearLogs()" style="background:transparent;border:1px solid var(--border);color:var(--accent-dim);padding:8px 20px;border-radius:4px;cursor:pointer;font-size:13px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-trash"></use></svg>清空日志</button>
     <div id="logs-result" style="font-size:12px;margin-top:8px;white-space:pre-wrap"></div>
 
     <hr style="border:none;border-top:1px solid var(--border);margin:24px 0">
 
         <!-- Worldview Designer entry -->
-    <h3 style="color:var(--accent);font-size:15px;margin-bottom:12px">🌍 世界观设计器</h3>
+    <h3 style="color:var(--accent);font-size:15px;margin-bottom:12px">世界观设计器</h3>
     <p style="font-size:12px;color:var(--accent-dim);margin-bottom:10px">一键生成新世界观，或编辑已有世界观的角色创建表单、初始推荐、选项数据。</p>
-    <button onclick="location.href='/designer'" style="background:var(--accent);color:var(--panel);border:none;padding:10px 24px;border-radius:4px;cursor:pointer;font-size:14px">🎨 进入世界观设计器</button>
+    <button onclick="location.href='/designer'" style="background:var(--accent);color:var(--panel);border:none;padding:10px 24px;border-radius:4px;cursor:pointer;font-size:14px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-world"></use></svg>进入世界观设计器</button>
 <script src="/public/common.js"></script>
 <script>
 frontendLog('INFO', 'Settings page loaded');
@@ -183,7 +177,7 @@ async function changePassword() {
       body: JSON.stringify({username: un, new_password: newPwd})
     });
     if (!res.ok) { var d = await res.json(); throw new Error(d.detail || '修改失败'); }
-    alert('✅ 密码已修改');
+    alert('密码已修改');
     document.getElementById('settings-new-pwd').value = '';
   } catch(e) { frontendLog('ERROR', 'Password change failed: ' + e.message); alert('修改密码失败: ' + e.message); }
 }
@@ -199,7 +193,7 @@ async function clearLogs() {
     var d = await r.json();
     var parts = [];
     for (var k in d) parts.push(d[k].ok ? k + ': 已清空' : k + ': 失败');
-    resultEl.textContent = '🗑 ' + parts.join(' ｜ ');
+    resultEl.textContent = '' + parts.join(' ｜ ');
   } catch(e) {
     frontendLog('ERROR', 'Clear logs failed: ' + e.message);
     resultEl.style.color = 'var(--accent-dim)';

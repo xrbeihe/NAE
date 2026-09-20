@@ -181,11 +181,11 @@ add_longmemory_entry(db, session_id, turn_start, turn_end, time_range, content)
 ```
 
 - `add_conversation_turn` 写入两种 `memory_type`：
-  - `conversation` — 完整对话 + `【附近人物】` JSON 前缀存储，前端渲染用
+  - `conversation` — 完整对话（`【玩家】`/`【AI】` 前缀），前端恢复历史用；旧数据可能带 `【附近人物】` JSON 尾（兼容保留，前端按块边界跳过）
   - `shortmemory` — llm_summary 压缩版（给下轮 Prompt 用），调用 `compact_narrative_with_llm()`
   - `prompt` — 完整 Prompt，**永久保留，永不裁剪**
-- **`nearby_characters` 设计原则**：只存在 conversation 记录中供前端恢复卡片，**永不回流到后续 Prompt**。
-  shortmemory 版本不包含 nearby——对 LLM 来说这些是"一次性垃圾数据"。
+- **`nearby_characters` 现状（兼容字段）**：prompt 不再要求模型产出（附近人物现由模型写进 `info_panel` 的【附近人物】段），仅老输出/老会话可能带该字段。
+  shortmemory 版本从不包含 nearby。
 - 此外还有：`longmemory`（纪元记录）
 - **重要NPC保护**：提及重要NPC的记忆条目不会被裁剪
 - shortmemory / conversation 保留最近 20 轮，prompt 永久保留
@@ -242,10 +242,10 @@ parse(raw_response: str) -> ParsedOutput
 - **平衡花括号提取**：支持嵌套 JSON 对象/数组内的花括号（通过跳转字符串字面量实现）
 - 验证 state_changes：类型必须在白名单内、必须有 target，无效项丢弃
 - **套话移除**：自动删掉「指甲掐进掌心」「指节发白」「喉咙发紧」
-- **`nearby_characters` 分离**：从 llm_main JSON 中提取后，以独立 JSON 数组返回给前端。
-  不写入 shortmemory 版本，**阻止这些一次性数据回流到 LLM 上下文**。
+- **`info_panel` 提取**：信息栏文本（【主角动态】/【交互人物】/【附近人物】/【推荐行动】四段）——信息类内容的唯一去处，落库并原样回喂下一轮
+- **`nearby_characters` / `recommendations` 兼容解析**：老输出仍能解析成独立字段返回，但 prompt 已不再要求模型产出
 - **`character_model` 字段**：`ParsedOutput` 支持但当前 llm_main 不输出（建模在 pre-llm_main 完成）
-- 返回 ParsedOutput(narrative, state_changes, nearby_characters, character_model)
+- 返回 ParsedOutput(narrative, state_changes, player_relationships, info_panel, character_model)
 
 ---
 
@@ -474,12 +474,14 @@ class TurnResult:
     world_time: str              # 当前世界时间
     time_delta: int              # 本轮推进的 tick 数
     npc_updates: list[dict]      # NPC 状态更新
-    nearby_characters: list[dict]# 附近人物
-    htem_directory: str          # 已废弃（HTEM 移除），返回空字符串
+    nearby_characters: list[dict]# 附近人物（兼容字段，prompt 已不再产出）
     is_system_command: bool
     system_response: str | None
-    shortmemory_summary: str      # llm_summary 输出（结构化场景事实）
-    player_panel: str            # 主角面板文本
+    player_panel: str            # 主角面板文本（程序渲染的权威面板）
     important_npcs_panel: str    # 重要人物面板文本
+    modeled_npcs: list[dict]     # 本轮建模登场的人物
+    recommendations: list[str]   # 推荐行动（兼容字段，前端并入信息栏文本）
+    info_panel: str              # 信息栏文本（信息类内容的唯一去处）
     prompt: str                  # 发送给主 LLM 的完整 Prompt
+    usage: dict | None           # llm_main token/耗时
 ```

@@ -2,18 +2,16 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AI Narrative Engine</title>
+<link rel="icon" href="/public/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/public/theme.css">
 <style>
-  :root {
-    --bg: #1a1410; --panel: #231d16; --border: #3a3026; --text: #d4c8b8;
-    --accent: #c9a96e; --accent-dim: #6b5a3e; --danger: #8b4545; --input-bg: #2a2218;
-    --color-ai: #d4c8b8; --color-system: #6b5a3e; --color-user: #e8dcc8;
-  }
+  /* 颜色 / 字体 / 圆角 / 间距 token → /public/theme.css（墨卷设计系统 v1）*/
   * { margin:0; padding:0; box-sizing:border-box; }
   body {
-    font-family: "Microsoft YaHei", "SimSun", serif;
-    background: var(--bg); color: var(--text);
+    font-family: var(--font-ui);
+    background: var(--surface-canvas); color: var(--text-primary);
     height: 100vh; height: 100dvh;
     display: flex; flex-direction: column;
   }
@@ -21,12 +19,20 @@
     background: var(--panel); border-bottom: 1px solid var(--border);
     padding: 10px 20px; display: flex; align-items: center; gap: 16px;
     flex-shrink: 0;
+    position: relative; z-index: 2;   /* 高于固定的主页背景层（.ink-backdrop z-index:0） */
   }
   #header h1 { font-size: 18px; color: var(--accent); white-space: nowrap; cursor: pointer; }
   #header h1:hover { opacity: 0.85; }
 
   /* ── home page ── */
-  #home-page { display: flex; flex-direction: column; flex: 1; overflow-y: auto; padding: 20px 32px; background: var(--bg); min-height: 0; }
+  #home-page { display: flex; flex-direction: column; flex: 1; overflow-y: auto; padding: 20px 32px; background: var(--bg); min-height: 0; position: relative; z-index: 0; }
+  /* 主页背景层在下、内容在上；#home-page 自建层叠上下文，背景不会盖到顶栏 */
+  #home-page > *:not(.ink-backdrop) { position: relative; z-index: 1; }
+  /* 入口卡：悬停用位移 + 投影（边框在内联样式里，不参与动画） */
+  .entry-card { transition: transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease); }
+  .entry-card:hover { transform: translateY(-2px); box-shadow: var(--el-1); }
+  .entry-card:active { transform: translateY(0); }
+  @media (prefers-reduced-motion: reduce) { .entry-card:hover { transform: none; } }
   #home-npc-table { flex: 1; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); min-height: 120px; }
   #home-npc-table::-webkit-scrollbar { width: 6px; }
   #home-npc-table::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
@@ -75,7 +81,7 @@
   }
   .msg.ai { background: var(--panel); border: 1px solid var(--border); color: var(--color-ai); }
   .msg.system { background: transparent; color: var(--color-system); font-size: 13px; font-style: italic; border: 1px dashed var(--border); }
-  .msg.user { background: var(--accent-dim); color: var(--color-user); }
+  .msg.user { background: var(--bubble-user); color: var(--color-user); }
   /* Wrappers: #chat columns, wrappers align to ends */
   .msg-wrapper { display: flex; flex-direction: row; align-items: flex-start; gap: 8px; max-width: 100%; }
   .msg-wrapper.user { flex-direction: row-reverse; margin-left: auto; }
@@ -210,10 +216,6 @@
   #chat-panel.bg-transparent .msg.system { background: rgba(0, 0, 0, 0.35); }
   #chat-panel.bg-transparent .msg-wrapper .msg { box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
 
-  /* ── help popup ── */
-  #help-popup { display: none; position: fixed; z-index: 9999; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; width: 260px; box-shadow: 0 4px 16px rgba(0,0,0,0.6); font-size: 13px; line-height: 1.6; color: var(--text); }
-  #help-popup.visible { display: block; }
-
   /* ── session avatar preview ── */
   #avatar-preview-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 10000; align-items: center; justify-content: center; }
   #avatar-preview-overlay.visible { display: flex; }
@@ -286,13 +288,13 @@
 <body>
 
 <div id="header">
-  <h1 onclick="goHome()">⚔ AI Narrative Engine</h1>
+  <h1 onclick="goHome()"><svg class="icon" aria-hidden="true"><use href="/public/icons.svg#i-book"></use></svg>AI Narrative Engine</h1>
   <div style="margin-left:auto;display:flex;align-items:center;gap:6px;position:relative">
-    <button onclick="location.href='/card-editor'" style="background:transparent;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:6px 12px;cursor:pointer;font-size:13px;font-family:inherit;flex-shrink:0" title="角色卡制作">🃏 角色卡</button>
-    <div id="user-avatar" onclick="toggleUserMenu()" style="width:30px;height:30px;border-radius:50%;background:var(--accent);color:var(--panel);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;overflow:hidden;flex-shrink:0;border:1px solid var(--border)">🧑</div>
+    <button onclick="location.href='/card-editor'" style="background:transparent;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:6px 12px;cursor:pointer;font-size:13px;font-family:inherit;flex-shrink:0" title="角色卡制作"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-card"></use></svg>角色卡</button>
+    <div id="user-avatar" onclick="toggleUserMenu()" style="width:30px;height:30px;border-radius:50%;background:var(--accent);color:var(--panel);display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;flex-shrink:0;border:1px solid var(--border)"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-npc"></use></svg></div>
     <div id="user-menu" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:4px;min-width:140px;z-index:500;box-shadow:0 4px 12px rgba(0,0,0,0.4)">
-      <button onclick="location.href='/settings'" style="display:block;width:100%;padding:8px 12px;background:none;border:none;color:var(--text);cursor:pointer;font-size:13px;text-align:left;border-radius:4px">⚙️ 用户设置</button>
-      <button onclick="handleLogout()" style="display:block;width:100%;padding:8px 12px;background:none;border:none;color:var(--danger);cursor:pointer;font-size:13px;text-align:left;border-radius:4px">🚪 退出登录</button>
+      <button onclick="location.href='/settings'" style="display:block;width:100%;padding:8px 12px;background:none;border:none;color:var(--text);cursor:pointer;font-size:13px;text-align:left;border-radius:4px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-settings"></use></svg>用户设置</button>
+      <button onclick="handleLogout()" style="display:block;width:100%;padding:8px 12px;background:none;border:none;color:var(--danger);cursor:pointer;font-size:13px;text-align:left;border-radius:4px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-logout"></use></svg>退出登录</button>
     </div>
   </div>
 </div>
@@ -300,9 +302,9 @@
 <div id="sidebar-overlay" onclick="toggleSidebar(false)"></div>
 <div id="session-sidebar">
   <div id="sidebar-header">
-    <h2>📋 世界列表</h2>
+    <h2>世界列表</h2>
     <div style="display:flex;gap:6px;align-items:center">
-      <button onclick="toggleSelectMode()" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:2px 6px;border-radius:3px;cursor:pointer;font-size:11px">☑</button>
+      <button onclick="toggleSelectMode()" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:2px 6px;border-radius:3px;cursor:pointer;font-size:11px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-check"></use></svg></button>
       <button id="new-session-btn" onclick="createSession()">+</button>
     </div>
   </div>
@@ -317,43 +319,50 @@
 
 <!-- ── Home page (NPC总库 + 世界管理) ── -->
 <div id="home-page">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-shrink:0">
-    <h2 style="margin:0;color:var(--accent)">🏠 主页</h2>
+  <!-- 墨卷背景层：天光 + 双层墨雾 + 远山（关闭：<body data-no-ink-bg>；强度：--ink-bg-opacity） -->
+  <div class="ink-backdrop" aria-hidden="true">
+    <span class="ink-mist ink-mist--a"></span>
+    <span class="ink-mist ink-mist--b"></span>
+    <span class="ink-ridge"></span>
+    <div class="weather" aria-hidden="true">
+      <div class="weather__layer weather__layer--far"></div>
+      <div class="weather__layer weather__layer--mid"></div>
+      <div class="weather__layer weather__layer--near"></div>
+    </div>
   </div>
+  <h2 class="section-title reveal">主页</h2>
   <!-- NPC 总库入口卡片 -->
-  <div onclick="enterNpcPage()" style="border:1px solid var(--border);border-radius:8px;padding:16px 18px;margin-bottom:16px;background:var(--panel);cursor:pointer;display:flex;align-items:center;gap:12px;">
-    <div style="width:40px;height:40px;border-radius:8px;background:var(--accent);color:var(--panel);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">📚</div>
+  <div class="entry-card reveal" onclick="enterNpcPage()" style="border:1px solid var(--border);border-radius:8px;padding:16px 18px;margin-bottom:16px;background:var(--panel);cursor:pointer;display:flex;align-items:center;gap:12px;">
+    <div style="width:40px;height:40px;border-radius:8px;background:var(--accent);color:var(--panel);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg class="icon icon--lg" aria-hidden="true"><use href="/public/icons.svg#i-npc"></use></svg></div>
     <div style="flex:1;min-width:0">
       <div style="font-size:15px;font-weight:bold;color:var(--text)">NPC 总库</div>
       <div style="font-size:12px;color:var(--accent-dim);margin-top:2px">查看/编辑/删除你的全部建模 NPC</div>
     </div>
-    <span style="color:var(--accent-dim);font-size:16px">›</span>
+    <span style="color:var(--text-muted);display:flex"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-chevron"></use></svg></span>
   </div>
-  <!-- 🖼 图片库入口 -->
-  <div onclick="enterImageLib()" style="border:1px solid var(--border);border-radius:8px;padding:16px 18px;margin-bottom:16px;background:var(--panel);cursor:pointer;display:flex;align-items:center;gap:12px;">
-    <div style="width:40px;height:40px;border-radius:8px;background:var(--accent);color:var(--panel);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🖼</div>
+  <!-- 图片库入口 -->
+  <div class="entry-card reveal" onclick="enterImageLib()" style="border:1px solid var(--border);border-radius:8px;padding:16px 18px;margin-bottom:16px;background:var(--panel);cursor:pointer;display:flex;align-items:center;gap:12px;">
+    <div style="width:40px;height:40px;border-radius:8px;background:var(--accent);color:var(--panel);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg class="icon icon--lg" aria-hidden="true"><use href="/public/icons.svg#i-image"></use></svg></div>
     <div style="flex:1;min-width:0">
       <div style="font-size:15px;font-weight:bold;color:var(--text)">图片库</div>
       <div style="font-size:12px;color:var(--accent-dim);margin-top:2px">开源共享素材库——男/女分类，按世界类型分仓库，上传你的图片素材</div>
     </div>
-    <span style="color:var(--accent-dim);font-size:16px">›</span>
+    <span style="color:var(--text-muted);display:flex"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-chevron"></use></svg></span>
   </div>
-  <div style="margin-top:12px;flex-shrink:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-    <button onclick="showWorldManage()" style="background:var(--accent);color:var(--panel);border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:13px">🌍 世界管理</button>
-    <button onclick="location.href='/chat'" style="background:transparent;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:8px 20px;cursor:pointer;font-size:13px;font-family:inherit" title="1v1 陪伴对话">💬 1v1 对话</button>
-    <!-- 🖼️ 生成图片：AI 文生图功能暂未开放（deepseek-v4-flash-vision-exp 为图像理解模型，只能看图不能画图）。以后再开发时接入真正的文生图服务后恢复此按钮。
-    <button onclick="showImageGenModal()" style="background:transparent;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:8px 20px;cursor:pointer;font-size:13px;font-family:inherit" title="AI 生成图片">🖼️ 生成图片</button>
+  <div class="reveal" style="margin-top:12px;flex-shrink:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <button onclick="showWorldManage()" style="background:var(--accent);color:var(--panel);border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:13px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-world"></use></svg>世界管理</button>
+    <button onclick="location.href='/chat'" style="background:transparent;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:8px 20px;cursor:pointer;font-size:13px;font-family:inherit" title="1v1 陪伴对话"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-chat"></use></svg>1v1 对话</button>
+    <!-- 生成图片：AI 文生图功能暂未开放（deepseek-v4-flash-vision-exp 为图像理解模型，只能看图不能画图）。以后再开发时接入真正的文生图服务后恢复此按钮。
+    <button onclick="showImageGenModal()" style="background:transparent;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:8px 20px;cursor:pointer;font-size:13px;font-family:inherit" title="AI 生成图片">生成图片</button>
     -->
   </div>
 
   <!-- ── 开源世界观广场 ── -->
-  <div style="margin-top:24px;border-top:1px solid var(--border);padding-top:16px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-      <h2 style="margin:0;color:var(--accent);font-size:15px">🌐 开源世界观广场</h2>
-      <div style="display:flex;gap:6px;align-items:center">
-        <span style="font-size:11px;color:var(--accent-dim)">作者们推送的世界观，评分后点「使用」即可开新世界</span>
-        <button onclick="loadSharedWorldviews(true)" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">↻ 刷新</button>
-      </div>
+  <div class="reveal" style="margin-top:24px">
+    <h2 class="section-title">开源世界观广场</h2>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 10px">
+      <span style="font-size:11px;color:var(--text-muted);flex:1 1 200px;min-width:0">作者们推送的世界观，评分后点「使用」即可开新世界</span>
+      <button onclick="loadSharedWorldviews(true)" style="flex-shrink:0;white-space:nowrap;background:none;border:1px solid var(--border);color:var(--accent-dim);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-refresh"></use></svg>刷新</button>
     </div>
     <div id="shared-worldview-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;min-height:60px"></div>
   </div>
@@ -362,11 +371,11 @@
 <!-- ── NPC 总库独立页面 ── -->
 <div id="npc-page" style="display:none;flex-direction:column;flex:1;overflow-y:auto;padding:20px 32px;background:var(--bg);min-height:0;">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-shrink:0">
-    <h2 style="margin:0;color:var(--accent)">📚 NPC总库</h2>
+    <h2 class="section-title" style="margin:0;flex:1">NPC总库</h2>
     <div style="display:flex;gap:6px;align-items:center">
-      <button onclick="showCreateNpcModal()" style="background:var(--accent);color:var(--panel);border:none;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:13px">+ 新建建模NPC</button>
-      <button onclick="npcLibRefresh()" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px">↻ 刷新</button>
-      <button onclick="goHome()" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px">← 返回</button>
+      <button onclick="showCreateNpcModal()" style="background:var(--accent);color:var(--panel);border:none;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:13px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-plus"></use></svg>新建建模NPC</button>
+      <button onclick="npcLibRefresh()" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-refresh"></use></svg>刷新</button>
+      <button onclick="goHome()" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-back"></use></svg>返回</button>
     </div>
   </div>
   <div id="home-npc-table"></div>
@@ -375,26 +384,26 @@
 <!-- ── 图片库独立页面 ── -->
 <div id="image-lib-page" style="display:none;flex-direction:column;flex:1;overflow-y:auto;padding:20px 32px;background:var(--bg);min-height:0;">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-shrink:0">
-    <h2 style="margin:0;color:var(--accent)">🖼 图片库</h2>
+    <h2 class="section-title" style="margin:0;flex:1">图片库</h2>
     <div style="display:flex;gap:6px;align-items:center">
-      <button onclick="imageLibRefresh()" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px">↻ 刷新</button>
-      <button onclick="goHome()" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px">← 返回</button>
+      <button onclick="imageLibRefresh()" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-refresh"></use></svg>刷新</button>
+      <button onclick="goHome()" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-back"></use></svg>返回</button>
     </div>
   </div>
   <div style="font-size:12px;color:var(--accent-dim);margin-bottom:12px;flex-shrink:0">先选母分类（男/女），再进入世界类型仓库。图片开源共享，所有用户互看。</div>
   <!-- 母分类选择 -->
   <div id="img-mother-select" style="display:flex;gap:12px;margin-bottom:16px;flex-shrink:0">
     <div onclick="selectImgMother('男')" id="img-mother-男" style="flex:1;border:1px solid var(--border);border-radius:8px;padding:20px;background:var(--panel);cursor:pointer;text-align:center">
-      <div style="font-size:32px">👨</div><div style="font-size:14px;font-weight:bold;color:var(--text);margin-top:6px">男</div>
+      <div style="font-family:var(--font-prose);font-size:20px;font-weight:600;color:var(--text)">男</div>
     </div>
     <div onclick="selectImgMother('女')" id="img-mother-女" style="flex:1;border:1px solid var(--border);border-radius:8px;padding:20px;background:var(--panel);cursor:pointer;text-align:center">
-      <div style="font-size:32px">👩</div><div style="font-size:14px;font-weight:bold;color:var(--text);margin-top:6px">女</div>
+      <div style="font-family:var(--font-prose);font-size:20px;font-weight:600;color:var(--text)">女</div>
     </div>
   </div>
   <!-- 一级分类（世界类型仓库） -->
   <div id="img-category-section" style="display:none;flex-shrink:0">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <div style="font-size:13px;color:var(--accent);font-weight:bold">📁 世界类型仓库 <span id="img-cat-mother-label" style="font-size:11px;color:var(--accent-dim)"></span></div>
+      <div style="font-size:13px;color:var(--accent);font-weight:bold;display:flex;align-items:center;gap:6px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-folder"></use></svg>世界类型仓库 <span id="img-cat-mother-label" style="font-size:11px;color:var(--accent-dim)"></span></div>
       <div style="display:flex;gap:6px;align-items:center">
         <input id="img-new-cat-input" placeholder="新增世界类型" maxlength="20" style="background:var(--input-bg);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:12px;font-family:inherit;width:130px">
         <button onclick="imgAddCategory()" style="background:var(--accent);color:var(--panel);border:none;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px">+ 新建</button>
@@ -405,10 +414,10 @@
   <!-- 图片网格 -->
   <div id="img-gallery-section" style="display:none;min-height:0">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <div style="font-size:13px;color:var(--accent);font-weight:bold">🖼 <span id="img-gallery-title"></span></div>
+      <div style="font-size:13px;color:var(--accent);font-weight:bold;display:flex;align-items:center;gap:6px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-image"></use></svg><span id="img-gallery-title"></span></div>
       <div style="display:flex;gap:6px;align-items:center">
         <input type="file" id="img-upload-input" accept="image/*" style="display:none" onchange="imgUpload(this)">
-        <button onclick="document.getElementById('img-upload-input').click()" style="background:var(--accent);color:var(--panel);border:none;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:12px">⬆ 上传图片</button>
+        <button onclick="document.getElementById('img-upload-input').click()" style="background:var(--accent);color:var(--panel);border:none;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:12px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-upload"></use></svg>上传图片</button>
       </div>
     </div>
     <div id="img-gallery-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px"></div>
@@ -419,10 +428,10 @@
 <div id="world-manage-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:20000;align-items:center;justify-content:center" onclick="if(event.target===this)closeWorldManageModal()">
   <div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;width:520px;max-height:95vh;min-height:60vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 6px 24px rgba(0,0,0,0.5)">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--border);flex-shrink:0">
-      <h2 style="margin:0;color:var(--accent);font-size:16px">🌍 世界管理</h2>
+      <h2 style="margin:0;color:var(--accent);font-size:16px">世界管理</h2>
       <div style="display:flex;gap:8px;align-items:center">
-        <button onclick="startNewWorld()" style="background:var(--accent);color:var(--panel);border:none;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:13px">🌍 创建新世界</button>
-        <span onclick="closeWorldManageModal()" style="cursor:pointer;font-size:16px;color:var(--accent-dim);padding:2px 4px">✕</span>
+        <button onclick="startNewWorld()" style="background:var(--accent);color:var(--panel);border:none;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:13px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-world"></use></svg>创建新世界</button>
+        <span onclick="closeWorldManageModal()" style="cursor:pointer;font-size:16px;color:var(--accent-dim);padding:2px 4px;display:flex"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-close"></use></svg></span>
       </div>
     </div>
     <div style="flex:1;overflow-y:auto;background:var(--panel)">
@@ -437,12 +446,12 @@
 <div id="img-gen-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:21000;align-items:center;justify-content:center" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;width:520px;max-width:92vw;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 6px 24px rgba(0,0,0,0.5)">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border);flex-shrink:0">
-      <h2 style="margin:0;color:var(--accent);font-size:15px">🖼️ AI 生成图片</h2>
-      <span onclick="document.getElementById('img-gen-modal').style.display='none'" style="cursor:pointer;font-size:16px;color:var(--accent-dim);padding:2px 4px">✕</span>
+      <h2 style="margin:0;color:var(--accent);font-size:15px">AI 生成图片</h2>
+      <span onclick="document.getElementById('img-gen-modal').style.display='none'" style="cursor:pointer;font-size:16px;color:var(--accent-dim);padding:2px 4px;display:flex"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-close"></use></svg></span>
     </div>
     <div style="padding:16px 18px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;flex:1">
       <textarea id="img-gen-input" placeholder="描述你想生成的画面，如：漩涡鸣人站在火影岩前，黄昏，忍术的光影交错…" style="width:100%;min-height:90px;padding:10px;background:var(--input-bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;line-height:1.5"></textarea>
-      <button id="img-gen-btn" onclick="generateImage()" style="padding:8px;background:var(--accent);color:var(--panel);border:none;border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit">✨ 生成</button>
+      <button id="img-gen-btn" onclick="generateImage()" style="padding:8px;background:var(--accent);color:var(--panel);border:none;border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit">生成</button>
       <div id="img-gen-result" style="font-size:12px;color:var(--accent-dim);min-height:40px;display:flex;align-items:center;justify-content:center">输入描述后点击生成</div>
     </div>
   </div>
@@ -453,25 +462,24 @@
 <div id="main-layout" style="display:none">
   <div id="chat-panel" style="display:none">
     <div id="session-bar">
-      <div id="session-avatar-btn" onclick="showAvatarPreview()" title="点击更换头像">🧑</div>
+      <div id="session-avatar-btn" onclick="showAvatarPreview()" title="点击更换头像"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-npc"></use></svg></div>
       <span id="session-id-display">未创建会话</span>
       <div style="display:flex;align-items:center;gap:6px;margin-left:12px">
-        <button id="model-btn" onclick="showModelPopup()">✨<span id="model-btn-label">loading</span></button>
+        <button id="model-btn" onclick="showModelPopup()"><span id="model-btn-label">loading</span></button>
         <select id="model-select" style="display:none"></select>
-        <button id="color-btn" onclick="showColorPopup()" style="background:transparent;border:1px solid var(--border);color:var(--accent-dim);padding:2px 6px;border-radius:3px;cursor:pointer;font-size:12px;font-family:inherit">🎨</button>
-        <button id="world-lore-btn" onclick="showSessionWorldLore()" title="查看作者撰写的世界历史" style="background:transparent;border:1px solid var(--border);color:var(--accent-dim);padding:2px 8px;border-radius:3px;cursor:pointer;font-size:12px;font-family:inherit">📜</button>
+        <button id="color-btn" onclick="showColorPopup()" class="btn btn--icon" aria-label="颜色与字体设置" title="颜色与字体设置"><svg class="icon" aria-hidden="true"><use href="/public/icons.svg#i-settings"></use></svg></button>
+        <button id="world-lore-btn" onclick="showSessionWorldLore()" class="btn btn--icon" aria-label="世界历史" title="查看作者撰写的世界历史"><svg class="icon" aria-hidden="true"><use href="/public/icons.svg#i-history"></use></svg></button>
       </div>
     </div>
     <div id="chat"><div class="msg system">欢迎来到 AI Narrative Engine。<br>选择一个世界继续冒险。</div></div>
     <div id="loading-indicator">天道运转中，请稍候...</div>
     <div id="rec-area">
       <div style="display:flex;align-items:center;gap:6px;overflow-x:auto;padding:2px 0">
-        <span id="help-btn" class="pill-btn" onclick="showHelpPopup(event)" title="勾选说明">❤️ 勾选说明</span>
-        <span class="pill-btn" onclick="showRelationshipGraph()" title="关系网图谱">🚻 关系网</span>
-        <span class="pill-btn" onclick="showNpcLibraryPopup()" title="NPC总库">📚 NPC总库</span>
-        <span id="summary-bar-btn" class="pill-btn" onclick="showLatestSummary()" title="查看上轮场景摘要">📘 上轮摘要</span>
-        <span id="word-count-btn" class="pill-btn" onclick="showWordCountPopup(event)" title="正文字数设置">🔤 字数</span>
-        <span id="prompt-lib-btn" class="pill-btn" onclick="showPromptLibPopup(event)" title="提示词库">🛠 提示词库</span>
+        <span class="pill-btn" onclick="showRelationshipGraph()" title="关系网图谱">关系网</span>
+        <span class="pill-btn" onclick="showNpcLibraryPopup()" title="NPC总库">NPC总库</span>
+        <span id="summary-bar-btn" class="pill-btn" onclick="showLatestSummary()" title="查看上轮场景摘要">上轮摘要</span>
+        <span id="word-count-btn" class="pill-btn" onclick="showWordCountPopup(event)" title="正文字数设置">字数</span>
+        <span id="prompt-lib-btn" class="pill-btn" onclick="showPromptLibPopup(event)" title="提示词库">提示词库</span>
       </div>
     </div>
     <div id="input-area">
@@ -481,9 +489,9 @@
         <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
           <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:var(--accent-dim);user-select:none;white-space:nowrap" title="勾选后，系统将识别输入中提到的已建模人物，加载其建模用于本轮叙事">
             <input type="checkbox" id="load-model-check" style="accent-color:var(--accent);width:13px;height:13px;cursor:pointer;" checked>
-            📦加载建模
+            加载建模
           </label>
-          <div id="ho-hint" style="display:none;font-size:11px;color:var(--danger);text-align:right;white-space:nowrap">💡 需要直白描写请在末尾加 HO</div>
+          <div id="ho-hint" style="display:none;font-size:11px;color:var(--danger);text-align:right;white-space:nowrap">需要直白描写请在末尾加 HO</div>
           <button id="send-btn" onclick="sendTurn()">发送</button>
         </div>
       </div>
@@ -495,7 +503,7 @@
 <div id="char-modal-overlay">
   <div id="char-modal">
     <div style="display:flex;justify-content:space-between;align-items:flex-start">
-      <h2 id="char-modal-title" style="margin:0;color:var(--accent);font-size:20px">🗻 创建你的角色</h2>
+      <h2 id="char-modal-title" style="margin:0;color:var(--accent);font-size:20px">创建你的角色</h2>
       <span onclick="skipCharacter()" style="cursor:pointer;font-size:22px;color:var(--text);padding:0 6px;line-height:1">✕</span>
     </div>
     <label>世界观</label>
@@ -503,7 +511,7 @@
       <option value="xianxia_v1">修仙世界</option>
     </select>
     <div id="timeline-row" style="display:none">
-      <label id="timeline-label">⏳ 起始时间线</label>
+      <label id="timeline-label">起始时间线</label>
       <select id="timeline-select" onchange="onTimelineChange()" style="width:100%;padding:8px 12px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:inherit;font-size:14px;appearance:none"></select>
       <div id="timeline-hint" class="hint" style="display:none"></div>
     </div>
@@ -516,23 +524,23 @@
 </div>
 
 <!-- ── Misc popups ── -->
-<div id="model-overlay" onclick="if(event.target===this)this.classList.remove('visible')"><div id="model-popup"><h3>✨ 选择模型</h3><div id="model-popup-list"></div></div></div>
+<div id="model-overlay" onclick="if(event.target===this)this.classList.remove('visible')"><div id="model-popup"><h3>选择模型</h3><div id="model-popup-list"></div></div></div>
 <div id="color-popup">
-  <h3>🎨 文字颜色</h3>
-  <div class="color-row"><label>AI 正文</label><input type="color" id="color-picker-ai"><input type="text" id="color-text-ai" placeholder="#d4c8b8" oninput="safeApplyColor('ai', this.value)"></div>
-  <div class="color-row"><label>系统消息</label><input type="color" id="color-picker-system"><input type="text" id="color-text-system" placeholder="#6b5a3e" oninput="safeApplyColor('system', this.value)"></div>
-  <div class="color-row"><label>用户消息</label><input type="color" id="color-picker-user"><input type="text" id="color-text-user" placeholder="#e8dcc8" oninput="safeApplyColor('user', this.value)"></div>
+  <h3>文字颜色</h3>
+  <div class="color-row"><label>AI 正文</label><input type="color" id="color-picker-ai"><input type="text" id="color-text-ai" placeholder="#E8DCCA" oninput="safeApplyColor('ai', this.value)"></div>
+  <div class="color-row"><label>系统消息</label><input type="color" id="color-picker-system"><input type="text" id="color-text-system" placeholder="#A6947B" oninput="safeApplyColor('system', this.value)"></div>
+  <div class="color-row"><label>用户消息</label><input type="color" id="color-picker-user"><input type="text" id="color-text-user" placeholder="#F0E6D6" oninput="safeApplyColor('user', this.value)"></div>
   <div style="display:flex;gap:6px;margin-top:10px"><button onclick="resetColors()" style="flex:1;padding:5px;background:transparent;border:1px solid var(--border);color:var(--accent-dim);border-radius:4px;cursor:pointer;font-size:12px">恢复默认</button></div>
   <hr style="border:none;border-top:1px solid var(--border);margin:10px 0">
   <div class="font-row"><label>字体</label><select id="font-select" onchange="applyFont(this.value)">
     <option value="default">默认</option><option value="songti">宋体</option><option value="heiti">黑体</option><option value="kaiti">楷体</option><option value="fangsong">仿宋</option><option value="lishu">隶书</option><option value="xingkai">华文行楷</option></select>
   </div>
   <hr style="border:none;border-top:1px solid var(--border);margin:10px 0">
-  <div style="font-size:13px;color:var(--accent);margin-bottom:8px;text-align:center">🖼 背景图</div>
+  <div style="font-size:13px;color:var(--accent);margin-bottom:8px;text-align:center">背景图</div>
   <div class="bg-row">
     <label>图片</label>
     <input type="file" id="bg-image-input" accept="image/*" onchange="onChatBgSelected(this)" style="flex:1;font-size:12px">
-    <button onclick="clearChatBg()" style="padding:3px 8px;background:transparent;border:1px solid var(--border);color:var(--accent-dim);border-radius:3px;cursor:pointer;font-size:12px;flex-shrink:0">清除</button>
+    <button onclick="clearChatBg()" style="padding:3px 8px;background:transparent;border:1px solid var(--border);color:var(--accent-dim);border-radius:3px;cursor:pointer;font-size:12px;flex-shrink:0"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-trash"></use></svg>清除</button>
   </div>
   <div class="bg-row">
     <label>位置</label>
@@ -545,21 +553,14 @@
     <span style="font-size:11px;color:var(--accent-dim)">聊天气泡半透明</span>
   </div>
 </div>
-<div id="help-popup">
-  <b>📦 加载建模</b><br>勾选后，输入中提到的已建模人物自动注入完整档案到 Prompt，叙事更精准。名字需严格匹配。
-  <br><br>
-  <b>📋 建立栏目</b><br>可以要求 AI 建立持续跟踪的信息栏，如：<br>
-  <span style="color:var(--accent)">建立栏目「宗门贡献」：记录我为宗门做的每件事。</span><br>
-  建议用「建立栏目「名称」：说明」的句式，AI 会将其显示在信息栏并持续更新。
-</div>
 <div id="word-count-popup" style="display:none;position:fixed;z-index:9999;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px;width:180px;box-shadow:0 4px 16px rgba(0,0,0,0.6)">
-  <div style="font-size:13px;color:var(--accent);margin-bottom:8px;text-align:center">🔤 正文字数</div>
+  <div style="font-size:13px;color:var(--accent);margin-bottom:8px;text-align:center">正文字数</div>
   <div id="word-count-options" style="display:flex;flex-direction:column;gap:4px"></div>
 </div>
 <div id="prompt-lib-overlay" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.55)" onclick="if(event.target===this)promptLibRequestClose()"></div>
 <div id="prompt-lib-popup" style="display:none;position:fixed;z-index:9999;left:50%;top:50%;transform:translate(-50%,-50%);background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:0;width:460px;max-width:94vw;box-shadow:0 8px 32px rgba(0,0,0,0.7);max-height:80vh;flex-direction:column">
   <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
-    <div style="font-size:14px;color:var(--accent);font-weight:bold">🛠 提示词库</div>
+    <div style="font-size:14px;color:var(--accent);font-weight:bold">提示词库</div>
     <span onclick="promptLibRequestClose()" style="cursor:pointer;font-size:18px;color:var(--accent-dim);line-height:1;padding:2px 6px" title="关闭">✕</span>
   </div>
   <div style="overflow-y:auto;padding:12px 16px;flex:1;min-height:0">
@@ -567,7 +568,7 @@
     <!-- Token 上限滑动条 -->
     <div style="border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin-bottom:10px;background:var(--input-bg)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-        <span style="font-size:11px;color:var(--accent-dim)">🔢 单轮输出上限</span>
+        <span style="font-size:11px;color:var(--accent-dim)">单轮输出上限</span>
         <span id="max-token-label" style="font-size:12px;color:var(--accent);font-weight:bold">4096</span>
       </div>
       <input type="range" id="max-token-slider" min="512" max="8192" step="256" value="4096" oninput="maxTokenSlider(this.value)" style="width:100%;accent-color:var(--accent);cursor:pointer">
@@ -576,7 +577,7 @@
     <!-- 温度滑动条 -->
     <div style="border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin-bottom:10px;background:var(--input-bg)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-        <span style="font-size:11px;color:var(--accent-dim)">🌡 温度（低=稳定连贯，高=创意发散）</span>
+        <span style="font-size:11px;color:var(--accent-dim)">温度（低=稳定连贯，高=创意发散）</span>
         <span id="temp-slider-label" style="font-size:12px;color:var(--accent);font-weight:bold">0.8</span>
       </div>
       <input type="range" id="temp-slider" min="0.2" max="1.2" step="0.1" value="0.8" oninput="tempSlider(this.value)" style="width:100%;accent-color:var(--accent);cursor:pointer">
@@ -585,9 +586,9 @@
     <div id="prompt-lib-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
     <div id="prompt-lib-editor" style="display:none;border:1px solid var(--border);border-radius:6px;padding:8px;margin-bottom:8px">
       <input id="prompt-lib-name" placeholder="提示词名称" maxlength="50" oninput="promptLibMarkDirty()" style="width:100%;box-sizing:border-box;background:var(--input-bg);border:1px solid var(--border);color:var(--text);padding:6px;border-radius:4px;font-size:12px;font-family:inherit;margin-bottom:6px">
-      <div style="font-size:11px;color:var(--accent-dim);margin-bottom:3px">📝 前提示词（注入 System 之后，全局风格/规则，可空）</div>
+      <div style="font-size:11px;color:var(--accent-dim);margin-bottom:3px">前提示词（注入 System 之后，全局风格/规则，可空）</div>
       <textarea id="prompt-lib-pre" rows="3" oninput="promptLibMarkDirty()" placeholder="例：叙事风格要求——多用环境渲染，少用心理独白。" style="width:100%;box-sizing:border-box;background:var(--input-bg);border:1px solid var(--border);color:var(--text);padding:6px;border-radius:4px;font-size:12px;font-family:inherit;resize:vertical;margin-bottom:6px"></textarea>
-      <div style="font-size:11px;color:var(--accent-dim);margin-bottom:3px">🎯 后提示词（注入玩家输入之后，本轮输出要求，可空）</div>
+      <div style="font-size:11px;color:var(--accent-dim);margin-bottom:3px">后提示词（注入玩家输入之后，本轮输出要求，可空）</div>
       <textarea id="prompt-lib-post" rows="3" oninput="promptLibMarkDirty()" placeholder="例：本轮必须包含至少一段环境描写和一次肢体互动。" style="width:100%;box-sizing:border-box;background:var(--input-bg);border:1px solid var(--border);color:var(--text);padding:6px;border-radius:4px;font-size:12px;font-family:inherit;resize:vertical;margin-bottom:6px"></textarea>
       <div style="display:flex;gap:4px;justify-content:flex-end">
         <button onclick="promptLibSave()" style="background:var(--accent);color:var(--panel);border:none;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px">保存</button>
@@ -598,7 +599,7 @@
   </div>
 </div>
 <div id="npc-lib-popup" class="npc-lib-popup">
-  <div class="npc-lib-header"><span>📚 NPC总库</span><span onclick="closeNpcLibraryPopup()" style="cursor:pointer;font-size:16px;color:var(--accent-dim)">✕</span></div>
+  <div class="npc-lib-header"><span>NPC总库</span><span onclick="closeNpcLibraryPopup()" style="cursor:pointer;font-size:16px;color:var(--accent-dim)">✕</span></div>
   <div style="display:flex;flex:1;min-height:0;overflow:hidden">
     <div id="npc-lib-list" style="width:240px;flex-shrink:0;overflow-y:auto;border-right:1px solid var(--border);padding:6px"></div>
     <div id="npc-lib-detail-panel" style="flex:1;overflow-y:auto;padding:12px;font-size:13px;color:var(--text);white-space:pre-wrap;line-height:1.6">
@@ -606,7 +607,7 @@
     </div>
   </div>
   <div style="padding:8px;border-top:1px solid var(--border);display:flex;gap:4px">
-    <button id="npc-lib-create-btn" onclick="showCreateNpcModal()" style="flex:1;background:var(--accent);color:var(--panel);border:none;padding:6px;border-radius:4px;cursor:pointer;font-size:12px">+ 新建建模NPC</button>
+    <button id="npc-lib-create-btn" onclick="showCreateNpcModal()" style="flex:1;background:var(--accent);color:var(--panel);border:none;padding:6px;border-radius:4px;cursor:pointer;font-size:12px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-plus"></use></svg>新建建模NPC</button>
     <button onclick="npcLibRefresh()" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:6px;border-radius:4px;cursor:pointer;font-size:12px">↻</button>
   </div>
 </div>
@@ -614,13 +615,13 @@
 <!-- ── Avatar preview overlay ── -->
 <div id="avatar-preview-overlay" onclick="if(event.target===this)closeAvatarPreview()">
   <div id="avatar-preview-box">
-    <h3>🖼️ 世界头像</h3>
+    <h3>世界头像</h3>
     <div id="avatar-tabs" style="display:flex;gap:4px;margin-bottom:10px;flex-shrink:0">
-      <button id="avatar-tab-player" onclick="avatarTab('player')" style="flex:1;padding:5px 8px;border:1px solid var(--border);border-radius:4px;background:var(--input-bg);color:var(--accent-dim);cursor:pointer;font-size:12px;font-family:inherit">🧑 主角头像</button>
-      <button id="avatar-tab-system" onclick="avatarTab('system')" style="flex:1;padding:5px 8px;border:1px solid var(--border);border-radius:4px;background:var(--input-bg);color:var(--accent-dim);cursor:pointer;font-size:12px;font-family:inherit">🤖 系统头像</button>
+      <button id="avatar-tab-player" onclick="avatarTab('player')" style="flex:1;padding:5px 8px;border:1px solid var(--border);border-radius:4px;background:var(--input-bg);color:var(--accent-dim);cursor:pointer;font-size:12px;font-family:inherit"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-npc"></use></svg>主角头像</button>
+      <button id="avatar-tab-system" onclick="avatarTab('system')" style="flex:1;padding:5px 8px;border:1px solid var(--border);border-radius:4px;background:var(--input-bg);color:var(--accent-dim);cursor:pointer;font-size:12px;font-family:inherit"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-spark"></use></svg>系统头像</button>
     </div>
     <div id="avatar-zoom-bar">
-      <span style="font-size:11px;color:var(--accent-dim)">🔍</span>
+      <span style="font-size:11px;color:var(--accent-dim)"></span>
       <input type="range" id="avatar-zoom-range" min="20" max="300" value="100" oninput="onAvatarZoom(this.value)">
       <span id="avatar-zoom-label" style="font-size:11px;color:var(--accent-dim);min-width:30px;text-align:right">100%</span>
     </div>
@@ -631,9 +632,9 @@
     <div style="font-size:12px;color:var(--accent-dim);margin-bottom:6px">拖动图片调整裁剪位置 &#x2022; 头像仅对当前世界生效</div>
     <div class="actions">
       <input type="file" id="avatar-file-input" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none" onchange="onAvatarFileSelected(event)">
-      <button class="file-btn" onclick="document.getElementById('avatar-file-input').click()">📁 上传图片</button>
-      <button class="del-btn" onclick="clearAvatar()">🗑 清除</button>
-      <button id="avatar-save-btn" class="file-btn" onclick="saveCroppedAvatar()">✅ 确认</button>
+      <button class="file-btn" onclick="document.getElementById('avatar-file-input').click()"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-upload"></use></svg>上传图片</button>
+      <button class="del-btn" onclick="clearAvatar()"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-trash"></use></svg>清除</button>
+      <button id="avatar-save-btn" class="file-btn" onclick="saveCroppedAvatar()"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-check"></use></svg>确认</button>
       <button class="file-btn" style="background:transparent;border:1px solid var(--border);color:var(--accent-dim)" onclick="closeAvatarPreview()">关闭</button>
     </div>
   </div>
@@ -647,7 +648,7 @@
   <div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;width:760px;max-width:95vw;max-height:85vh;overflow:hidden;display:flex;flex-direction:row;box-shadow:0 6px 24px rgba(0,0,0,0.5)">
     <!-- ── Left: form ── -->
     <div style="flex:1;padding:20px 24px;overflow-y:auto;min-width:0">
-      <h2 style="margin:0 0 4px;color:var(--accent);font-size:18px">✨ 新建建模NPC</h2>
+      <h2 style="margin:0 0 4px;color:var(--accent);font-size:18px">新建建模NPC</h2>
       <p style="margin:0 0 14px;font-size:12px;color:var(--accent-dim);line-height:1.5">输入NPC描述，AI将自动生成完整人物模型。</p>
       <label style="display:block;color:var(--accent-dim);font-size:12px;margin-bottom:4px">世界观（决定建模模板与提示库）</label>
       <select id="create-npc-worldview" onchange="onCreateNpcWorldviewChange()" style="width:100%;padding:8px 12px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:inherit;font-size:13px;margin-bottom:12px;appearance:none"></select>
@@ -669,16 +670,16 @@
       </div>
       <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end;flex-wrap:wrap">
         <button onclick="closeCreateNpcModal()" style="padding:8px 20px;background:transparent;border:1px solid var(--border);color:var(--accent-dim);border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit">取消</button>
-        <button id="create-npc-submit-btn" onclick="submitCreateNpc()" style="padding:8px 24px;background:var(--accent);color:#1a1410;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:bold;font-family:inherit">✨ 开始建模</button>
+        <button id="create-npc-submit-btn" onclick="submitCreateNpc()" style="padding:8px 24px;background:var(--accent);color:#1a1410;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:bold;font-family:inherit"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-spark"></use></svg>开始建模</button>
       </div>
       <div id="npc-modeling-note" style="display:none;font-size:11px;color:var(--accent-dim);margin-top:8px;text-align:right;line-height:1.5">建模进行中关闭窗口不会中断，后台会继续完成，完成后你会收到「已添加」提示。</div>
     </div>
     <!-- ── Right: prompt library ── -->
     <div style="width:220px;flex-shrink:0;border-left:1px solid var(--border);background:var(--input-bg);display:flex;flex-direction:column;overflow:hidden">
       <div style="padding:12px 12px 8px;border-bottom:1px solid var(--border);flex-shrink:0">
-        <div style="font-size:13px;color:var(--accent);font-weight:bold">📚 提示库</div>
+        <div style="font-size:13px;color:var(--accent);font-weight:bold">提示库</div>
         <div style="margin-top:6px;display:flex;gap:4px;align-items:center;flex-wrap:wrap">
-          <button onclick="randomRollNpc()" style="padding:4px 10px;background:var(--panel);border:1px solid var(--border);color:var(--accent);border-radius:4px;cursor:pointer;font-size:11px;font-family:inherit;white-space:nowrap">🎲 摇人</button>
+          <button onclick="randomRollNpc()" style="padding:4px 10px;background:var(--panel);border:1px solid var(--border);color:var(--accent);border-radius:4px;cursor:pointer;font-size:11px;font-family:inherit;white-space:nowrap"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-spark"></use></svg>摇人</button>
           <div id="roll-name-chips" style="display:inline;gap:4px"></div>
         </div>
       </div>
@@ -764,7 +765,19 @@ function backFromImageLib() {
   var saved = localStorage.getItem('color_' + t);
   if (saved) document.documentElement.style.setProperty('--color-' + t, saved);
 });
-(function() { var f = localStorage.getItem('font_family'); if (f) applyFont(f); })();
+// ── 天气层（雨/雪）：玩家不可调，每次载入随机启用一种 ──
+// 表现全部由 CSS 负责（theme.css 的 .weather），这里只写 body 属性。
+function initWeather() {
+  // 清掉旧版本留下的玩家设置，避免遗留死状态
+  localStorage.removeItem('weather_effect');
+  localStorage.removeItem('weather_intensity');
+  var kind = Math.random() < 0.5 ? 'rain' : 'snow';
+  var r = Math.random();                       // 强度以中等为主，偶尔强
+  var intensity = r < 0.4 ? '1' : (r < 0.85 ? '2' : '3');
+  document.body.setAttribute('data-weather', kind);
+  document.body.setAttribute('data-weather-intensity', intensity);
+}
+(function() { var f = localStorage.getItem('font_family'); if (f) applyFont(f); initWeather(); })();
 
 function safeApplyColor(type, hex) {
   hex = hex.trim();
@@ -792,7 +805,7 @@ async function loadModels() {
       const opt = document.createElement('option');
       opt.value = m.id;
       let label = m.name;
-      if (!m.available) label = '⛔ ' + label;
+      if (!m.available) label = label + '（不可用）';
       opt.textContent = label;
       if (!m.available) opt.disabled = true;
       sel.appendChild(opt);
@@ -917,17 +930,6 @@ function onChatBgSelected(input) {
   var bg = localStorage.getItem('chat_bg');
   if (bg && bg.length) applyChatBg();
 })();
-function showHelpPopup(event) {
-  event.stopPropagation();
-  var popup = document.getElementById('help-popup');
-  if (popup.classList.contains('visible')) { popup.classList.remove('visible'); return; }
-  var rect = document.getElementById('help-btn').getBoundingClientRect();
-  popup.style.left = Math.max(4, rect.left + rect.width - 260) + 'px';
-  popup.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
-  popup.style.top = 'auto';
-  popup.classList.add('visible');
-  setTimeout(function() { document.addEventListener('click', function cl() { popup.classList.remove('visible'); document.removeEventListener('click', cl); }); }, 10);
-}
 
 // ── Session List ──
 async function loadSessionList() {
@@ -1002,7 +1004,6 @@ async function switchSession(sid) {
           var line = lines[i];
           if (line.startsWith('【系统】')) { var t = line.slice(4); while (i+1<lines.length && !lines[i+1].startsWith('【玩家】') && !lines[i+1].startsWith('【AI】') && !lines[i+1].startsWith('【附近人物】')) { i++; t += '\n' + lines[i]; } addMsg('system', t); }
           else if (line.startsWith('【玩家】')) { var t = line.slice(4); while (i+1<lines.length && !lines[i+1].startsWith('【玩家】') && !lines[i+1].startsWith('【AI】') && !lines[i+1].startsWith('【附近人物】')) { i++; t += '\n' + lines[i]; } addMsg('user', t); }
-          else if (line.startsWith('【附近人物】')) { try { var n = JSON.parse(line.slice(6)); if (Array.isArray(n) && n.length) addNearbyCards(n); } catch(e) {} }
           else if (line.startsWith('【AI】')) { var t = line.slice(4); while (i+1<lines.length && !lines[i+1].startsWith('【玩家】') && !lines[i+1].startsWith('【AI】') && !lines[i+1].startsWith('【附近人物】')) { i++; t += '\n' + lines[i]; } addMsg('ai', t); }
         }
       }
@@ -1011,7 +1012,9 @@ async function switchSession(sid) {
     try { localStorage.setItem('ane_last_session', sessionId); } catch(e) {};
     npcLibLoad();
     loadSessionList();
-    if (data.info_panel || (data.recommendations && data.recommendations.length)) addInfoPanel(data.info_panel, data.recommendations);  // 刷新/切换后重建信息栏（含推荐行动）
+    // 刷新/切换后重建信息栏（info_panel 文本 + 推荐行动，同栏一次渲染）
+    var _ip = _withRecs(data.info_panel, data.recommendations);
+    if (_ip) addInfoPanel(_ip);
     if (data.player_panel) updateInfoPanel(data.player_panel);  // 主角面板并入信息栏（常驻第一段）
   } catch(e) { frontendLog('ERROR', 'Switch: ' + e.message); addMsg('system', '加载世界失败: ' + e.message); }
 }
@@ -1150,7 +1153,7 @@ async function applyCharacter() {
     if (sid === '__pending__') {
       var btn = document.getElementById('new-session-btn'); btn.disabled = true; btn.textContent = '···';
       resetWorldState();
-      addMsg('system', '⏳ 世界正在生成中，请稍候...');
+      addMsg('system', '世界正在生成中，请稍候...');
       var timelineSel = document.getElementById('timeline-select');
       var timeline = (timelineSel && timelineSel.value) ? timelineSel.value : '';
       var cr = await apiFetch('/sessions', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name: wvName, worldview: getCurrentWorldviewId(), timeline: timeline}) });
@@ -1164,7 +1167,7 @@ async function applyCharacter() {
     sessionId = sid;
     document.getElementById('session-id-display').textContent = '会话: ' + sid.substring(0,8) + '... | ' + wvName;
     clearChat();
-    addMsg('system', '⏳ 正在生成你的故事...');
+    addMsg('system', '正在生成你的故事...');
     var res = await apiFetch('/sessions/' + sid + '/character', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name:name, age:age, gender:gender, background:background, cultivation:cultivation, personality:personality, identity:identity, golden_finger_id:golden_finger_id, golden_finger_custom:golden_finger_custom, identity_custom:identity_custom, personality_custom:personality_custom, chosen_sect:chosenSect, fields: fieldsMap || {} }) });
     if (res.ok) {
       var data = await res.json();
@@ -1176,7 +1179,7 @@ async function applyCharacter() {
       if (data.card_content) addMsg('system', data.card_content);
       else {
         // 后端未返回卡片时（旧后端），回退到本地拼装
-        var parts = ['📋 **角色创建成功**\n', '姓名：' + data.player_name, '性别：' + data.gender + ' ｜ 年龄：' + data.age + '岁', _wvLabel('cultivation','修为') + '：' + data.cultivation, '性格：' + data.personality, '出身：' + (data.background_summary||data.background)];
+        var parts = ['角色创建成功\n', '姓名：' + data.player_name, '性别：' + data.gender + ' ｜ 年龄：' + data.age + '岁', _wvLabel('cultivation','修为') + '：' + data.cultivation, '性格：' + data.personality, '出身：' + (data.background_summary||data.background)];
         var srLabel = _wvLabel('spiritual_root', '');
         if (srLabel && (data.spiritual_root||'')) parts.push(srLabel + '：' + data.spiritual_root);
         if (data.sect) parts.push(_wvLabel('sect','宗门') + '：' + data.sect);
@@ -1184,13 +1187,14 @@ async function applyCharacter() {
         if (data.golden_finger_name) { var gfTag = data.golden_finger_tagline || data.golden_finger_desc || ''; if (gfTag === data.golden_finger_name) gfTag = ''; parts.push(_wvLabel('golden_finger','金手指') + '：' + data.golden_finger_name + (gfTag ? ' — ' + gfTag : '')); }
         addMsg('system', parts.join('\n'));
       }
-      if (data.info_panel) addInfoPanel(data.info_panel);  // 创建后重建信息栏
-      if (data.player_panel) updateInfoPanel(data.player_panel);  // 主角面板并入信息栏
-      // ── 加载预填推荐行动（创建后立即显示，无需重进聊天）──
+      // ── 信息栏：创建后重建（info_panel 文本 + 推荐行动，同栏一次渲染）──
+      var _ipText = data.info_panel || '';
       try {
         var recRes = await apiFetch('/sessions/' + sid);
-        if (recRes.ok) { var recData = await recRes.json(); if (recData.recommendations && recData.recommendations.length) addInfoPanel('', recData.recommendations); }
+        if (recRes.ok) { var recData = await recRes.json(); _ipText = _withRecs(_ipText, recData.recommendations); }
       } catch(e) { frontendLog('WARN', 'Load initial recs: ' + e.message); }
+      if (_ipText) addInfoPanel(_ipText);
+      if (data.player_panel) updateInfoPanel(data.player_panel);  // 主角面板并入信息栏
       // ── Show llm_introduction if present (world opening narration) ──
       if (data.llm_introduction) addMsg('system', data.llm_introduction);
       try { localStorage.setItem('ane_last_session', sessionId); } catch(e) {};
@@ -1246,7 +1250,7 @@ async function sendTurn() {
   var nsfw = ["肉棒","小穴","蜜穴","嫩穴","阴道","阴茎","鸡巴","龟头","阴蒂","阴唇","花蕊","子宫","乳房","乳尖","臀","精液","爱液","淫水","淫液","白浊","精","干你","干她","干我","肏","插入","抽送","抽插","进出","挺进","挺入","吸允","吸奶子","吸奶头","吸乳头","吸得","吸干","吸吮","吮吸","射精","射在","射进","射到","射嘴里","射满","内射","舔弄","舔舐","舔阴","舔穴","舔","抚摸","揉捏","抓揉","把玩","搓","揉","进入","顶入","挺入","深入","顶","套弄","撸动","把弄","握","掰开","撑开","分开","含住","吞吐","深喉","含","吻痕","亲吻","吻","打炮","做爱","交合","性交","交欢","后入","传教士","观音坐莲","老汉推车","69","偷情","通奸","出轨","奸","呻吟","喘息","娇喘","淫叫","浪叫","高潮","颤抖","痉挛","泄身","赤裸","一丝不挂","全裸","裸体","淫荡","风骚","放荡","淫秽","淫","骚","浪","双修","采补","炉鼎","合欢","春药","媚药","淫术","催情","情毒","媚毒","合欢散","春毒","解毒","欲火焚身","欲火","情欲","春情","春意"];
   if (nsfw.filter(function(w) { return text.includes(w); }).length >= 2 && !text.endsWith('HO') && !text.endsWith('HO ')) {
     document.getElementById('ho-hint').style.display = 'block';
-    if (!confirm('⚠️ 检测到敏感内容，直接发送可能被AI内容过滤拦截，是否仍然发送？')) return;
+    if (!confirm('检测到敏感内容，直接发送可能被AI内容过滤拦截，是否仍然发送？')) return;
   } else { document.getElementById('ho-hint').style.display = 'none'; }
   input.value = ''; input.style.height = 'auto';
   addMsg('user', text);
@@ -1264,8 +1268,7 @@ async function sendTurn() {
     appendTurnMeta(aiWrapper, td.usage);  // 输入/输出 token + 耗时可视化（每轮主输出末尾）
     if (_pending_world_intro) { addMsg('system', _pending_world_intro); _pending_world_intro = null; }
     if (td.is_system_command && td.system_response) addMsg('system', td.system_response);
-    addInfoPanel(td.info_panel, td.recommendations);  // 信息栏 + 推荐行动并入
-    if (td.nearby_characters && td.nearby_characters.length) addNearbyCards(td.nearby_characters);
+    addInfoPanel(_withRecs(td.info_panel, td.recommendations));  // 信息栏：所有信息类内容（含推荐行动）都在这一栏
     if (td.player_panel) updateInfoPanel(td.player_panel);
     if (td.modeled_npcs && td.modeled_npcs.length) renderModeledNpcs(td.modeled_npcs);
     npcLibLoad();
@@ -1312,7 +1315,7 @@ function selectWordCount(v) {
   _currentWordCount = v;
   try { localStorage.setItem('ane_word_count', v); } catch(e) {}
   _hideWordCountPopup();
-  addMsg('system', '🔤 正文字数已设为：' + v + '字');
+  addMsg('system', '正文字数已设为：' + v + '字');
 }
 document.addEventListener('click', function(e) {
   var btn = document.getElementById('word-count-btn');
@@ -1321,7 +1324,7 @@ document.addEventListener('click', function(e) {
   if (popup && !popup.contains(e.target)) popup.style.display = 'none';
 });
 
-// ── 提示词库（🛠）──
+// ── 提示词库 ──
 var _promptLib = [];            // [{id,name,pre_prompt,post_prompt,enabled}]
 var _promptLibEditingId = null; // null=新建，否则为编辑的 id
 var _promptLibLoaded = false;
@@ -1341,7 +1344,7 @@ function getEnabledPromptIds() {
   return getPromptLib().filter(function(p) { return p.enabled; }).map(function(p) { return p.id; });
 }
 
-// ── Token 上限滑动条（🛠 弹窗）──
+// ── Token 上限滑动条（弹窗）──
 var _maxTokensDefault = 4096;
 function getMaxTokens() {
   var v = _maxTokensDefault;
@@ -1360,7 +1363,7 @@ function initMaxTokenSlider() {
   document.getElementById('max-token-label').textContent = getMaxTokens();
 }
 
-// ── 温度滑动条（🛠 弹窗）──
+// ── 温度滑动条（弹窗）──
 var _tempDefault = 0.8;
 function getTemperature() {
   var v = _tempDefault;
@@ -1430,8 +1433,8 @@ function promptLibRender() {
     if (p.post_prompt) badge += '<span style="font-size:10px;color:var(--accent-dim)">后</span>';
     return '<div data-id="' + p.id + '" data-enabled="' + (p.enabled ? '1' : '0') + '" ondblclick="promptLibToggle(\'' + p.id + '\')" title="双击取消选择" style="display:flex;align-items:center;gap:4px;padding:6px 8px;border:1px solid ' + border + ';border-radius:4px;background:' + active + ';cursor:default">' +
       label + badge +
-      '<button onclick="promptLibEdit(\'' + p.id + '\')" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:2px 8px;border-radius:3px;cursor:pointer;font-size:11px">✏️</button>' +
-      '<button onclick="promptLibDelete(\'' + p.id + '\',\'' + (p.name || '').replace(/'/g,"\\'") + '\')" style="background:none;border:1px solid var(--border);color:var(--danger);padding:2px 8px;border-radius:3px;cursor:pointer;font-size:11px">🗑</button>' +
+      '<button onclick="promptLibEdit(\'' + p.id + '\')" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:2px 8px;border-radius:3px;cursor:pointer;font-size:11px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-pencil"></use></svg></button>' +
+      '<button onclick="promptLibDelete(\'' + p.id + '\',\'' + (p.name || '').replace(/'/g,"\\'") + '\')" style="background:none;border:1px solid var(--border);color:var(--danger);padding:2px 8px;border-radius:3px;cursor:pointer;font-size:11px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-trash"></use></svg></button>' +
       '</div>';
   }).join('');
 }
@@ -1458,7 +1461,7 @@ function promptLibEnable(id, checked) {
     .then(function(r) { return r.json(); })
     .then(function(d) {
       if (d.detail) addMsg('system', '提示词启用失败: ' + d.detail);
-      else addMsg('system', '🛠 已启用提示词：「' + target.name + '」');
+      else addMsg('system', '已启用提示词：「' + target.name + '」');
     })
     .catch(function(e) { addMsg('system', '提示词启用失败: ' + e.message); });
 }
@@ -1477,7 +1480,7 @@ function promptLibToggle(id) {
     .then(function(r) { return r.json(); })
     .then(function(d) {
       if (d.detail) { addMsg('system', (target.enabled ? '提示词启用失败: ' : '提示词取消失败: ') + d.detail); return; }
-      addMsg('system', target.enabled ? ('🛠 已启用提示词：「' + target.name + '」') : ('🛠 已取消选择提示词：「' + target.name + '」'));
+      addMsg('system', target.enabled ? ('已启用提示词：「' + target.name + '」') : ('已取消选择提示词：「' + target.name + '」'));
     })
     .catch(function(e) { addMsg('system', '提示词状态更新失败: ' + e.message); });
 }
@@ -1514,8 +1517,8 @@ function promptLibSave() {
   var name = document.getElementById('prompt-lib-name').value.trim();
   var pre = document.getElementById('prompt-lib-pre').value;
   var post = document.getElementById('prompt-lib-post').value;
-  if (!name) { addMsg('system', '⚠️ 请输入提示词名称'); return; }
-  if (!pre.trim() && !post.trim()) { addMsg('system', '⚠️ 前提示词和后提示词至少填一个'); return; }
+  if (!name) { addMsg('system', '请输入提示词名称'); return; }
+  if (!pre.trim() && !post.trim()) { addMsg('system', '前提示词和后提示词至少填一个'); return; }
   var url = '/prompts';
   var method = 'POST';
   var body = {name: name, pre_prompt: pre, post_prompt: post};
@@ -1524,7 +1527,7 @@ function promptLibSave() {
     .then(function(r) { return r.json(); })
     .then(function(d) {
       if (d.detail) { addMsg('system', '提示词保存失败: ' + d.detail); return; }
-      addMsg('system', (_promptLibEditingId ? '✅ 提示词已更新：「' + name + '」' : '✅ 已创建提示词：「' + name + '」'));
+      addMsg('system', (_promptLibEditingId ? '提示词已更新：「' + name + '」' : '已创建提示词：「' + name + '」'));
       _promptLibDirty = false;
       promptLibCancelEdit();
       return promptLibLoad();
@@ -1537,13 +1540,13 @@ function promptLibDelete(id, name) {
     .then(function(r) { return r.json(); })
     .then(function(d) {
       if (d.detail) { addMsg('system', '删除失败: ' + d.detail); return; }
-      addMsg('system', '🗑 已删除提示词「' + name + '」');
+      addMsg('system', '已删除提示词「' + name + '」');
       return promptLibLoad();
     })
     .catch(function(e) { addMsg('system', '删除失败: ' + e.message); });
 }
 // 点击遮罩关闭（在 overlay 的 onclick 中处理，无独立监听）
-// ── 图片库（🖼 开源共享）──
+// ── 图片库（开源共享）──
 var _imgMother = null;            // 当前选中母分类 男/女
 var _imgCategories = [];          // 全部世界类型分类
 var _imgCurrentCatId = null;      // 当前浏览的仓库 id
@@ -1593,7 +1596,7 @@ function renderImgCategories() {
   grid.innerHTML = _imgCategories.map(function(c) {
     var active = (c.id === _imgCurrentCatId);
     return '<div onclick="imgSelectCategory(\'' + c.id + '\',\'' + escAttr(c.name) + '\')" style="border:1px solid ' + (active ? 'var(--accent)' : 'var(--border)') + ';border-radius:6px;padding:14px;background:' + (active ? 'rgba(201,169,110,0.15)' : 'var(--panel)') + ';cursor:pointer;text-align:center">' +
-      '<div style="font-size:24px">📁</div>' +
+      '<div style="color:var(--text-secondary)"><svg class="icon icon--lg" aria-hidden="true"><use href="/public/icons.svg#i-folder"></use></svg></div>' +
       '<div style="font-size:13px;color:var(--text);font-weight:bold;margin-top:6px">' + escHtml(c.name) + '</div>' +
       (c.preset ? '' : '<div style="font-size:10px;color:var(--accent-dim);margin-top:2px">用户自建</div>') +
       '</div>';
@@ -1608,7 +1611,7 @@ function imgAddCategory() {
     .then(function(d) {
       if (d.detail) { addMsg('system', '新建分类失败: ' + d.detail); return; }
       inp.value = '';
-      addMsg('system', '✅ 已新建分类「' + name + '」');
+      addMsg('system', '已新建分类「' + name + '」');
       imageLibLoadCategories();
     })
     .catch(function(e) { addMsg('system', '新建分类失败: ' + e.message); });
@@ -1628,7 +1631,7 @@ function imgLoadGallery(cid) {
     .then(function(r){ return r.json(); })
     .then(function(d) {
       var imgs = d.images || [];
-      if (!imgs.length) { grid.innerHTML = '<div style="font-size:12px;color:var(--accent-dim);text-align:center;padding:30px">暂无图片，点击「⬆ 上传图片」添加</div>'; return; }
+      if (!imgs.length) { grid.innerHTML = '<div style="font-size:12px;color:var(--accent-dim);text-align:center;padding:30px">暂无图片，点击「上传图片」添加</div>'; return; }
       grid.innerHTML = imgs.map(function(img) {
         var tagHtml = (img.tags || []).map(function(t) { return '<span style="font-size:10px;color:var(--accent-dim);background:var(--input-bg);border:1px solid var(--border);border-radius:3px;padding:0 4px;margin:1px">' + escHtml(t) + '</span>'; }).join(' ');
         return '<div style="border:1px solid var(--border);border-radius:6px;overflow:hidden;background:var(--panel)">' +
@@ -1637,8 +1640,8 @@ function imgLoadGallery(cid) {
             '<div style="font-size:11px;color:var(--accent-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + escAttr(img.original_name) + '">' + escHtml(img.original_name || '图片') + '</div>' +
             (tagHtml ? '<div style="margin-top:3px;display:flex;flex-wrap:wrap;gap:2px">' + tagHtml + '</div>' : '') +
             '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">' +
-              '<span style="font-size:10px;color:var(--accent-dim)">👤 ' + escHtml(img.uploader || '未知') + '</span>' +
-              (img.can_delete ? '<button onclick="imgDelete(\'' + img.id + '\')" style="background:none;border:1px solid var(--border);color:var(--danger);padding:1px 6px;border-radius:3px;cursor:pointer;font-size:10px">🗑</button>' : '') +
+              '<span style="font-size:10px;color:var(--accent-dim)">' + escHtml(img.uploader || '未知') + '</span>' +
+              (img.can_delete ? '<button onclick="imgDelete(\'' + img.id + '\')" style="background:none;border:1px solid var(--border);color:var(--danger);padding:1px 6px;border-radius:3px;cursor:pointer;font-size:10px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-trash"></use></svg></button>' : '') +
             '</div>' +
           '</div>' +
         '</div>';
@@ -1660,7 +1663,7 @@ function imgUpload(input) {
     .then(function(r){ return r.json(); })
     .then(function(d) {
       if (d.detail) { addMsg('system', '上传失败: ' + d.detail); return; }
-      addMsg('system', '✅ 图片已上传');
+      addMsg('system', '图片已上传');
       imgLoadGallery(_imgCurrentCatId);
     })
     .catch(function(e) { addMsg('system', '上传失败: ' + e.message); });
@@ -1695,7 +1698,7 @@ function addMsg(type, text, turnNumber) {
     ava.style.background = 'var(--accent)'; ava.style.color = 'var(--panel)';
     var savedAva = getSessionAvatar(sessionId);
     if (savedAva) { ava.innerHTML = '<img src="' + savedAva + '" alt="">'; }
-    else { ava.textContent = '🧑'; }
+    else { ava.textContent = ''; }
     wrapper.appendChild(ava);
     var div = document.createElement('div'); div.className = 'msg user'; div.textContent = text;
     wrapper.appendChild(div);
@@ -1709,7 +1712,7 @@ function addMsg(type, text, turnNumber) {
       ava.style.background = 'var(--input-bg)'; ava.style.color = 'var(--accent-dim)';
       var sysAva = getSystemAvatar(sessionId);
       if (sysAva) { ava.innerHTML = '<img src="' + sysAva + '" alt="">'; }
-      else { ava.textContent = '🤖'; }
+      else { ava.textContent = ''; }
       wrapper.appendChild(ava);
     }
     var bubble = document.createElement('div'); bubble.className = 'msg-bubble';
@@ -1736,9 +1739,9 @@ function appendTurnMeta(wrapper, u) {
   var txt = document.createElement('div'); txt.className = 'tm-text';
   var timeStr = secs >= 60 ? Math.floor(secs / 60) + '分' + Math.round(secs % 60) + '秒' : secs.toFixed(1) + '秒';
   if (tot) {
-    txt.textContent = '⚡ 输入 ' + pt.toLocaleString() + ' · 输出 ' + ct.toLocaleString() + ' · 共 ' + tot.toLocaleString() + ' tokens · 生成 ' + timeStr;
+    txt.textContent = '输入 ' + pt.toLocaleString() + ' · 输出 ' + ct.toLocaleString() + ' · 共 ' + tot.toLocaleString() + ' tokens · 生成 ' + timeStr;
   } else {
-    txt.textContent = '⚡ 生成 ' + timeStr + '（token 数据未返回）';
+    txt.textContent = '生成 ' + timeStr + '（token 数据未返回）';
   }
   meta.appendChild(bar); meta.appendChild(txt);
   var bubble = wrapper.querySelector('.msg-bubble');
@@ -1750,7 +1753,7 @@ function showLatestSummary() {
     var e_short = d.short || [];
     var e_long = d.long || [];
     if (!e_short.length && !e_long.length) return;
-    var h = '<div style="margin-bottom:10px;font-weight:bold;color:var(--accent)">📖 短记忆</div>';
+    var h = '<div style="margin-bottom:10px;font-weight:bold;color:var(--accent)">短记忆</div>';
     if (e_short.length) {
       for (var i = 0; i < e_short.length; i++) {
         var lines = e_short[i].content;
@@ -1762,7 +1765,7 @@ function showLatestSummary() {
       h += '<div style="font-size:12px;color:var(--accent-dim);margin-bottom:10px">暂无</div>';
     }
     h += '<hr style="border:none;border-top:1px solid var(--border);margin:10px 0">';
-    h += '<div style="margin-bottom:10px;font-weight:bold;color:var(--accent)">📚 长记忆</div>';
+    h += '<div style="margin-bottom:10px;font-weight:bold;color:var(--accent)">长记忆</div>';
     if (e_long.length) {
       for (var i = 0; i < e_long.length; i++) {
         var lines = e_long[i].content;
@@ -1785,78 +1788,73 @@ function showLatestSummary() {
 function clearChat() { document.getElementById('chat').innerHTML = ''; }
 function showSummaryPopup(btn, turnStr) {
   var tn = parseInt(turnStr) || 0; lastTurnNumber = Math.max(lastTurnNumber, tn); hideSummaryPopup();
-  var popup = document.createElement('div'); popup.className = 'summary-popup'; popup.textContent = '📖 加载总结中...';
+  var popup = document.createElement('div'); popup.className = 'summary-popup'; popup.textContent = '加载总结中...';
   popup.style.cssText = 'position:fixed;background:#2a2a3a;border:1px solid #555;border-radius:6px;padding:12px;max-width:360px;z-index:9999;font-size:13px;color:#ddd;box-shadow:0 4px 12px rgba(0,0,0,0.5);';
   var r = btn.getBoundingClientRect(); popup.style.left = Math.min(r.left, window.innerWidth - 380) + 'px'; popup.style.top = (r.bottom + 6) + 'px';
   document.body.appendChild(popup);
-  if (sessionId) apiFetch('/sessions/' + sessionId + '/summaries?from_turn=' + tn).then(function(r2) { return r2.json(); }).then(function(d) { if (d.summaries && d.summaries.length) popup.textContent = d.summaries.map(function(s) { var l = s.content.split('\n').slice(0,5).join('\n'); return '第' + s.turn_number + '轮\n' + l; }).join('\n---\n'); else popup.textContent = '📖 总结生成中，请稍后...'; }).catch(function() { popup.textContent = '加载失败'; });
+  if (sessionId) apiFetch('/sessions/' + sessionId + '/summaries?from_turn=' + tn).then(function(r2) { return r2.json(); }).then(function(d) { if (d.summaries && d.summaries.length) popup.textContent = d.summaries.map(function(s) { var l = s.content.split('\n').slice(0,5).join('\n'); return '第' + s.turn_number + '轮\n' + l; }).join('\n---\n'); else popup.textContent = '总结生成中，请稍后...'; }).catch(function() { popup.textContent = '加载失败'; });
 }
 function hideSummaryPopup() { document.querySelectorAll('.summary-popup').forEach(function(e) { e.remove(); }); }
 
-// ── Nearby Characters ──
-function addInfoPanel(text, recommendations) {
-  var recs = recommendations || [];
-  if ((!text || !text.trim()) && !recs.length) return;
+// ── 信息栏（信息类内容的唯一去处：主角动态/交互人物/附近人物/推荐行动 都在 info_panel 文本里）──
+// 初始推荐行动（世界观包 ui.json）也按同一格式并入信息栏文本，不再单独渲染
+function _recsToText(recs) {
+  if (!recs || !recs.length) return '';
+  return '【推荐行动】\n' + recs.map(function(r, i) { return (i + 1) + '. ' + r; }).join('\n');
+}
+
+// 推荐行动并入信息栏文本：info_panel 自己已带【推荐行动】段就不再追加（防同一栏里出现两次）
+function _withRecs(text, recs) {
+  var t = text || '';
+  var r = _recsToText(recs);
+  if (!r) return t;
+  if (t.indexOf('【推荐行动】') >= 0) return t;
+  return t ? (t + '\n\n' + r) : r;
+}
+
+// 主角面板 + info_panel 的【主角动态】段合并成一块：
+// 面板（程序渲染的权威静态信息）在下接动态状态行，重复行（如面板已含的「位置：…」）不再重复显示；
+// info_panel 其余段（交互人物/附近人物/推荐行动）照旧接在后面。
+function _mergePlayerDynamic(panel, infoText) {
+  panel = panel || ''; infoText = infoText || '';
+  if (!panel) return infoText;
+  if (!infoText) return panel;
+  var isHead = /^【([^】]+)】\s*$/;
+  var lines = infoText.split('\n');
+  // 只看首个【…】段，正文含「状态：/当前行动：/位置：」即视为主角动态段
+  var start = -1, end = lines.length;
+  for (var i = 0; i < lines.length; i++) {
+    var m = lines[i].trim().match(isHead);
+    if (!m) continue;
+    var j = i + 1, body = [];
+    while (j < lines.length && !isHead.test(lines[j].trim())) { body.push(lines[j]); j++; }
+    var isDynamic = m[1].replace(/\s/g, '') === '主角动态' || body.some(function(l) {
+      return /^(状态|当前状态|当前行动|位置)[：:]/.test(l.trim());
+    });
+    if (isDynamic) { start = i; end = j; }
+    break;
+  }
+  if (start < 0) return panel + '\n\n' + infoText;   // 没有动态段：维持原样拼接
+  var dyn = lines.slice(start + 1, end).map(function(l) { return l.trim(); }).filter(function(l) {
+    return l && panel.indexOf(l) < 0;                // 面板里已有的行不再重复
+  });
+  var rest = lines.slice(end).join('\n').replace(/^\n+/, '');
+  return panel + (dyn.length ? '\n' + dyn.join('\n') : '') + (rest ? '\n\n' + rest : '');
+}
+
+function addInfoPanel(text) {
+  if (!text || !text.trim()) return;
   var container = document.createElement('div');
   container.className = 'info-panel-wrap';
   container.style.cssText = 'align-self:stretch;margin-top:4px;max-width:100%;';
-  if (text && text.trim()) {
-    var header = document.createElement('div'); header.textContent = '📋 信息栏'; header.style.cssText = 'font-size:11px;color:var(--accent);margin-bottom:4px;font-weight:bold;';
-    var box = document.createElement('div');
-    box.className = 'info-panel-box';
-    box.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:6px;padding:8px 12px;font-size:12px;color:var(--text);line-height:1.6;white-space:pre-wrap;';
-    box.textContent = text; // 纯文本渲染 — LLM 输出信息区，防 XSS
-    container.appendChild(header); container.appendChild(box);
-    container.dataset.infoText = text; // 存 info 原文，供主角面板并入时拼接
-  }
-  // 推荐行动并入信息栏：纯展示（不可点击填入输入框）
-  if (recs.length) {
-    var recHeader = document.createElement('div'); recHeader.textContent = '💡 推荐行动'; recHeader.style.cssText = 'font-size:11px;color:var(--accent);margin:8px 0 4px;font-weight:bold;';
-    var recListEl = document.createElement('div'); recListEl.style.cssText = 'display:flex;flex-direction:column;gap:6px;';
-    recs.forEach(function(r, i) {
-      var item = document.createElement('div');
-      item.textContent = (i + 1) + '. ' + r;
-      item.style.cssText = 'background:var(--input-bg);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;color:var(--text);line-height:1.4;';
-      recListEl.appendChild(item);
-    });
-    container.appendChild(recHeader); container.appendChild(recListEl);
-  }
+  var header = document.createElement('div'); header.textContent = '信息栏'; header.style.cssText = 'font-size:11px;color:var(--accent);margin-bottom:4px;font-weight:bold;';
+  var box = document.createElement('div');
+  box.className = 'info-panel-box';
+  box.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:6px;padding:8px 12px;font-size:12px;color:var(--text);line-height:1.6;white-space:pre-wrap;';
+  box.textContent = text; // 纯文本渲染 — LLM 输出信息区，防 XSS
+  container.appendChild(header); container.appendChild(box);
+  container.dataset.infoText = text; // 存 info 原文，供主角面板并入时拼接
   document.getElementById('chat').appendChild(container);
-  document.getElementById('chat').scrollTop = document.getElementById('chat').scrollHeight;
-}
-
-function addNearbyCards(characters) {
-  var container = document.createElement('div');
-  container.style.cssText = 'align-self:stretch;margin-top:4px;max-width:100%;';
-  var header = document.createElement('div'); header.textContent = '👥 附近人物'; header.style.cssText = 'font-size:11px;color:var(--accent);margin-bottom:4px;font-weight:bold;';
-  var grid = document.createElement('div'); grid.style.cssText = 'display:flex;flex-direction:column;gap:4px;';
-  for (var i = 0; i < characters.length; i++) {
-    var ch = characters[i];
-    // 用 data 属性固定角色名，避免循环闭包串名（点击永远指向最后一个 NPC 的 bug）
-    var card = document.createElement('div');
-    card.dataset.npcName = ch.name || '';
-    card.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:6px 10px;cursor:pointer;';
-    card.onmouseenter = function() { this.style.borderColor = 'var(--accent)'; };
-    card.onmouseleave = function() { this.style.borderColor = 'var(--border)'; };
-    card.onclick = function() {
-      var nm = this.dataset.npcName;
-      if (!nm) return;
-      document.getElementById('user-input').value = '与' + nm + '交谈';
-      document.getElementById('user-input').focus();
-    };
-    var genderIcon = (ch.gender === '男' ? '👨' : (ch.gender === '女' ? '👩' : '👤'));
-    var actionText = (ch.appearance ? escHtml(ch.appearance) + '。' : '') + (ch.action ? escHtml(ch.action) : '');
-    card.innerHTML =
-      '<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;flex-wrap:wrap">' +
-        '<span style="font-size:14px;">' + genderIcon + '</span>' +
-        '<span style="font-size:13px;color:var(--text);font-weight:bold;">' + escHtml(ch.name) + '</span>' +
-        (ch.identity ? '<span style="font-size:11px;color:var(--accent-dim);background:var(--input-bg);border:1px solid var(--border);border-radius:3px;padding:0 5px;">' + escHtml(ch.identity) + '</span>' : '') +
-        (ch.cultivation ? '<span style="font-size:11px;color:var(--accent-dim);background:var(--input-bg);border:1px solid var(--border);border-radius:3px;padding:0 5px;">' + escHtml(ch.cultivation) + '</span>' : '') +
-      '</div>' +
-      (actionText ? '<div style="font-size:11px;color:var(--accent-dim);line-height:1.4;padding-left:20px;">' + actionText + '</div>' : '');
-    grid.appendChild(card);
-  }
-  container.appendChild(header); container.appendChild(grid); document.getElementById('chat').appendChild(container);
   document.getElementById('chat').scrollTop = document.getElementById('chat').scrollHeight;
 }
 
@@ -1865,7 +1863,7 @@ function showRelationshipGraph() {
   if (!sessionId) return alert('请先创建或选择世界');
   var overlay = document.createElement('div'); overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;';
   var box = document.createElement('div'); box.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:0;width:90%;max-width:800px;height:80vh;display:flex;flex-direction:column;overflow:hidden;';
-  box.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0"><span style="font-size:15px;color:var(--accent);font-weight:bold">🚻 关系网图谱</span><span id="rg-close-btn" style="cursor:pointer;font-size:18px;color:var(--accent-dim);padding:2px 6px">✕</span></div><div id="rg-svg-wrap" style="flex:1;position:relative"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--accent-dim);font-size:13px">⏳ 加载关系网...</div></div>';
+  box.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0"><span style="font-size:15px;color:var(--accent);font-weight:bold;display:flex;align-items:center;gap:6px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-relation"></use></svg>关系网图谱</span><span id="rg-close-btn" style="cursor:pointer;font-size:18px;color:var(--accent-dim);padding:2px 6px">✕</span></div><div id="rg-svg-wrap" style="flex:1;position:relative"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:8px;color:var(--text-secondary);font-size:13px"><span class="spinner"></span>正在加载关系网…</div></div>';
   overlay.appendChild(box); document.body.appendChild(overlay);
   overlay.dataset.rg = '1';
   overlay.onclick = function(e) { if (e.target === overlay) document.body.removeChild(overlay); };
@@ -1877,16 +1875,16 @@ function showRelationshipGraph() {
   // 加载D3
   function loadD3(retry) {
     if (typeof d3 !== 'undefined') { renderGraph(); return; }
-    if (retry > 5) { document.querySelector('#rg-svg-wrap').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--danger);font-size:13px">❌ 加载D3失败，请刷新重试</div>'; return; }
+    if (retry > 5) { document.querySelector('#rg-svg-wrap').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--danger);font-size:13px">加载D3失败，请刷新重试</div>'; return; }
     var s = document.createElement('script'); s.src = 'https://d3js.org/d3.v7.min.js'; s.onload = renderGraph; s.onerror = function() { setTimeout(function() { loadD3(retry + 1); }, 2000); };
     document.head.appendChild(s);
   }
   function renderGraph() {
     var wrap = document.getElementById('rg-svg-wrap'); if (!wrap) return;
-    wrap.innerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--accent-dim);font-size:13px">⏳ 加载关系网...</div>';
+    wrap.innerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:8px;color:var(--text-secondary);font-size:13px"><span class="spinner"></span>正在加载关系网…</div>';
     apiFetch('/sessions/' + sessionId + '/relationship-graph').then(function(r) { return r.json(); }).then(function(data) {
       if (!data.edges || !data.edges.length) {
-        wrap.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--accent-dim);font-size:13px"><div style="font-size:32px;margin-bottom:8px">📭</div>暂无关系数据</div>';
+        wrap.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--accent-dim);font-size:13px"><div style="color:var(--text-muted);margin-bottom:8px"><svg class="icon icon--lg" aria-hidden="true"><use href="/public/icons.svg#i-relation"></use></svg></div>暂无关系数据</div>';
         return;
       }
       // Convert edges to D3 format: collect unique nodes
@@ -1903,7 +1901,7 @@ function showRelationshipGraph() {
         links.push({source: e.source, target: e.target, type: e.type, desc: e.description || '', affinity: e.affinity || 0});
       });
       if (!links.length) {
-        wrap.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--accent-dim);font-size:13px"><div style="font-size:32px;margin-bottom:8px">📭</div>暂无关系数据</div>';
+        wrap.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--accent-dim);font-size:13px"><div style="color:var(--text-muted);margin-bottom:8px"><svg class="icon icon--lg" aria-hidden="true"><use href="/public/icons.svg#i-relation"></use></svg></div>暂无关系数据</div>';
         return;
       }
       // Use player_name from API if available
@@ -1943,7 +1941,7 @@ function showRelationshipGraph() {
           if (!r.ok) { alert('删除失败'); return; }
           // Re-fetch and re-render
           var wrap = document.getElementById('rg-svg-wrap');
-          if (wrap) { wrap.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--accent-dim);font-size:13px">⏳ 刷新关系网...</div>'; }
+          if (wrap) { wrap.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;gap:8px;color:var(--text-secondary);font-size:13px"><span class="spinner"></span>正在刷新关系网…</div>'; }
           renderGraph();
         }).catch(function() { alert('删除请求失败'); });
       });
@@ -1975,7 +1973,7 @@ function showRelationshipGraph() {
         apiFetch('/sessions/' + sessionId + '/relationship-graph/entity/' + encodeURIComponent(d.id), {method: 'DELETE'}).then(function(r) {
           if (!r.ok) { alert('删除失败'); return; }
           var wrap = document.getElementById('rg-svg-wrap');
-          if (wrap) { wrap.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--accent-dim);font-size:13px">⏳ 刷新关系网...</div>'; }
+          if (wrap) { wrap.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;gap:8px;color:var(--text-secondary);font-size:13px"><span class="spinner"></span>正在刷新关系网…</div>'; }
           renderGraph();
         }).catch(function() { alert('删除请求失败'); });
       });
@@ -2054,16 +2052,16 @@ function showRelationshipGraph() {
         ro.observe(wrap);
       }
     }).catch(function(e) {
-        console.error('🚻 关系图加载错误:', e, 'sessionId:', sessionId);
+        console.error('关系图加载错误:', e, 'sessionId:', sessionId);
         frontendLog('ERROR', '关系图加载失败: ' + (e && e.message ? e.message : e));
-        wrap.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--danger);font-size:13px">❌ 加载失败 <span style="cursor:pointer;color:var(--accent);text-decoration:underline;margin-left:8px" onclick="showRelationshipGraph()">重试</span></div>';
+        wrap.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--danger);font-size:13px">加载失败 <span style="cursor:pointer;color:var(--accent);text-decoration:underline;margin-left:8px" onclick="showRelationshipGraph()">重试</span></div>';
       });
   }
   loadD3(0);
 }
 
 // ── Info panel ──
-// 主角面板并入信息栏：作为 📋 信息栏 box 的第一段常驻普通信息（无独立标题区块）
+// 主角面板并入信息栏：作为 信息栏 box 的第一段常驻普通信息（无独立标题区块）
 function updateInfoPanel(text) {
   var wraps = document.querySelectorAll('#chat .info-panel-wrap');
   var wrap = wraps.length ? wraps[wraps.length - 1] : null;
@@ -2080,7 +2078,7 @@ function updateInfoPanel(text) {
     document.getElementById('chat').appendChild(wrap);
   }
   if (!box) {
-    var header = document.createElement('div'); header.textContent = '📋 信息栏'; header.style.cssText = 'font-size:11px;color:var(--accent);margin-bottom:4px;font-weight:bold;';
+    var header = document.createElement('div'); header.textContent = '信息栏'; header.style.cssText = 'font-size:11px;color:var(--accent);margin-bottom:4px;font-weight:bold;';
     box = document.createElement('div');
     box.className = 'info-panel-box';
     box.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:6px;padding:8px 12px;font-size:12px;color:var(--text);line-height:1.6;white-space:pre-wrap;';
@@ -2088,8 +2086,8 @@ function updateInfoPanel(text) {
     wrap.dataset.infoText = wrap.dataset.infoText || '';
   }
   var infoText = wrap.dataset.infoText || '';
-  // 主角面板在前，info 原文在后，两者一体（无独立标题）
-  box.textContent = text + (infoText ? '\n\n' + infoText : '');
+  // 主角面板与 info_panel 的主角动态段合并为同一块（去重），其余段落后接
+  box.textContent = _mergePlayerDynamic(text, infoText);
 }
 
 // Show the author-written world history (world_facts.lore) for the current
@@ -2105,7 +2103,7 @@ function showSessionWorldLore() {
     var box = document.createElement('div');
     box.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-radius:12px;width:92vw;max-width:720px;height:80vh;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,0.5);';
     box.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--panel)">' +
-      '<span style="font-size:15px;color:var(--accent);font-weight:bold">📜 ' + escHtml(title) + ' · 世界历史</span>' +
+      '<span style="font-size:15px;color:var(--accent);font-weight:bold">' + escHtml(title) + ' · 世界历史</span>' +
       '<span id="lore-close" style="cursor:pointer;font-size:20px;color:var(--accent-dim);padding:2px 6px">✕</span></div>' +
       '<div style="padding:16px 18px;overflow-y:auto;line-height:1.7;font-size:13px;color:var(--text);white-space:pre-wrap">' + escHtml(text) + '</div>';
     box.querySelector('#lore-close').onclick = function() { document.body.removeChild(overlay); };
@@ -2124,12 +2122,12 @@ function showSessionWorldLore() {
 // ── Modeled NPCs ──
 function renderModeledNpcs(npcs) {
   var container = document.createElement('div'); container.style.cssText = 'align-self:flex-start;max-width:50%;margin-top:4px;';
-  var header = document.createElement('div'); header.textContent = '📋 已建模人物'; header.style.cssText = 'font-size:11px;color:var(--accent);margin-bottom:4px;font-weight:bold;';
+  var header = document.createElement('div'); header.textContent = '已建模人物'; header.style.cssText = 'font-size:11px;color:var(--accent);margin-bottom:4px;font-weight:bold;';
   var list = document.createElement('div'); list.style.cssText = 'display:flex;flex-direction:column;gap:4px;';
   npcs.forEach(function(npc) {
     var card = document.createElement('div'); card.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:4px 10px;cursor:pointer;font-size:12px;color:var(--accent-dim);';
     card.onmouseenter = function() { this.style.borderColor = 'var(--accent)'; }; card.onmouseleave = function() { this.style.borderColor = 'var(--border)'; };
-    card.innerHTML = (npc.gender === '女' ? '👩' : '🧑') + ' ' + escHtml(npc.name) + ' — 点击查看人物档案';
+    card.innerHTML = escHtml(npc.name) + ' — 点击查看人物档案';
     card.onclick = function() { addMsg('system', '【人物档案】\n' + formatNpcModel(npc.model_data, npc.name, '（人物档案）')); };
     list.appendChild(card);
   });
@@ -2207,7 +2205,7 @@ async function npcLibToggle(name, checked) {
 async function npcLibCreate(inputText, tags, wvId) {
   var btn = document.getElementById('npc-lib-create-btn'); if (btn) { btn.disabled = true; btn.textContent = '···'; }
   var qs = wvId ? '?worldview=' + encodeURIComponent(wvId) : '';
-  try { var r = await apiFetch('/npcs/library' + qs, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({input: inputText.trim(), tags: tags || ['新建']}) }); if (!r.ok) throw new Error((await r.json()).detail || '创建失败'); var d = await r.json(); closeCreateNpcModal(); if (document.getElementById('npc-page').style.display !== 'none') renderNpcTable(); addMsg('system', '✅ NPC「' + d.name + '」已添加至总库'); await npcLibLoad(); } catch(e) { frontendLog('ERROR', 'NPC create: ' + e.message); addMsg('system', '❌ 创建NPC失败: ' + e.message); }
+  try { var r = await apiFetch('/npcs/library' + qs, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({input: inputText.trim(), tags: tags || ['新建']}) }); if (!r.ok) throw new Error((await r.json()).detail || '创建失败'); var d = await r.json(); closeCreateNpcModal(); if (document.getElementById('npc-page').style.display !== 'none') renderNpcTable(); addMsg('system', 'NPC「' + d.name + '」已添加至总库'); await npcLibLoad(); } catch(e) { frontendLog('ERROR', 'NPC create: ' + e.message); addMsg('system', '创建NPC失败: ' + e.message); }
   if (btn) { btn.disabled = false; btn.textContent = '+ 新建建模NPC'; }
 }
 // ── 提示库数据 ──
@@ -2235,20 +2233,20 @@ var _promptArchetypes = [
 var _promptRolledNames = [];
 
 // 缺省 quick-pick 区块（作者可在 npc_templates.json 的 quick_pick_sections
-// 里自定义：每个 {label, key} 指一个数组字段，如 {label:'🧬 灵根', key:'spiritual_roots'}）。
+// 里自定义：每个 {label, key} 指一个数组字段，如 {label:'灵根', key:'spiritual_roots'}）。
 var _DEFAULT_QUICK_PICKS = [
-  {title:'🧬 灵根', key:'spiritual_roots', data:_promptSpiritualRoots},
-  {title:'💪 体质', key:'constitutions', data:_promptConstitutions},
-  {title:'⚡ 修为', key:'realms', data:_promptCultivations},
-  {title:'🧠 性格', key:'personalities', data:_promptPersonalities},
-  {title:'🏃 体型', key:'body_types', data:_promptBodyTypes},
-  {title:'👘 衣着', key:'attires', data:_promptAttires},
+  {title:'灵根', key:'spiritual_roots', data:_promptSpiritualRoots},
+  {title:'体质', key:'constitutions', data:_promptConstitutions},
+  {title:'修为', key:'realms', data:_promptCultivations},
+  {title:'性格', key:'personalities', data:_promptPersonalities},
+  {title:'体型', key:'body_types', data:_promptBodyTypes},
+  {title:'衣着', key:'attires', data:_promptAttires},
 ];
 
 // 读取当前世界观包的提示库数据（charTemplates.npc_templates）。
 // 包内字段为数组时直接用（空数组 = 作者明确"无此项"，前端隐藏区块）；
 // 字段缺失/非数组时才回退到硬编码缺省值。
-// 注意：不能命名为 _promptLib——与🛠提示词库的数组变量同名会互相覆盖。
+// 注意：不能命名为 _promptLib——与提示词库的数组变量同名会互相覆盖。
 function _promptTpl(key, fallback) {
   var nt = (charTemplates && charTemplates.npc_templates) || null;
   var val = (nt && typeof nt[key] === 'object' && Array.isArray(nt[key])) ? nt[key] : null;
@@ -2261,7 +2259,7 @@ function renderPromptSections() {
   var h = '';
   // 角色模板：优先 pack 的 core_archetypes，缺省时用修仙兜底
   var archetypes = _promptTpl('core_archetypes', _promptArchetypes);
-  h += '<div style="margin-bottom:10px"><div style="font-size:11px;color:var(--accent-dim);margin-bottom:4px;font-weight:bold">🎭 角色模板</div>';
+  h += '<div style="margin-bottom:10px"><div style="font-size:11px;color:var(--accent-dim);margin-bottom:4px;font-weight:bold">角色模板</div>';
   archetypes.forEach(function(a, i) {
     var name = a.name || a.identity || ('模板' + (i + 1));
     var desc = a.desc || (a.identity ? (a.identity + (a.personality ? '，' + a.personality : '')) : '');
@@ -2424,7 +2422,7 @@ function submitCreateNpc() {
   if (!input) { document.getElementById('create-npc-input').focus(); document.getElementById('create-npc-input').style.borderColor = 'var(--danger)'; setTimeout(function() { document.getElementById('create-npc-input').style.borderColor = ''; }, 1500); return; }
   var cbs = document.querySelectorAll('#create-npc-tags input[type=checkbox]:checked'); var tags = Array.from(cbs).map(function(cb) { return cb.value; });
   if (_customTags && _customTags.length) tags = tags.concat(_customTags);
-  var btn = document.getElementById('create-npc-submit-btn'); btn.disabled = true; btn.textContent = '⏳ 建模中...';
+  var btn = document.getElementById('create-npc-submit-btn'); btn.disabled = true; btn.textContent = '建模中...';
   // 建模中显示提示注释（关闭不中断，后台继续完成）
   var note = document.getElementById('npc-modeling-note');
   if (note) note.style.display = 'block';
@@ -2433,7 +2431,7 @@ function submitCreateNpc() {
   var wvId = (wvSel && wvSel.value) ? wvSel.value : getCurrentWorldviewId();
   npcLibCreate(input, tags.length ? tags : null, wvId).finally(function() {
     if (note) note.style.display = 'none';
-    btn.disabled = false; btn.textContent = '✨ 开始建模';
+    btn.disabled = false; btn.textContent = '开始建模';
   });
 }
 async function npcLibRefresh() { await npcLibLoad(); if (document.getElementById('npc-page').style.display !== 'none') renderNpcTable(); }
@@ -2461,7 +2459,7 @@ function renderSharedWorldviews() {
   var grid = document.getElementById('shared-worldview-grid');
   if (!grid) return;
   if (!_sharedWorldviews.length) {
-    grid.innerHTML = '<div style="color:var(--accent-dim);font-size:12px;grid-column:1/-1">（暂无开源世界观 —— 作者可在「世界观设计器」点击 📤 开源 推送自己的作品）</div>';
+    grid.innerHTML = '<div style="color:var(--accent-dim);font-size:12px;grid-column:1/-1">（暂无开源世界观 —— 作者可在「世界观设计器」点击 开源 推送自己的作品）</div>';
     return;
   }
   grid.innerHTML = _sharedWorldviews.map(function(w) {
@@ -2475,8 +2473,8 @@ function renderSharedWorldviews() {
       (tags ? '<div style="display:flex;flex-wrap:wrap;gap:4px">' + tags + '</div>' : '') +
       stars +
       '<div style="display:flex;gap:6px;margin-top:2px">' +
-        '<button onclick="useSharedWorldview(\'' + escAttr(w.worldview_id) + '\', \'' + escAttr(w.title) + '\')" style="flex:1;background:var(--accent);color:var(--panel);border:none;padding:6px 10px;border-radius:4px;cursor:pointer;font-size:12px">▶ 使用</button>' +
-        (w.lore ? '<button onclick="showWorldviewLore(\'' + escAttr(w.worldview_id) + '\', \'' + escAttr(w.title) + '\')" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:6px 10px;border-radius:4px;cursor:pointer;font-size:12px">📖 详细介绍</button>' : '') +
+        '<button onclick="useSharedWorldview(\'' + escAttr(w.worldview_id) + '\', \'' + escAttr(w.title) + '\')" style="flex:1;background:var(--accent);color:var(--panel);border:none;padding:6px 10px;border-radius:4px;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center;gap:4px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-chevron"></use></svg>使用</button>' +
+        (w.lore ? '<button onclick="showWorldviewLore(\'' + escAttr(w.worldview_id) + '\', \'' + escAttr(w.title) + '\')" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:6px 10px;border-radius:4px;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center;gap:4px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-book"></use></svg>详细介绍</button>' : '') +
         (w.mine ? '<button onclick="unshareWorldview(\'' + escAttr(w.worldview_id) + '\')" style="background:none;border:1px solid var(--danger);color:#b06060;padding:6px 10px;border-radius:4px;cursor:pointer;font-size:12px">撤销开源</button>' : '') +
       '</div>' +
     '</div>';
@@ -2532,7 +2530,7 @@ function showWorldviewLore(wvId, title) {
   var box = document.createElement('div');
   box.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-radius:12px;width:92vw;max-width:720px;height:80vh;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,0.5);';
   box.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--panel)">' +
-    '<span style="font-size:15px;color:var(--accent);font-weight:bold">📖 ' + escHtml(title || wvId) + ' 详细介绍</span>' +
+    '<span style="font-size:15px;color:var(--accent);font-weight:bold">' + escHtml(title || wvId) + ' 详细介绍</span>' +
     '<span id="lore-close" style="cursor:pointer;font-size:20px;color:var(--accent-dim);padding:2px 6px">✕</span></div>' +
     '<div style="flex:1;overflow-y:auto;padding:16px 20px;font-size:13px;line-height:1.8;color:var(--text);white-space:pre-wrap;background:var(--bg);">' + escHtml(lore) + '</div>';
   overlay.appendChild(box);
@@ -2574,9 +2572,9 @@ async function renderNpcTable() {
           '</div>' +
         '</div>' +
         '<div style="display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--accent-dim)">' +
-          '<span>📍 ' + escHtml(identity) + '</span>' +
-          '<span>⚡ ' + escHtml(cult) + '</span>' +
-          '<span>🏷 ' + escHtml(tags) + '</span>' +
+          '<span style="display:inline-flex;align-items:center;gap:4px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-npc"></use></svg>' + escHtml(identity) + '</span>' +
+          '<span style="display:inline-flex;align-items:center;gap:4px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-spark"></use></svg>' + escHtml(cult) + '</span>' +
+          '<span style="display:inline-flex;align-items:center;gap:4px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-card"></use></svg>' + escHtml(tags) + '</span>' +
         '</div>' +
       '</div>';
     }
@@ -2741,7 +2739,7 @@ async function homeNpcEdit(name) {
 
   var h = '<div style="max-height:75vh;overflow-y:auto;padding:4px 8px">';
   h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">';
-  h += '<h3 style="margin:0;color:var(--accent);font-size:16px">📝 ' + escHtml(name) + '</h3>';
+  h += '<h3 style="margin:0;color:var(--accent);font-size:16px">' + escHtml(name) + '</h3>';
   // Editable tags
   var tagsStr = (npc.tags || []).join(', ');
   h += '<div style="display:flex;align-items:center;gap:4px;font-size:12px"><span style="color:var(--accent-dim)">标签:</span><input id="npc-editor-tags" value="' + escAttr(tagsStr) + '" style="width:120px;padding:3px 6px;background:var(--input-bg);border:1px solid var(--border);border-radius:3px;color:var(--text);font-size:12px;font-family:inherit"></div>';
@@ -2809,7 +2807,7 @@ async function homeNpcEdit(name) {
   h += renderFields(tmpl, 0, '');
   h += '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;position:sticky;bottom:0;background:var(--panel);padding:8px 0">';
   h += '<button onclick="this.closest(\'[data-modal]\').remove()" style="padding:6px 16px;background:transparent;border:1px solid var(--border);color:var(--accent-dim);border-radius:4px;cursor:pointer;font-size:13px;font-family:inherit">取消</button>';
-  h += '<button onclick="saveNpcModelData(\'' + escAttr(name) + '\', this)" style="padding:6px 20px;background:var(--accent);color:var(--panel);border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:bold;font-family:inherit">💾 保存</button></div></div>';
+  h += '<button onclick="saveNpcModelData(\'' + escAttr(name) + '\', this)" style="padding:6px 20px;background:var(--accent);color:var(--panel);border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:bold;font-family:inherit"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-check"></use></svg>保存</button></div></div>';
 
   var overlay = document.createElement('div'); overlay.dataset.modal = '1'; overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:20000;display:flex;align-items:center;justify-content:center;';
   var box = document.createElement('div'); box.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:20px;width:580px;max-width:95vw;max-height:85vh;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,0.5)';
@@ -2881,20 +2879,20 @@ async function saveNpcModelData(name, btn) {
   // Collect tags
   var tagsInput = document.getElementById('npc-editor-tags');
   var tags = tagsInput ? tagsInput.value.split(',').map(function(s) { return s.trim(); }).filter(function(s) { return s; }) : [];
-  btn.disabled = true; btn.textContent = '⏳...';
+  btn.disabled = true; btn.textContent = '...';
   try {
     var r = await apiFetch('/npcs/library/' + encodeURIComponent(name), { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({model_data: md, tags: tags}) });
     if (!r.ok) throw new Error((await r.json()).detail || '保存失败');
     await npcLibLoad(); renderNpcTable();
     overlay.remove();
     var chat = document.getElementById('chat');
-    if (chat) addMsg('system', '✅ NPC「' + name + '」数据已更新');
+    if (chat) addMsg('system', 'NPC「' + name + '」数据已更新');
   } catch(e) { alert('保存失败: ' + e.message); }
-  btn.disabled = false; btn.textContent = '💾 保存';
+  btn.disabled = false; btn.textContent = '保存';
 }
 async function homeNpcDelete(name) {
   if (!confirm('确定要从总库中永久删除「' + name + '」吗？')) return;
-  try { var r = await apiFetch('/npcs/library/' + encodeURIComponent(name), {method: 'DELETE'}); if (!r.ok) throw new Error((await r.json()).detail || '删除失败'); await npcLibLoad(); renderNpcTable(); addMsg('system', '🗑 NPC「' + name + '」已从总库删除'); } catch(e) { alert('删除NPC失败: ' + e.message); }
+  try { var r = await apiFetch('/npcs/library/' + encodeURIComponent(name), {method: 'DELETE'}); if (!r.ok) throw new Error((await r.json()).detail || '删除失败'); await npcLibLoad(); renderNpcTable(); addMsg('system', 'NPC「' + name + '」已从总库删除'); } catch(e) { alert('删除NPC失败: ' + e.message); }
 }
 
 // ── World management ──
@@ -2925,8 +2923,8 @@ async function generateImage() {
   var btn = document.getElementById('img-gen-btn');
   var prompt = (input.value || '').trim();
   if (!prompt) { resEl.textContent = '请输入图片描述'; return; }
-  btn.disabled = true; btn.textContent = '⏳ 生成中...';
-  resEl.textContent = '⏳ 正在调用 AI 生成图片，请稍候...';
+  btn.disabled = true; btn.textContent = '生成中...';
+  resEl.textContent = '正在调用 AI 生成图片，请稍候...';
   try {
     var r = await apiFetch('/sessions/generate-image', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({prompt: prompt}) });
     if (!r.ok) { var errData = await r.json().catch(function() { return {}; }); throw new Error(errData.detail || '生成失败'); }
@@ -2941,10 +2939,10 @@ async function generateImage() {
       resEl.textContent = '未返回可显示的图片';
     }
   } catch(e) {
-    resEl.textContent = '❌ ' + e.message;
+    resEl.textContent = e.message;
     frontendLog('ERROR', 'Generate image: ' + e.message);
   } finally {
-    btn.disabled = false; btn.textContent = '✨ 生成';
+    btn.disabled = false; btn.textContent = '生成';
   }
 }
 */
@@ -2978,7 +2976,7 @@ function refreshAvatarBtn() {
   if (!btn) return;
   var savedAva = getSessionAvatar(sessionId);
   if (savedAva) { btn.innerHTML = '<img src="' + savedAva + '" style="width:100%;height:100%;object-fit:cover">'; }
-  else { btn.textContent = '🧑'; btn.style.background = ''; }
+  else { btn.textContent = ''; btn.style.background = ''; }
 }
 // ── Avatar mode: 'player' or 'system' ──
 var _avatarMode = 'player';

@@ -2,71 +2,110 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>登录 — AI Narrative Engine</title>
+<link rel="icon" href="/public/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/public/theme.css">
 <style>
-  :root {
-    --bg: #1a1410;
-    --panel: #231d16;
-    --border: #3a3026;
-    --text: #d4c8b8;
-    --accent: #c9a96e;
-    --accent-dim: #6b5a3e;
-    --input-bg: #2a2218;
-  }
-  * { margin:0; padding:0; box-sizing:border-box; }
+  /* ── 登录 / 注册页 ───────────────────────────────────────────────
+     版式要点：卡片居中但内容左对齐（表单左对齐更好读，也避免"通篇居中"
+     的模板感）；层次靠明度与一层阴影，不靠粗边框。 */
+
   body {
-    font-family: "Microsoft YaHei", "SimSun", serif;
-    background: var(--bg); color: var(--text);
-    height: 100vh; height: 100dvh;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; min-height: 100dvh;
+    padding: var(--sp-6);
   }
-  #auth-page {
-    display: flex; position: fixed; inset:0; z-index:9999;
-    background: var(--bg); align-items: center; justify-content: center;
+  /* 顶部极轻暖光：把视线收到卡片上 */
+  body::before {
+    content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background: radial-gradient(115% 85% at 50% -10%, rgba(201, 169, 110, .075), transparent 62%);
   }
+
+  #auth-page { position: relative; z-index: 2; width: 100%; max-width: 400px; }
+
+  /* ── 品牌行 ── */
+  .brand { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-6); }
+  .brand__mark {
+    width: 34px; height: 34px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--accent); border-radius: var(--r-btn);
+    background: var(--accent-wash); color: var(--accent);
+  }
+  .brand__text { display: flex; flex-direction: column; }
+  .brand__name { font-family: var(--font-prose); font-size: var(--fs-md); letter-spacing: .02em; }
+  .brand__sub { color: var(--text-muted); font-size: var(--fs-xs); }
+
+  /* ── 卡片 ── */
   #auth-box {
-    background: var(--panel); border: 1px solid var(--border);
-    border-radius: 12px; padding: 40px; width: 340px; text-align: center;
+    background: var(--surface-raised);
+    border: 1px solid var(--line-hairline);
+    border-radius: var(--r-modal);
+    box-shadow: var(--el-2);
+    padding: var(--sp-8) var(--sp-6) var(--sp-6);
   }
-  #auth-title { margin: 0 0 8px; color: var(--accent); }
-  #auth-error { color: #c66; font-size: 13px; min-height: 1.2em; }
-  #auth-page input[type="text"],
-  #auth-page input[type="password"],
-  #auth-page select {
-    width: 100%; padding: 10px 14px; margin: 6px 0;
-    background: var(--input-bg); border: 1px solid var(--border);
-    border-radius: 6px; color: var(--text); font-size: 14px;
-    box-sizing: border-box;
-    font-family: inherit;
+  #auth-title { margin: 0 0 var(--sp-1); font-size: var(--fs-xl); letter-spacing: -.02em; }
+  .auth-desc { margin: 0 0 var(--sp-6); color: var(--text-muted); font-size: var(--fs-xs); }
+
+  /* 错误行：无内容时整体收起（避免出现孤零零的三角） */
+  .auth-error {
+    display: flex; align-items: center; gap: var(--sp-2);
+    min-height: 20px; margin: 0 0 var(--sp-3);
+    color: var(--seal-danger); font-size: var(--fs-xs);
   }
-  #auth-page input:focus { border-color: var(--accent); outline: none; }
-  #auth-page select {
-    appearance: auto; -webkit-appearance: auto;
+  .auth-error:not(:has(span:not(:empty))) { visibility: hidden; }
+
+  #auth-submit-btn { margin-top: var(--sp-2); }
+  #auth-toggle-text { margin: var(--sp-4) 0 0; text-align: center; color: var(--text-muted); font-size: var(--fs-xs); }
+  .auth-meta { margin: var(--sp-4) 0 0; text-align: center; color: var(--text-muted); font-size: var(--fs-xs); letter-spacing: .04em; }
+
+  @media (max-width: 480px) {
+    #auth-box { padding: var(--sp-6) var(--sp-4) var(--sp-4); }
+    #auth-title { font-size: var(--fs-lg); }
+    /* iOS 上字号 <16px 的输入框聚焦时会自动放大页面 */
+    .input { font-size: 16px; }
   }
-  #auth-submit-btn {
-    width: 100%; padding: 10px; margin-top: 10px;
-    background: var(--accent); color: #1a1410;
-    border: none; border-radius: 6px;
-    font-size: 15px; cursor: pointer; font-family: inherit;
-  }
-  #auth-submit-btn:hover { opacity: 0.85; }
-  #auth-toggle-text { margin-top: 14px; font-size: 13px; color: var(--accent-dim); }
-  #auth-toggle-text a { color: var(--accent); }
 </style>
 </head>
 <body>
 
 <div id="auth-page">
-  <div id="auth-box">
-    <h2 id="auth-title">登录</h2>
-    <p id="auth-error"></p>
-    <input id="auth-username" type="text" placeholder="用户名" autocomplete="username">
-    <input id="auth-password" type="password" placeholder="密码" autocomplete="current-password">
-    <button id="auth-submit-btn" onclick="handleAuthSubmit()">登录</button>
-    <p id="auth-toggle-text">
-      没有账号？<a href="#" onclick="toggleAuthMode();return false" style="color:var(--accent)">注册</a>
-    </p>
+  <div class="brand reveal">
+    <span class="brand__mark" aria-hidden="true">
+      <svg class="icon" aria-hidden="true"><use href="/public/icons.svg#i-book"></use></svg>
+    </span>
+    <span class="brand__text">
+      <span class="brand__name">AI Narrative Engine</span>
+      <span class="brand__sub">多世界观叙事引擎</span>
+    </span>
   </div>
+
+  <div id="auth-box" class="reveal">
+    <h2 id="auth-title">登录</h2>
+    <p class="auth-desc" id="auth-desc">继续你的世界与人物档案</p>
+
+    <p class="auth-error" aria-live="polite">
+      <svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-warn"></use></svg>
+      <span id="auth-error"></span>
+    </p>
+
+    <form id="auth-form" onsubmit="handleAuthSubmit(); return false;" novalidate>
+      <label class="field">
+        <span class="field__label">用户名</span>
+        <input class="input" id="auth-username" type="text" autocomplete="username" placeholder="你的账号名">
+      </label>
+      <label class="field">
+        <span class="field__label">密码</span>
+        <input class="input" id="auth-password" type="password" autocomplete="current-password" placeholder="输入密码">
+        <span class="field__hint" id="auth-pw-hint" hidden>注册密码至少 4 位</span>
+      </label>
+      <button class="btn btn--primary btn--lg btn--block" id="auth-submit-btn" type="submit" data-mode="login">登录</button>
+    </form>
+
+    <p id="auth-toggle-text">没有账号？<a href="#" onclick="toggleAuthMode();return false">注册</a></p>
+  </div>
+
+  <p class="auth-meta reveal">修仙 · 都市 · 西幻 · IP 世界观</p>
 </div>
 
 <script src="/public/common.js"></script>
@@ -112,25 +151,34 @@ async function handleRegister() {
   } catch(e) { errEl.textContent = '网络错误'; }
 }
 
+// 用 data-mode 判断当前模式（不再依赖按钮文案比较，文案改动不会改坏逻辑）
 function handleAuthSubmit() {
-  const isLogin = document.getElementById('auth-submit-btn').textContent === '登录';
-  if (isLogin) { handleLogin(); } else { handleRegister(); }
+  const mode = document.getElementById('auth-submit-btn').dataset.mode;
+  if (mode === 'register') { handleRegister(); } else { handleLogin(); }
 }
 
 function toggleAuthMode() {
   const btn = document.getElementById('auth-submit-btn');
   const toggle = document.getElementById('auth-toggle-text');
   const title = document.getElementById('auth-title');
-  const isLogin = btn.textContent === '登录';
-  if (isLogin) {
-    btn.textContent = '注册';
-    toggle.innerHTML = '已有账号？<a href="#" onclick="toggleAuthMode();return false">登录</a>';
-    title.textContent = '注册新账号';
-  } else {
-    btn.textContent = '登录';
-    toggle.innerHTML = '没有账号？<a href="#" onclick="toggleAuthMode();return false">注册</a>';
-    title.textContent = '登录';
-  }
+  const desc = document.getElementById('auth-desc');
+  const hint = document.getElementById('auth-pw-hint');
+  const toRegister = btn.dataset.mode !== 'register';
+
+  btn.dataset.mode = toRegister ? 'register' : 'login';
+  btn.textContent = toRegister ? '注册' : '登录';
+  title.textContent = toRegister ? '注册新账号' : '登录';
+  desc.textContent = toRegister ? '账号用于保存你的世界、NPC 与角色卡' : '继续你的世界与人物档案';
+  hint.hidden = !toRegister;
+  toggle.innerHTML = toRegister
+    ? '已有账号？<a href="#" onclick="toggleAuthMode();return false">登录</a>'
+    : '没有账号？<a href="#" onclick="toggleAuthMode();return false">注册</a>';
+  document.getElementById('auth-error').textContent = '';
+}
+
+// 桌面端聚焦用户名；移动端不自动弹键盘
+if (window.matchMedia('(min-width: 769px)').matches) {
+  document.getElementById('auth-username').focus();
 }
 
 frontendLog('INFO', 'Login page loaded');

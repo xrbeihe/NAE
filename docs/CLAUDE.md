@@ -135,7 +135,7 @@
 - 环境变量 `ANE_WORLDVIEW_ADMIN_IDS=id1,id2`（逗号分隔，**优先于** config.json）
 - 部署：ci.yml 在 Actions secret `ANE_WORLDVIEW_ADMIN_IDS` 非空时写入服务器
   `/etc/ane/.env`；未配置则用 config.json 默认值
-- 当前管理员：服务器 `207d25fa7acf`（config.json 默认）；本地 `a076e986e205`（本地 .env）
+- 当前管理员：服务器 `207d25fa7acf`（config.json 默认）；本地 `3bc7553ba877`（本地 .env，旧 id `a076e986e205` 因数据库重建已失效，暂留白名单）
 - 用户编号在 `/settings` 页面显示（登录后可见，可全选复制）
 
 ### ⚠️ 本地 agent / 文件系统层（无防御，靠规则约束）

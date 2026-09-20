@@ -353,7 +353,7 @@ def _build_ui(author: dict) -> dict:
         # 卡片只展示玩家创建时会填写的数据（与 form.json 字段一一对应），
         # 不展示表单没有的字段（如衣物）或不由作者/玩家决定的数据（如初始位置）。
         "character_card": {
-            "title": "📋 **" + (fields["role_label"] or "角色") + "登记完成**",
+            "title": (fields["role_label"] or "角色") + "登记完成",
             "lines": [
                 {"label": "姓名", "key": "name"},
                 *([] if genre != "historical" else [{"label": "字", "key": "courtesy_name"}]),

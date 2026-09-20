@@ -2,17 +2,16 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>角色卡制作</title>
+<link rel="icon" href="/public/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/public/theme.css">
 <style>
-  :root {
-    --bg: #1a1410; --panel: #231d16; --border: #3a3026; --text: #d4c8b8;
-    --accent: #c9a96e; --accent-dim: #6b5a3e; --danger: #8b4545; --input-bg: #2a2218;
-  }
+  /* 颜色 / 字体 / 圆角 / 间距 token → /public/theme.css（墨卷设计系统 v1）*/
   * { margin:0; padding:0; box-sizing:border-box; }
   body {
-    font-family: "Microsoft YaHei", "SimSun", serif;
-    background: var(--bg); color: var(--text);
+    font-family: var(--font-ui);
+    background: var(--surface-canvas); color: var(--text-primary);
     height: 100vh; height: 100dvh; display: flex; flex-direction: column;
   }
   #header {
@@ -101,9 +100,9 @@
 <body>
 
 <header id="header">
-  <h1 onclick="location.href='/'" title="返回首页">🏠 ANE</h1>
-  <button class="cmd-btn" onclick="location.href='/chat'">💬 1v1 对话</button>
-  <button class="cmd-btn primary" onclick="location.href='/card-editor'">🃏 角色卡</button>
+  <h1 onclick="location.href='/'" title="返回首页"><svg class="icon" aria-hidden="true"><use href="/public/icons.svg#i-book"></use></svg>ANE</h1>
+  <button class="cmd-btn" onclick="location.href='/chat'"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-chat"></use></svg>1v1 对话</button>
+  <button class="cmd-btn primary" onclick="location.href='/card-editor'"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-card"></use></svg>角色卡</button>
   <span style="flex:1"></span>
   <button class="cmd-btn" onclick="logout()">退出</button>
 </header>
@@ -112,11 +111,11 @@
   <!-- 左栏：卡片列表 -->
   <div id="sidebar">
     <div class="sb-head">
-      <h2>🃏 我的角色卡</h2>
+      <h2>我的角色卡</h2>
       <button class="cmd-btn primary" onclick="newCard()">＋ 新建</button>
     </div>
     <div style="padding:0 14px 8px">
-      <button class="cmd-btn" onclick="showNovelModal()" style="width:100%">📖 从小说生成</button>
+      <button class="cmd-btn" onclick="showNovelModal()" style="width:100%"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-book"></use></svg>从小说生成</button>
     </div>
     <div id="card-list"></div>
   </div>
@@ -131,21 +130,21 @@
         <span class="spacer"></span>
         <span class="name-label">标签</span>
         <input type="text" class="tags-input" id="card-tags" placeholder="逗号分隔，如: 温柔,古风">
-        <button class="cmd-btn primary" onclick="saveCard()">💾 保存</button>
-        <button class="cmd-btn" onclick="deleteCard()">🗑 删除</button>
+        <button class="cmd-btn primary" onclick="saveCard()"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-check"></use></svg>保存</button>
+        <button class="cmd-btn" onclick="deleteCard()"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-trash"></use></svg>删除</button>
       </div>
       <div id="form-fields"></div>
-      <button class="cmd-btn" id="preview-toggle" onclick="togglePreview()">👁 预览</button>
+      <button class="cmd-btn" id="preview-toggle" onclick="togglePreview()"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-eye"></use></svg>预览</button>
       <div id="preview-box" style="display:none"></div>
     </div>
   </div>
 </div>
 
-<!-- 📖 从小说生成 弹窗 -->
+<!-- 从小说生成 弹窗 -->
 <div id="novel-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100;display:none;align-items:center;justify-content:center">
   <div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;width:min(560px,calc(100vw - 32px));max-height:80vh;display:flex;flex-direction:column;overflow:hidden">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)">
-      <h3 style="color:var(--accent);font-size:15px">📖 从小说生成角色卡</h3>
+      <h3 style="color:var(--accent);font-size:15px">从小说生成角色卡</h3>
       <span onclick="closeNovelModal()" style="cursor:pointer;color:var(--accent-dim);font-size:16px">✕</span>
     </div>
     <div style="padding:16px;overflow-y:auto" id="novel-body">
@@ -170,7 +169,7 @@
         <div style="font-size:13px;color:var(--accent);margin-bottom:8px">生成 <span id="novel-selected-name"></span> 的角色卡</div>
         <div class="field-row"><label>你们的关系</label><input type="text" id="novel-relation" placeholder="如: 我是他的青梅竹马（可留空）"></div>
         <div class="field-row"><label>卡片名</label><input type="text" id="novel-cardname" placeholder="默认用角色名"></div>
-        <button class="cmd-btn primary" onclick="generateFromNovel(this)" style="margin-top:10px;width:100%">⚡ 生成角色卡</button>
+        <button class="cmd-btn primary" onclick="generateFromNovel(this)" style="margin-top:10px;width:100%"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-spark"></use></svg>生成角色卡</button>
       </div>
     </div>
   </div>
@@ -205,7 +204,7 @@ function renderCardList() {
     <div class="card-item ${c.id === S.currentId ? 'active' : ''}" onclick="selectCard('${c.id}')">
       <span class="ci-del" onclick="event.stopPropagation();confirmDelete('${c.id}')">✕</span>
       <div class="ci-name">${escHtml(c.name)}</div>
-      <div class="ci-meta">${c.initial_relationship ? '💞 ' + escHtml(c.initial_relationship) : ''}${c.clinginess ? ' · 主动' + escHtml(c.clinginess) : ''}</div>
+      <div class="ci-meta">${c.initial_relationship ? '<svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-relation"></use></svg>' + escHtml(c.initial_relationship) : ''}${c.clinginess ? ' · 主动' + escHtml(c.clinginess) : ''}</div>
       ${c.tags && c.tags.length ? '<div class="ci-tags">' + c.tags.map(t => '#' + escHtml(t)).join(' ') + '</div>' : ''}
     </div>`).join('');
 }
@@ -409,7 +408,7 @@ function renderPreview() {
     if (op.follow_up) opLine += ' → ' + op.follow_up;
     lines.push('【开场白】\n' + opLine);
   }
-  box.innerHTML = '<div class="pv-title">👁 预览（进入对话的角色设定）</div>' + escHtml(lines.join('\n\n'));
+  box.innerHTML = '<div class="pv-title">预览（进入对话的角色设定）</div>' + escHtml(lines.join('\n\n'));
 }
 
 // ── 工具 ──
@@ -423,7 +422,7 @@ function deepMerge(base, over) {
   }
   return out;
 }
-// ── 📖 从小说生成 ──
+// ── 从小说生成 ──
 let novelFile = null;
 let novelDepth = '标准';
 function setDepth(d, el) {
@@ -515,7 +514,7 @@ async function generateFromNovel(btn) {
     await selectCard(d.id);
     alert('角色卡已生成，可在表单中继续细化');
   } catch(e) { alert('请求失败'); }
-  finally { btn.disabled = false; btn.textContent = '⚡ 生成角色卡'; }
+  finally { btn.disabled = false; btn.textContent = '生成角色卡'; }
 }
 
 init();

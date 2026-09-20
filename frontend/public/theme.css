@@ -1,0 +1,595 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   ANE 设计系统 ·「墨卷」 v1
+   ──────────────────────────────────────────────────────────────────────────
+   这是全站唯一的 token 与组件来源。页面自己的 <style> 只写"这个页面特有的
+   布局"，不再重复定义颜色 / 字体 / 圆角 / 间距。
+
+   ── 三条不变规则（改样式前先读）──
+   1. 不加 emoji 当图标：界面图标一律用 /public/icons.svg 的 <svg class="icon">。
+      emoji 只能作为"内容"出现（叙事正文、推荐行动文本），不能出现在按钮/标题上。
+   2. 数值只能用刻度里的：字号 12/13/15/17/21/28，间距 4/8/12/16/24/32/48，
+      圆角 input4 / button6 / card10 / modal14 / pill999。禁止 3px、5px、11px 这类临时值。
+   3. 强调色 --accent 只用于"主操作 + 选中态 + 小标记"；不要拿它当正文色或大面填充。
+      危险/警示用 --seal-danger。
+
+   ── 层次靠色调，不靠描边 ──
+   canvas(底) → raised(浮起面板) → sunken(凹陷输入)。1px 边框只在真正需要
+   分隔的地方用 --line-hairline（低对比），不要每个块都套一圈框。
+   ══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── 层次 ── */
+  --surface-canvas: #191410;
+  --surface-raised: #221C15;
+  --surface-sunken: #12100C;
+  --surface-overlay: rgba(8, 6, 4, .72);
+
+  /* ── 线 ── */
+  --line-hairline: #2C241B;
+  --line-strong: #4A3C2C;
+  /* 表单控件的可见边界：必须 ≥3:1（WCAG 1.4.11），所以比装饰性 hairline 亮 */
+  --line-field: #7A6850;
+
+  /* ── 文字（对比度均 ≥ 4.5:1 on canvas，实测值见行尾）── */
+  --text-primary: #E8DCCA;    /* 13.5:1 */
+  --text-secondary: #A6947B;  /* 6.2:1  */
+  --text-muted: #8E7E66;      /* 4.6:1  */
+
+  /* ── 强调（用途收敛）── */
+  --accent: #C9A96E;
+  --accent-hover: #DCC08A;
+  --on-accent: #1A1410;
+  --accent-wash: rgba(201, 169, 110, .10);
+
+  /* ── 语义 ── */
+  --seal-danger: #C9603F;     /* 4.6:1（原 #8b4545 只有 2.6:1）*/
+  --ok: #5E8C6A;
+
+  /* ── 气泡 ── */
+  --bubble-ai: #221C15;
+  --bubble-user: #2E2519;
+
+  /* ── 交互底色（列表/卡片 hover 用；不要拿 --input-bg 当 hover，输入框是凹陷色）── */
+  --surface-hover: rgba(255, 255, 255, .04);
+
+  /* ── 用户自定义色（🎨 弹窗写 --color-*，必须保留这些名字）── */
+  --color-ai: #E8DCCA;
+  --color-user: #F0E6D6;
+  --color-system: #A6947B;
+
+  /* ── 字体：三族分工 ── */
+  --font-prose: "Songti SC", "SimSun", "Noto Serif CJK SC", "Source Han Serif SC", serif;
+  --font-ui: "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "JetBrains Mono", "Cascadia Mono", Consolas, "Courier New", monospace;
+
+  /* ── 字阶 ── */
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-md: 15px;
+  --fs-body: 17px;
+  --fs-lg: 21px;
+  --fs-xl: 28px;
+  --lh-prose: 1.85;
+  --lh-ui: 1.4;
+  --lh-tight: 1.2;
+
+  /* ── 间距 ── */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-12: 48px;
+
+  /* ── 圆角（按角色，不随机）── */
+  --r-input: 4px;
+  --r-btn: 6px;
+  --r-card: 10px;
+  --r-modal: 14px;
+  --r-pill: 999px;
+
+  /* ── 层次（阴影）── */
+  --el-1: 0 2px 8px rgba(0, 0, 0, .35);
+  --el-2: 0 12px 32px rgba(0, 0, 0, .55);
+
+  /* ── 动效 ── */
+  --dur-fast: 120ms;
+  --dur-base: 160ms;
+  --ease: cubic-bezier(.2, .7, .3, 1);
+
+  /* ── 纸纹 ── */
+  --grain-opacity: .035;
+
+  /* ══ 兼容别名：旧页面/旧内联样式里的变量名继续可用 ══
+     迁移完成后可逐个删除，届时页面应只使用上面的角色 token。 */
+  --bg: var(--surface-canvas);
+  --panel: var(--surface-raised);
+  --input-bg: var(--surface-sunken);
+  --border: var(--line-hairline);
+  --text: var(--text-primary);
+  --accent-dim: var(--text-secondary);
+  --danger: var(--seal-danger);
+}
+
+/* ══ 基础 ═══════════════════════════════════════════════════════════════ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--surface-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-ui);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 标题用衬线：中文标题的"书卷气"来自衬线 + 负字距 + 字重对比 */
+h1, h2, h3, h4 {
+  font-family: var(--font-prose);
+  font-weight: 600;
+  line-height: var(--lh-tight);
+  letter-spacing: -.01em;
+}
+h1 { font-size: var(--fs-lg); }
+h2 { font-size: var(--fs-md); }
+h3 { font-size: var(--fs-sm); }
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-hover); }
+
+::selection { background: var(--accent-wash); color: var(--text-primary); }
+
+/* 焦点环：统一、可见、不裸删 outline */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* 滚动条统一 */
+* { scrollbar-width: thin; scrollbar-color: var(--line-hairline) transparent; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line-hairline); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--line-strong); }
+
+/* 纸纹：整页极低透明噪点，让暗色面不那么"塑料"。
+   不需要时给 <body> 加 data-no-grain，或把 --grain-opacity 设为 0。 */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: var(--grain-opacity);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23g)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+}
+body[data-no-grain]::after { display: none; }
+
+/* ══ 页面背景层：墨卷（可复用） ═════════════════════════════════════════════
+   用法：页面容器里放一个 backdrop，内容层需在它上面（见各页 <style> 里的
+        z-index 规则）：
+          <div class="ink-backdrop" aria-hidden="true">
+            <span class="ink-mist ink-mist--a"></span>
+            <span class="ink-mist ink-mist--b"></span>
+            <span class="ink-ridge"></span>
+          </div>
+   关闭：给 <body> 加 data-no-ink-bg。调强弱：--ink-bg-opacity（默认 1）。
+   性能：只有两处 transform 动画（GPU 合成），无 JS、无外部请求。 */
+
+/* 背景层钉在视口：滚动页面时天空/墨雾/远山不动（不是随内容滚动的贴图）
+   注意两点，接入新页面时要照做：
+   1) 所在页面容器要建立层叠上下文（position:relative; z-index:0），
+      页面内容再抬到 z-index:1，背景才不会压住正文；
+   2) 页面之外的固定 UI（如 #header）需要 position:relative; z-index:2 才在背景之上。 */
+.ink-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: var(--ink-bg-opacity, 1);
+}
+
+/* 天光：顶部暖光 + 一道极淡的顶亮渐层，与登录页同一光源 */
+.ink-backdrop::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(130% 82% at 50% -14%, rgba(201, 169, 110, .22), transparent 66%),
+    linear-gradient(180deg, rgba(201, 169, 110, .055), transparent 40%);
+}
+
+/* 墨雾：两团暖灰墨气缓慢漂移 + 明暗呼吸，给静止的页面"呼吸感" */
+.ink-mist {
+  position: absolute;
+  display: block;
+  border-radius: 50%;
+  will-change: transform, opacity;
+}
+.ink-mist--a {
+  width: 84vmax; height: 52vmax; left: -26vmax; top: 3vh;
+  background: radial-gradient(closest-side, rgba(201, 169, 110, .17), transparent 74%);
+  animation: ink-drift-a 44s ease-in-out infinite alternate;
+}
+.ink-mist--b {
+  width: 72vmax; height: 46vmax; right: -24vmax; top: 26vh;
+  background: radial-gradient(closest-side, rgba(166, 148, 123, .145), transparent 72%);
+  animation: ink-drift-b 56s ease-in-out infinite alternate;
+}
+
+/* 远山：两道山脊给"世界"一条地平线（空气透视：远的更淡）
+   造型注意（否则一眼假）：
+   1) 路径必须用绝对坐标并收在 x=1200 + 沿右边缘下到底，否则右边会出现"突然截断"的垂直硬边；
+   2) 峰高/峰宽/间距刻意不等，且两层的主峰错开，避免看起来像一条正弦函数。 */
+.ink-ridge {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 22vh; min-height: 150px;
+  background-repeat: no-repeat;
+  background-position: bottom center;
+  background-size: 100% 100%;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 200' preserveAspectRatio='none'%3E%3Cpath d='M0 200 L0 186 L110 152 Q170 108 232 148 L330 176 L452 138 Q520 84 588 136 L690 174 L820 146 Q876 118 934 150 L1040 178 L1140 166 L1200 172 L1200 200 Z' fill='%233A3026' opacity='.78'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 260' preserveAspectRatio='none'%3E%3Cpath d='M0 260 L0 178 L84 156 Q138 122 196 152 L268 172 L372 130 Q432 88 494 134 L578 168 L690 138 Q762 66 838 128 L930 166 L1030 146 Q1092 118 1152 150 L1200 158 L1200 260 Z' fill='%23332820' opacity='.5'/%3E%3C/svg%3E");
+}
+
+@keyframes ink-drift-a {
+  from { transform: translate3d(0, 0, 0) scale(1); opacity: .72; }
+  to   { transform: translate3d(9vmax, -5vmax, 0) scale(1.12); opacity: 1; }
+}
+@keyframes ink-drift-b {
+  from { transform: translate3d(0, 0, 0) scale(1.06); opacity: .68; }
+  to   { transform: translate3d(-8vmax, 6vmax, 0) scale(1); opacity: .95; }
+}
+
+/* ══ 天气层：雨 / 雪（三层景深，纯 CSS） ════════════════════════════════════
+   接入：在 .ink-backdrop 里放一个 <div class="weather" aria-hidden="true">，
+        状态写在 <body data-weather="rain|snow" data-weather-intensity="1|2|3">。
+   四条实现约束（依据 W3C SCR40 与 web.dev 合成器动画规范）：
+   1) 只动 transform，且每圈位移量 = 贴图周期 → 循环无缝、不触发重绘；
+   2) 每层只有 1 个元素（上千片雪花靠一张可平铺贴图），不给粒子加 will-change；
+   3) 密度/速度各用一个数：--tile（平铺尺寸兼位移量）与 --wx-duration；
+   4) 动效默认关闭，只在 prefers-reduced-motion: no-preference 下启用。 */
+
+.weather { position: absolute; inset: 0; overflow: hidden; pointer-events: none; display: none; }
+body[data-weather="rain"] .weather,
+body[data-weather="snow"] .weather { display: block; }
+body[data-weather-intensity="1"] .weather { opacity: .55; }
+body[data-weather-intensity="2"] .weather { opacity: .8; }
+body[data-weather-intensity="3"] .weather { opacity: 1; }
+
+.weather__layer {
+  position: absolute;
+  left: -35%; right: -35%;
+  /* 上下各留出一个贴图周期的余量：粒子只向下走，位移到一周期时顶边仍需盖住视口 */
+  top: calc(-1 * var(--tile) - 12px);
+  height: calc(100% + 2 * var(--tile) + 24px);
+  background-repeat: repeat;
+  background-size: var(--tile) var(--tile);
+  --tilt: rotate(0deg);
+  --tile: 240px;              /* 贴图周期 = 平铺尺寸 = 每圈位移量 */
+  --wx-duration: 10s;         /* 每圈耗时：越近越快，形成景深 */
+}
+
+/* ── 雪：暖白细点（与墨卷同色系），远/中/近三层 ── */
+body[data-weather="snow"] .weather__layer--far {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320' viewBox='0 0 320 320'%3E%3Ccircle cx='163.6' cy='169.3' r='1.03' fill='%23E8DCCA' fill-opacity='0.46'/%3E%3Ccircle cx='268.7' cy='171.8' r='0.66' fill='%23E8DCCA' fill-opacity='0.45'/%3E%3Ccircle cx='193.4' cy='144.6' r='0.94' fill='%23E8DCCA' fill-opacity='0.52'/%3E%3Ccircle cx='135.2' cy='212.8' r='1.08' fill='%23E8DCCA' fill-opacity='0.37'/%3E%3Ccircle cx='60.3' cy='90.6' r='0.88' fill='%23E8DCCA' fill-opacity='0.41'/%3E%3Ccircle cx='185.6' cy='44.5' r='1.02' fill='%23E8DCCA' fill-opacity='0.46'/%3E%3Ccircle cx='134.7' cy='266.7' r='1.16' fill='%23E8DCCA' fill-opacity='0.50'/%3E%3Ccircle cx='103.5' cy='198.2' r='0.78' fill='%23E8DCCA' fill-opacity='0.34'/%3E%3Ccircle cx='234.7' cy='308.1' r='0.81' fill='%23E8DCCA' fill-opacity='0.36'/%3E%3C/svg%3E");
+  --tile: 320px; --wx-duration: 14s;
+}
+body[data-weather="snow"] .weather__layer--mid {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'%3E%3Ccircle cx='26.3' cy='20.7' r='1.53' fill='%23E8DCCA' fill-opacity='0.47'/%3E%3Ccircle cx='79.5' cy='54.3' r='1.41' fill='%23E8DCCA' fill-opacity='0.64'/%3E%3Ccircle cx='195.0' cy='7.1' r='1.61' fill='%23E8DCCA' fill-opacity='0.44'/%3E%3Ccircle cx='24.8' cy='231.7' r='1.74' fill='%23E8DCCA' fill-opacity='0.51'/%3E%3Ccircle cx='175.5' cy='17.7' r='1.35' fill='%23E8DCCA' fill-opacity='0.56'/%3E%3Ccircle cx='231.7' cy='54.0' r='1.75' fill='%23E8DCCA' fill-opacity='0.45'/%3E%3Ccircle cx='48.9' cy='185.1' r='1.06' fill='%23E8DCCA' fill-opacity='0.58'/%3E%3C/svg%3E");
+  --tile: 240px; --wx-duration: 9s;
+}
+body[data-weather="snow"] .weather__layer--near {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'%3E%3Ccircle cx='92.8' cy='174.5' r='1.33' fill='%23E8DCCA' fill-opacity='0.72'/%3E%3Ccircle cx='38.7' cy='105.0' r='1.49' fill='%23E8DCCA' fill-opacity='0.79'/%3E%3Ccircle cx='113.6' cy='89.4' r='1.96' fill='%23E8DCCA' fill-opacity='0.73'/%3E%3Ccircle cx='42.9' cy='131.6' r='2.32' fill='%23E8DCCA' fill-opacity='0.76'/%3E%3Ccircle cx='168.4' cy='43.6' r='1.96' fill='%23E8DCCA' fill-opacity='0.72'/%3E%3C/svg%3E");
+  --tile: 180px; --wx-duration: 5s;
+}
+
+/* ── 雨：短划线贴图 + 整层倾斜。注意不能用"无限竖线"——
+      竖线沿自身方向平移看不出运动，必须用短划线 ── */
+body[data-weather="rain"] .weather__layer--far {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Crect x='64.2' y='42.9' width='0.85' height='52.4' rx='0.42' fill='%23CFE0F2' fill-opacity='0.12'/%3E%3Crect x='111.8' y='17.5' width='1.08' height='48.1' rx='0.54' fill='%23CFE0F2' fill-opacity='0.10'/%3E%3Crect x='47.2' y='57.1' width='0.95' height='53.1' rx='0.47' fill='%23CFE0F2' fill-opacity='0.12'/%3E%3Crect x='50.3' y='4.4' width='0.84' height='35.5' rx='0.42' fill='%23CFE0F2' fill-opacity='0.10'/%3E%3Crect x='9.4' y='50.9' width='1.10' height='40.5' rx='0.55' fill='%23CFE0F2' fill-opacity='0.09'/%3E%3C/svg%3E");
+  --tile: 120px; --wx-duration: .85s; --tilt: rotate(11deg);
+}
+body[data-weather="rain"] .weather__layer--mid {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Crect x='77.2' y='17.0' width='1.23' height='74.2' rx='0.61' fill='%23CFE0F2' fill-opacity='0.17'/%3E%3Crect x='98.0' y='49.3' width='1.25' height='92.6' rx='0.63' fill='%23CFE0F2' fill-opacity='0.18'/%3E%3Crect x='18.1' y='17.5' width='1.31' height='78.3' rx='0.66' fill='%23CFE0F2' fill-opacity='0.19'/%3E%3Crect x='91.1' y='22.3' width='1.63' height='74.8' rx='0.81' fill='%23CFE0F2' fill-opacity='0.17'/%3E%3C/svg%3E");
+  --tile: 160px; --wx-duration: .62s; --tilt: rotate(13deg);
+}
+body[data-weather="rain"] .weather__layer--near {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220'%3E%3Crect x='102.6' y='40.8' width='1.44' height='144.4' rx='0.72' fill='%23CFE0F2' fill-opacity='0.25'/%3E%3Crect x='164.2' y='23.4' width='1.96' height='149.2' rx='0.98' fill='%23CFE0F2' fill-opacity='0.16'/%3E%3Crect x='48.4' y='28.0' width='2.03' height='118.5' rx='1.01' fill='%23CFE0F2' fill-opacity='0.19'/%3E%3C/svg%3E");
+  --tile: 220px; --wx-duration: .48s; --tilt: rotate(15deg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* 两层都用 linear：垂直速度恒定才不会有"一顿一顿"；水平摆动靠关键帧采样正弦 */
+  body[data-weather="snow"] .weather__layer { animation: wx-snow var(--wx-duration) linear infinite; }
+  body[data-weather="rain"] .weather__layer { animation: wx-rain var(--wx-duration) linear infinite; }
+}
+
+/* 雪：下落恒速 + 左右摆动。
+   注意：不能用 ease-in-out——easing 是逐段生效的，会在每个关键帧把垂直速度归零（一顿一顿）。
+   这里把 12 段正弦采样烘焙进关键帧、整条动画 linear：每段 Y 位移严格相等 = 恒速下落，
+   而 X 按 sin 采样 = 平滑摆动；首尾 X 都是 0、Y 差一个贴图周期 → 循环无缝。 */
+@keyframes wx-snow {
+  0%     { transform: var(--tilt) translate3d(0px, calc(0 * var(--tile)), 0); }
+  8.33%  { transform: var(--tilt) translate3d(6px, calc(0.0833 * var(--tile)), 0); }
+  16.67% { transform: var(--tilt) translate3d(10.4px, calc(0.1667 * var(--tile)), 0); }
+  25%    { transform: var(--tilt) translate3d(12px, calc(0.25 * var(--tile)), 0); }
+  33.33% { transform: var(--tilt) translate3d(10.4px, calc(0.3333 * var(--tile)), 0); }
+  41.67% { transform: var(--tilt) translate3d(6px, calc(0.4167 * var(--tile)), 0); }
+  50%    { transform: var(--tilt) translate3d(0px, calc(0.5 * var(--tile)), 0); }
+  58.33% { transform: var(--tilt) translate3d(-6px, calc(0.5833 * var(--tile)), 0); }
+  66.67% { transform: var(--tilt) translate3d(-10.4px, calc(0.6667 * var(--tile)), 0); }
+  75%    { transform: var(--tilt) translate3d(-12px, calc(0.75 * var(--tile)), 0); }
+  83.33% { transform: var(--tilt) translate3d(-10.4px, calc(0.8333 * var(--tile)), 0); }
+  91.67% { transform: var(--tilt) translate3d(-6px, calc(0.9167 * var(--tile)), 0); }
+  100%   { transform: var(--tilt) translate3d(0px, calc(1 * var(--tile)), 0); }
+}
+@keyframes wx-rain {
+  from { transform: var(--tilt) translate3d(0, 0, 0); }
+  to   { transform: var(--tilt) translate3d(0, calc(1 * var(--tile)), 0); }
+}
+
+/* 系统开启"减少动态效果"时整体不显示（否则会变成一片静止斑点） */
+@media (prefers-reduced-motion: reduce) {
+  body[data-weather] .weather { display: none; }
+}
+
+body[data-no-ink-bg] .ink-backdrop { display: none; }
+
+/* ══ 按钮 ═══════════════════════════════════════════════════════════════ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  height: 34px;
+  padding: 0 var(--sp-4);
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--r-btn);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+  font-size: var(--fs-sm);
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--dur-fast) var(--ease),
+              border-color var(--dur-fast) var(--ease),
+              color var(--dur-fast) var(--ease);
+}
+.btn:hover {
+  border-color: var(--line-strong);
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, .025);
+}
+.btn:active { transform: translateY(.5px); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn:disabled:hover { background: transparent; border-color: var(--line-hairline); color: var(--text-secondary); }
+
+.btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+.btn--primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: var(--on-accent);
+}
+
+.btn--danger { color: var(--seal-danger); border-color: var(--seal-danger); }
+.btn--danger:hover { background: rgba(201, 96, 63, .12); color: var(--seal-danger); border-color: var(--seal-danger); }
+
+/* 图标按钮：默认无边框，hover 才浮出底色 */
+.btn--icon {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-color: transparent;
+}
+.btn--icon:hover { background: var(--accent-wash); color: var(--accent); border-color: transparent; }
+
+.btn--block { width: 100%; }
+.btn--lg { height: 42px; padding: 0 var(--sp-6); font-size: var(--fs-md); }
+.btn--sm { height: 28px; padding: 0 var(--sp-3); font-size: var(--fs-xs); }
+
+/* ══ 表单 ═══════════════════════════════════════════════════════════════ */
+
+.field { display: block; margin-bottom: var(--sp-4); }
+.field__label {
+  display: block;
+  margin-bottom: var(--sp-1);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  letter-spacing: .02em;
+}
+.field__hint { margin-top: var(--sp-1); color: var(--text-muted); font-size: var(--fs-xs); }
+
+.input, .textarea, .select {
+  width: 100%;
+  padding: 0 var(--sp-3);
+  height: 38px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--line-field);
+  border-radius: var(--r-input);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--fs-sm);
+  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+.textarea { height: auto; padding: var(--sp-2) var(--sp-3); line-height: var(--lh-ui); resize: vertical; }
+.input:hover, .textarea:hover, .select:hover { border-color: var(--accent); }
+/* 鼠标聚焦：边框 + 柔环；键盘聚焦：在下面补一个真正的焦点环（不裸删 outline） */
+.input:focus, .textarea:focus, .select:focus {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-wash);
+}
+.input:focus-visible, .textarea:focus-visible, .select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.input::placeholder, .textarea::placeholder { color: var(--text-muted); }
+.select { appearance: none; padding-right: var(--sp-6); cursor: pointer; }
+
+/* 图标 ═════════════════════════════════════════════════════════════════ */
+
+.icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vertical-align: -.15em;
+}
+.icon--sm { width: 16px; height: 16px; }
+.icon--lg { width: 24px; height: 24px; }
+.icon--solid { fill: currentColor; stroke: none; }
+
+/* ══ 容器与小组件 ═══════════════════════════════════════════════════════ */
+
+.panel {
+  background: var(--surface-raised);
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--r-card);
+}
+.panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--line-hairline);
+}
+.panel__body { padding: var(--sp-4); }
+
+.card {
+  background: var(--surface-raised);
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--r-card);
+  padding: var(--sp-4);
+  transition: border-color var(--dur-fast) var(--ease),
+              box-shadow var(--dur-fast) var(--ease),
+              transform var(--dur-fast) var(--ease);
+}
+.card--hover:hover { border-color: var(--line-strong); box-shadow: var(--el-1); }
+
+/* 区块标题：衬线标题 + 细线延伸到右侧（去掉"emoji + 标题"的生成式写法）*/
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin: 0 0 var(--sp-3);
+  color: var(--text-primary);
+  font-family: var(--font-prose);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  letter-spacing: -.01em;
+}
+.section-title::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line-hairline);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: 2px var(--sp-2);
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--r-pill);
+  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+}
+.chip--accent { border-color: var(--accent); color: var(--accent); }
+
+/* 分隔题：用于"系统消息/章节分隔"，替代虚线框 */
+.divider-rule {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+}
+.divider-rule::before,
+.divider-rule::after { content: ""; flex: 1; height: 1px; background: var(--line-hairline); }
+
+.empty {
+  padding: var(--sp-8) var(--sp-4);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  text-align: center;
+}
+
+.kv { display: grid; grid-template-columns: auto 1fr; gap: var(--sp-1) var(--sp-3); font-size: var(--fs-sm); }
+.kv__k { color: var(--text-muted); white-space: nowrap; }
+.kv__v { color: var(--text-primary); }
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--line-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: ane-spin .8s linear infinite;
+}
+@keyframes ane-spin { to { transform: rotate(360deg); } }
+
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ══ 工具类（少量，够用即止）═══════════════════════════════════════════ */
+
+.row { display: flex; align-items: center; gap: var(--sp-2); }
+.col { display: flex; flex-direction: column; gap: var(--sp-2); }
+.grow { flex: 1; min-width: 0; }
+.muted { color: var(--text-muted); }
+.secondary { color: var(--text-secondary); }
+.mono { font-family: var(--font-mono); }
+.prose { font-family: var(--font-prose); line-height: var(--lh-prose); }
+.nowrap { white-space: nowrap; }
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ══ 动效：一处编排 ═════════════════════════════════════════════════════ */
+
+@keyframes ane-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .reveal { animation: ane-rise .5s var(--ease) both; }
+  .reveal:nth-child(1) { animation-delay: .06s; }
+  .reveal:nth-child(2) { animation-delay: .12s; }
+  .reveal:nth-child(3) { animation-delay: .18s; }
+  .reveal:nth-child(4) { animation-delay: .24s; }
+  .reveal:nth-child(5) { animation-delay: .30s; }
+  .reveal:nth-child(6) { animation-delay: .36s; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

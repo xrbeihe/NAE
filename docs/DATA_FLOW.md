@@ -119,14 +119,15 @@
 │ 调用主 LLM 生成叙事。前端模型列表当前仅暴露 deepseek + gemini     │
 │ 重试逻辑: 3 次尝试，超时 120s（client timeout）                │
 │ 输出: raw_response string（JSON: narrative + state_changes +  │
-│                nearby_characters）                             │
+│                player_relationships + info_panel）              │
 │ Token 用量追踪: log_usage() 写内存，GET /api/usage 可查       │
 │                                                               │
-│ ★ nearby_characters 设计定位：                                 │
-│   - 是 llm_main 输出的结构化副产物（structured byproduct）        │
-│   - 作用：给前端渲染可点击的 NPC 卡片，让玩家感知场景氛围     │
-│   - 对后续 LLM（llm_summary/下一轮 llm_main）来说是可丢弃的上下文噪音    │
-│   - 因此 shortmemory 版本不包含 nearby（never 回流到 Prompt）
+│ ★ info_panel 设计定位（信息类内容的唯一去处）：                   │
+│   - 四段文本：【主角动态】/【交互人物】/【附近人物】/【推荐行动】  │
+│   - 主角面板（程序渲染的权威面板）已在 prompt 里，禁止复述        │
+│   - 落库保存并原样回喂下一轮（模型自己维护的信息栏文本）        │
+│ ★ 不再有独立的 recommendations / nearby_characters 输出字段：    │
+│   推荐行动与附近人物都写成 info_panel 的段落，前端只做纯文本渲染
 └───────────────────────────────────────────────────────────────┘
   │
   ▼
@@ -135,7 +136,8 @@
 │ 策略: json 代码块 → 平衡花括号提取 → 纯文本回退                │
 │ 验证 state_changes：类型白名单 + target 必填，无效项丢弃       │
 │ 额外: 移除非原创短语"指甲掐进掌心""指节发白""喉咙发紧"          │
-│ 输出: ParsedOutput(narrative, state_changes, nearby_characters,│
+│ 输出: ParsedOutput(narrative, state_changes,                   │
+│                    player_relationships, info_panel,           │
 │                    character_model?)                           │
 └───────────────────────────────────────────────────────────────┘
   │
@@ -356,11 +358,13 @@ for db_npc in all_db_npcs:
 10. 【纪元记录】          ← LongMemory（全部）
 11. 💾短记忆区(5轮)      ← ShortMemory
 12. Related Characters    ← 不在场的相关人物
-13. Action Suggestions    ← 推荐行动
-14. 【玩家输入】          ← 本轮输入
+13. 【玩家输入】          ← 本轮输入
 ━━━━━━━━━━━━━━━━━━━━━━━━━
-15. 【建模登场指令】      ← 仅is_modeling_turn=True时
+14. 【建模登场指令】      ← 仅is_modeling_turn=True时
 ```
+
+> 注：推荐行动不再作为独立区块注入（`PromptContext.suggestions` 从不渲染），
+> 由模型自己写在 `info_panel` 的【推荐行动】段里。
 
 ---
 
@@ -476,70 +480,95 @@ class TurnResult:
     world_time: str
     time_delta: int
     npc_updates: list[dict]
-    nearby_characters: list[dict]
-    htem_directory: str         # 已废弃（HTEM 移除），返回空字符串
+    nearby_characters: list[dict]   # 兼容字段：prompt 已不再要求，前端不再独立渲染
     is_system_command: bool
     system_response: str | None
-    compact_summary: str        # llm_summary 结构化事实提取
-    player_panel: str           # 【主角面板】字符串
+    player_panel: str           # 【主角面板】字符串（程序渲染的权威面板）
     important_npcs_panel: str   # 【重要人物】字符串
+    modeled_npcs: list[dict]
     prompt: str                 # 完整 LLM Prompt
+    recommendations: list[str]  # 兼容字段：见上，前端并入信息栏文本
+    info_panel: str             # 信息栏文本（所有信息类内容的唯一去处）
+    usage: dict | None          # llm_main 的 token/耗时，前端可视化
 ```
 
 ---
 
-## Nearby Characters 架构详解
+## 信息栏（info_panel）架构详解
 
 ### 设计定位
 
-`nearby_characters` 是 llm_main 输出的**结构化副产物 (structured byproduct)**，不是叙事正文的一部分。
+**信息类内容只有一个去处：`info_panel` 文本**。推荐行动、附近人物不再是 llm_main 的独立结构化字段，也不再有独立前端渲染——它们都是 `info_panel` 里的段落（`【主角动态】/【交互人物】/【附近人物】/【推荐行动】`）。
 
 | 角色 | 看见什么 | 用途 |
 |------|---------|------|
-| **玩家** | 可点击的 NPC 卡片（头像/身份/行为） | 感知场景氛围、选择对话目标 |
-| **当前 llm_main** | 在输出中一并生成 JSON | 被 OutputParser 分离，不进入叙事文本 |
-| **下一轮 LLM** | **看不见** | compact 版本不包含 nearby，永不回流到 Prompt |
-| **前端历史恢复** | 从 conversation 的 `【附近人物】` 前缀解析 JSON | 重新渲染 NPC 卡片 |
+| **玩家** | 聊天流里一条「信息栏」纯文本卡片（`white-space: pre-wrap`） | 一眼看完本轮所有结构化信息 |
+| **当前 llm_main** | 在 `info_panel` 字段里一并生成 | 被 OutputParser 分离，不进入叙事文本 |
+| **下一轮 LLM** | **看得见**（原样回喂，模型自己维护这段文本） | 保持信息栏连续性（如【主角动态】的状态延续） |
+| **前端历史恢复** | 读落库的 `info_panel` 文本 | 纯文本重建信息栏，无卡片 |
 
 ### 为什么这样做
 
-1. **上下文预算**：这些 NPC 是"场景装饰品"——给玩家看的氛围感，不是剧情要素。LLM 不需要记得它们。
-2. **防止垃圾膨胀**：如果每轮 3 个路人 NPC 都回流到 Prompt，100 轮后就有 300 个一次性路人数据在上下文里——全是噪音。
-3. **结构化留存**：存到 `memory_type="conversation"` 的 `【附近人物】` 前缀下（JSON 格式），前端恢复历史时重新解析渲染卡片。
+1. **一次渲染**：原先推荐行动/附近人物各自独立渲染，同一批信息在聊天流里被拆成多块、与正文交错，玩家要来回找；合并进一栏后信息聚合、位置固定。
+2. **不给模型额外负担**：独立的 `nearby_characters` 结构化字段要求模型额外产出一份 JSON 数组，却永远不回流（纯装饰）；改为写进信息栏文本，模型只维护一份人类可读的内容。
+3. **防回声**：主角面板已由程序渲染出权威版本，信息栏规则明确禁止复述（姓名/身份/能力/技能/栏目），避免每轮上下文翻倍。
 
-### 存储格式
+### 存储与回流
 
 ```python
-# memory_manager.py add_conversation_turn()
-full_content = f"【玩家】{user_input}\n【AI】{ai_response}"
-if nearby_characters:
-    import json
-    full_content += f"\n\n【附近人物】{json.dumps(nearby_characters, ensure_ascii=False)}"
+# game_engine.py：解析后
+parsed.info_panel = strip_extension_echo_sections(parsed.info_panel, player)  # 剔除扩展栏目回声
+await save_info_panel(db, session_id, parsed.info_panel)                      # 落库
+# 下一轮 Prompt：把上一轮信息栏（清洗过的版本）回喂
+prev_panel = strip_extension_echo_sections(prev_panel, player)
 ```
 
 关键细节：
-- 用 `json.dumps()` 输出标准 JSON（不是 Python `repr()`）
-- `ensure_ascii=False` 保证中文字符原文
-- 前缀 `【附近人物】` 对齐前端 `startsWith` 解析逻辑
-- 格式已改为紧凑版（多字段连续排列，不空行）
-- shortmemory 版本（llm_summary）**不包含** nearby 数据，**不包含**推荐行动
+- `info_panel` 落库前与回喂前都过 `panels.strip_extension_echo_sections()`——标题与主角面板 `_extensions` 栏目名相同的分节会被剔除
+- 短记忆（llm_summary）不包含信息栏内容
+- 信息栏规则内嵌在 System Prompt 与 NARRATIVE_KERNEL 两份提示词里（`shell+kernel` 包走 kernel 那份）
 
-### 前端恢复流程
+### 前端渲染
 
 ```javascript
-// index.html line 764
-if (line.startsWith('【附近人物】')) {
-    const nearby = JSON.parse(line.slice(6));
-    addNearbyCards(nearby);  // 重新渲染可点击卡片
+// app.html
+function _recsToText(recs) {  // 推荐行动 → 统一的【推荐行动】编号列表文本
+  if (!recs || !recs.length) return '';
+  return '【推荐行动】\n' + recs.map(function(r, i) { return (i + 1) + '. ' + r; }).join('\n');
 }
+function _withRecs(text, recs) {           // 推荐行动并入信息栏；模型已写【推荐行动】段则不追加
+  var t = text || '', r = _recsToText(recs);
+  if (!r) return t;
+  if (t.indexOf('【推荐行动】') >= 0) return t;
+  return t ? (t + '\n\n' + r) : r;
+}
+function _mergePlayerDynamic(panel, info) { // 主角面板 + info_panel 的【主角动态】段合并成一个块
+  // 面板静态行在下接动态状态行；与面板重复的行（如已含的「位置：…」）丢弃；其余段落后接
+}
+addInfoPanel(text)            // 纯文本卡片（textContent，防 XSS）；只接收 info_panel 文本
+updateInfoPanel(playerPanel)  // 把主角面板与信息栏文本合并渲染（调用 _mergePlayerDynamic）
 ```
+
+- 会话创建/切换：`addInfoPanel(_withRecs(info_panel, recommendations))` —— **一次**渲染
+- 每轮 turn：`addInfoPanel(_withRecs(td.info_panel, td.recommendations))`，随后 `updateInfoPanel(td.player_panel)`
+- 合并后的信息栏长这样：`【主角面板】`（程序权威静态信息 + 动态状态行）→ `【交互人物】` → `【附近人物】` → `【推荐行动】`
+- 输入区上方的 `#rec-area` 现在只放工具按钮（❤️/🚻/📚 等），不再承载推荐行动
 
 ### 与 state_changes 的区别
 
 | 数据 | 写入 DB | 回流到 Prompt | 用途 |
 |------|---------|--------------|------|
 | `state_changes` | 是 | 否（通过 Summary 间接） | 持久化世界状态变更 |
-| `nearby_characters` | 否（仅存 conversation 记录） | **永不回流** | 玩家端场景氛围渲染 |
+| `info_panel` | 是（会话级单份，每轮覆盖） | **是** | 玩家端信息栏 + 下一轮连续性 |
+
+### 兼容字段（保留但不再使用）
+
+| 字段 | 现状 |
+|------|------|
+| `ParsedOutput.nearby_characters` / `recommendations` | OutputParser 仍会解析（老输出/老会话不崩），但 prompt 不再要求模型产出，前端不再独立渲染 |
+| `TurnResponse.nearby_characters` / `recommendations` | 仍返回（API 兼容），前端仅把包初始推荐行动并入信息栏文本 |
+| `PromptContext.suggestions` | dataclass 字段保留，**从不渲染进 Prompt**（推荐行动由模型自己写在信息栏里） |
+| conversation 记录里的 `【附近人物】` JSON 尾 | `memory_manager` 仍会写（兼容旧数据）；前端把它当块边界跳过，防止历史里的 JSON 尾巴被渲染成正文 |
 
 ---
 

@@ -2,23 +2,16 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>世界观设计器 — AI Narrative Engine</title>
+<link rel="icon" href="/public/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/public/theme.css">
 <style>
-
-  :root {
-    --bg: #1a1410;
-    --panel: #231d16;
-    --border: #3a3026;
-    --text: #d4c8b8;
-    --accent: #c9a96e;
-    --accent-dim: #6b5a3e;
-    --input-bg: #2a2218;
-  }
+  /* 颜色 / 字体 / 圆角 / 间距 token → /public/theme.css（墨卷设计系统 v1）*/
   * { margin:0; padding:0; box-sizing:border-box; }
   body {
-    font-family: "Microsoft YaHei", "SimSun", serif;
-    background: var(--bg); color: var(--text);
+    font-family: var(--font-ui);
+    background: var(--surface-canvas); color: var(--text-primary);
     height: 100vh; height: 100dvh;
     display: flex; flex-direction: column;
   }
@@ -60,27 +53,27 @@
 <body>
 
 <div id="header">
-  <h1 onclick="location.href='/'">⚔ AI Narrative Engine</h1>
+  <h1 onclick="location.href='/'"><svg class="icon" aria-hidden="true"><use href="/public/icons.svg#i-book"></use></svg>AI Narrative Engine</h1>
   <div style="margin-left:auto;display:flex;align-items:center;gap:6px;position:relative">
-    <span style="font-size:13px;color:var(--accent-dim)">🌍 世界观设计器</span>
-    <div id="user-avatar" onclick="toggleUserMenu()" style="width:30px;height:30px;border-radius:50%;background:var(--accent);color:var(--panel);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;overflow:hidden;flex-shrink:0;border:1px solid var(--border)">🧑</div>
+    <span style="font-size:13px;color:var(--accent-dim)">世界观设计器</span>
+    <div id="user-avatar" onclick="toggleUserMenu()" style="width:30px;height:30px;border-radius:50%;background:var(--accent);color:var(--panel);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;overflow:hidden;flex-shrink:0;border:1px solid var(--border)"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-npc"></use></svg></div>
     <div id="user-menu" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:4px;min-width:140px;z-index:500;box-shadow:0 4px 12px rgba(0,0,0,0.4)">
-      <button onclick="location.href='/settings'" style="display:block;width:100%;padding:8px 12px;background:none;border:none;color:var(--text);cursor:pointer;font-size:13px;text-align:left;border-radius:4px">⚙️ 用户设置</button>
-      <button onclick="handleLogout()" style="display:block;width:100%;padding:8px 12px;background:none;border:none;color:var(--danger);cursor:pointer;font-size:13px;text-align:left;border-radius:4px">🚪 退出登录</button>
+      <button onclick="location.href='/settings'" style="display:block;width:100%;padding:8px 12px;background:none;border:none;color:var(--text);cursor:pointer;font-size:13px;text-align:left;border-radius:4px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-settings"></use></svg>用户设置</button>
+      <button onclick="handleLogout()" style="display:block;width:100%;padding:8px 12px;background:none;border:none;color:var(--danger);cursor:pointer;font-size:13px;text-align:left;border-radius:4px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-logout"></use></svg>退出登录</button>
     </div>
   </div>
 </div>
 
 <div id="settings-page">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-    <h2 style="margin:0;color:var(--accent)">🌍 便捷开发板块</h2>
+    <h2 style="margin:0;color:var(--accent)">便捷开发板块</h2>
     <button onclick="location.href='/settings'" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:6px 14px;border-radius:4px;cursor:pointer;font-size:12px">← 用户设置</button>
   </div>
   <div style="max-width:560px">
 <!-- Worldviews -->
-    <h3 style="color:var(--accent);font-size:15px;margin-bottom:12px">🌍 便捷开发板块</h3>
+    <h3 style="color:var(--accent);font-size:15px;margin-bottom:12px">便捷开发板块</h3>
     <p style="font-size:12px;color:var(--accent-dim);margin-bottom:10px">一键生成或上传安装新世界观；每个世界观可可视化编辑角色创建表单、文案、选项数据、权威设定与系统 prompt，支持开源共享。默认世界观（修仙世界）不可删除。</p>
-    <button onclick="showGenerator()" style="background:var(--accent);color:var(--panel);border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:13px;margin-bottom:12px">✨ 一键生成新世界观</button>
+    <button onclick="showGenerator()" style="background:var(--accent);color:var(--panel);border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:13px;margin-bottom:12px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-spark"></use></svg>一键生成新世界观</button>
 
     <!-- Generator form (hidden by default) -->
     <div id="generator-form" style="display:none;border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px">
@@ -113,7 +106,7 @@
       <label style="display:block;margin-bottom:2px;font-size:11px;color:var(--accent-dim)">创建按钮文案</label>
       <input type="text" id="gen-button" placeholder="踏入蒸汽城" style="width:100%;padding:8px 12px;margin-bottom:8px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px;box-sizing:border-box">
 
-      <div style="font-size:13px;color:var(--accent);margin:16px 0 8px;border-top:1px solid var(--border);padding-top:12px">🌏 世界设定（可选，越详细世界越丰富）</div>
+      <div style="font-size:13px;color:var(--accent);margin:16px 0 8px;border-top:1px solid var(--border);padding-top:12px">世界设定（可选，越详细世界越丰富）</div>
 
       <label style="display:block;margin-bottom:2px;font-size:11px;color:var(--accent-dim)">世界观详细设定（多行，将作为 System Prompt 核心世界观描述）</label>
       <textarea id="gen-world-setting" placeholder="例：一场大灾变毁灭了旧文明，仅存的人类在灰烬中重建。魔法与机械残骸并存，权力散落在几个骑士团与术士议会之间。" style="width:100%;padding:8px 12px;margin-bottom:8px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px;font-family:inherit;resize:vertical;min-height:72px;box-sizing:border-box;line-height:1.5"></textarea>
@@ -124,7 +117,7 @@
       <label style="display:block;margin-bottom:2px;font-size:11px;color:var(--accent-dim)">世界禁忌 / 规则（顿号分隔，写入叙事硬约束）</label>
       <input type="text" id="gen-taboos" placeholder="如：严禁复活亡者、古战场遗迹不得擅入" style="width:100%;padding:8px 12px;margin-bottom:8px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px;box-sizing:border-box">
 
-      <div style="font-size:13px;color:var(--accent);margin:16px 0 8px;border-top:1px solid var(--border);padding-top:12px">🎬 IP 世界观（可选，基于既有作品时勾选）</div>
+      <div style="font-size:13px;color:var(--accent);margin:16px 0 8px;border-top:1px solid var(--border);padding-top:12px">IP 世界观（可选，基于既有作品时勾选）</div>
       <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--accent-dim);margin-bottom:8px;cursor:pointer">
         <input type="checkbox" id="gen-ip-based" style="width:auto;margin:0"> 基于既有作品（如动漫/小说/游戏）—— 自动生成权威设定文件（world_facts.json），约束 LLM 遵守原作设定
       </label>
@@ -134,7 +127,7 @@
       </div>
 
 
-      <div style="font-size:13px;color:var(--accent);margin:16px 0 8px;border-top:1px solid var(--border);padding-top:12px">🧬 角色与内容（可选）</div>
+      <div style="font-size:13px;color:var(--accent);margin:16px 0 8px;border-top:1px solid var(--border);padding-top:12px">角色与内容（可选）</div>
 
       <label style="display:block;margin-bottom:2px;font-size:11px;color:var(--accent-dim)">NPC 姓氏池（顿号分隔，替换风格默认姓氏）</label>
       <input type="text" id="gen-npc-names" placeholder="如：奥列格、卡珊德拉、费恩" style="width:100%;padding:8px 12px;margin-bottom:8px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px;box-sizing:border-box">
@@ -152,7 +145,7 @@
     <div id="worldview-list" style="margin-bottom:12px"></div>
     <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
       <input type="file" id="worldview-upload-input" accept=".zip,application/zip" style="flex:1;padding:6px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px">
-      <button onclick="uploadWorldview()" style="background:var(--accent);color:var(--panel);border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:13px;white-space:nowrap">📦 上传安装</button>
+      <button onclick="uploadWorldview()" style="background:var(--accent);color:var(--panel);border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:13px;white-space:nowrap"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-upload"></use></svg>上传安装</button>
     </div>
     <div id="worldview-result" style="font-size:12px;margin-top:8px;white-space:pre-wrap;color:var(--accent-dim)"></div>
   </div>
@@ -166,7 +159,7 @@
 <div id="form-editor-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center">
   <div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;width:min(680px,94vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border)">
-      <span id="form-editor-title" style="font-size:15px;color:var(--accent)">✏️ 编辑角色创建表单</span>
+      <span id="form-editor-title" style="font-size:15px;color:var(--accent)">编辑角色创建表单</span>
       <span onclick="closeFormEditor()" style="cursor:pointer;font-size:20px;color:var(--accent-dim)">✕</span>
     </div>
     <div style="padding:6px 18px;border-bottom:1px solid var(--border);font-size:12px;color:var(--accent-dim)">调整字段顺序、控件类型、选项来源与提示小字。保存后立即生效（下次创建角色时）。字段键和存储位置可从下拉建议里选，也可手填。</div>
@@ -190,7 +183,7 @@
     </div>
     <div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
       <button onclick="closeFormEditor()" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:8px 16px;border-radius:4px;cursor:pointer;font-size:13px">取消</button>
-      <button onclick="saveFormEditor()" style="background:var(--accent);color:var(--panel);border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:13px">💾 保存</button>
+      <button onclick="saveFormEditor()" style="background:var(--accent);color:var(--panel);border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:13px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-check"></use></svg>保存</button>
     </div>
     <div id="form-editor-msg" style="padding:0 18px 10px;font-size:12px;color:var(--accent-dim);white-space:pre-wrap"></div>
   </div>
@@ -200,14 +193,14 @@
 <div id="rec-editor-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center">
   <div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;width:min(560px,94vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border)">
-      <span id="rec-editor-title" style="font-size:15px;color:var(--accent)">💬 编辑文案</span>
+      <span id="rec-editor-title" style="font-size:15px;color:var(--accent)">编辑文案</span>
       <span onclick="closeRecEditor()" style="cursor:pointer;font-size:20px;color:var(--accent-dim)">✕</span>
     </div>
     <div style="padding:6px 18px;border-bottom:1px solid var(--border);font-size:12px;color:var(--accent-dim)">这些行动在玩家创建角色后立即展示。base 与 tail 必填，其余按玩家选择拼接。</div>
     <div style="flex:1;overflow-y:auto;padding:12px 18px" id="rec-editor-body"></div>
     <div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
       <button onclick="closeRecEditor()" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:8px 16px;border-radius:4px;cursor:pointer;font-size:13px">取消</button>
-      <button onclick="saveRecEditor()" style="background:var(--accent);color:var(--panel);border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:13px">💾 保存</button>
+      <button onclick="saveRecEditor()" style="background:var(--accent);color:var(--panel);border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:13px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-check"></use></svg>保存</button>
     </div>
     <div id="rec-editor-msg" style="padding:0 18px 10px;font-size:12px;color:var(--accent-dim);white-space:pre-wrap"></div>
   </div>
@@ -217,7 +210,7 @@
 <div id="opt-editor-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center">
   <div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;width:min(720px,94vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border)">
-      <span id="opt-editor-title" style="font-size:15px;color:var(--accent)">📋 编辑选项数据</span>
+      <span id="opt-editor-title" style="font-size:15px;color:var(--accent)">编辑选项数据</span>
       <span onclick="closeOptEditor()" style="cursor:pointer;font-size:20px;color:var(--accent-dim)">✕</span>
     </div>
     <div style="padding:6px 18px;border-bottom:1px solid var(--border);font-size:12px;color:var(--accent-dim)">编辑角色创建下拉框的选项数据（职业/出身/性格/身份/特殊能力）与地图地点。保存后下次创建角色生效。</div>
@@ -225,7 +218,7 @@
     <div style="flex:1;overflow-y:auto;padding:12px 18px" id="opt-editor-body"></div>
     <div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
       <button onclick="closeOptEditor()" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:8px 16px;border-radius:4px;cursor:pointer;font-size:13px">取消</button>
-      <button onclick="saveOptEditor()" style="background:var(--accent);color:var(--panel);border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:13px">💾 保存</button>
+      <button onclick="saveOptEditor()" style="background:var(--accent);color:var(--panel);border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:13px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-check"></use></svg>保存</button>
     </div>
     <div id="opt-editor-msg" style="padding:0 18px 10px;font-size:12px;color:var(--accent-dim);white-space:pre-wrap"></div>
   </div>
@@ -235,14 +228,14 @@
 <div id="facts-editor-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center">
   <div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;width:min(640px,94vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border)">
-      <span id="facts-editor-title" style="font-size:15px;color:var(--accent)">📖 编辑权威设定（IP 世界观）</span>
+      <span id="facts-editor-title" style="font-size:15px;color:var(--accent)">编辑权威设定（IP 世界观）</span>
       <span onclick="closeFactsEditor()" style="cursor:pointer;font-size:20px;color:var(--accent-dim)">✕</span>
     </div>
     <div style="padding:6px 18px;border-bottom:1px solid var(--border);font-size:12px;color:var(--accent-dim)">基于既有作品（如火影忍者）时，用这里声明"必须遵守/禁止出现/关键角色"，每轮注入提示词并声明冲突时以此为准。控制 LLM 对原作的记忆使用。</div>
     <div style="flex:1;overflow-y:auto;padding:12px 18px" id="facts-editor-body"></div>
     <div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
       <button onclick="closeFactsEditor()" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:8px 16px;border-radius:4px;cursor:pointer;font-size:13px">取消</button>
-      <button onclick="saveFactsEditor()" style="background:var(--accent);color:var(--panel);border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:13px">💾 保存</button>
+      <button onclick="saveFactsEditor()" style="background:var(--accent);color:var(--panel);border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:13px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-check"></use></svg>保存</button>
     </div>
     <div id="facts-editor-msg" style="padding:0 18px 10px;font-size:12px;color:var(--accent-dim);white-space:pre-wrap"></div>
   </div>
@@ -252,12 +245,12 @@
 <div id="prompt-editor-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center">
   <div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;width:min(760px,94vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border)">
-      <span id="prompt-editor-title" style="font-size:15px;color:var(--accent)">📝 编辑世界观 prompt</span>
+      <span id="prompt-editor-title" style="font-size:15px;color:var(--accent)">编辑世界观 prompt</span>
       <span onclick="closePromptEditor()" style="cursor:pointer;font-size:20px;color:var(--accent-dim)">✕</span>
     </div>
     <div style="padding:6px 18px;border-bottom:1px solid var(--border);font-size:12px;color:var(--accent-dim)">这是世界观外壳 prompt（system_prompt.txt），每轮注入叙事引擎。可自由定义世界的设定、规则、NPC行为约束。保存后立即生效（清缓存）。</div>
     <div style="padding:0 18px;border-bottom:1px solid var(--border)">
-      <div id="help-panel-header" onclick="toggleHelp()" style="padding:6px 0;font-size:12px;color:var(--accent-dim);cursor:pointer;user-select:none">❓ 使用说明（点击展开）</div>
+      <div id="help-panel-header" onclick="toggleHelp()" style="padding:6px 0;font-size:12px;color:var(--accent-dim);cursor:pointer;user-select:none"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-help"></use></svg>使用说明（点击展开）</div>
       <div id="help-panel-body" style="display:none;padding-bottom:8px;font-size:12px;color:var(--text);line-height:1.7">
         <div><b style="color:var(--accent)">这是什么</b>：世界观「外壳」prompt，只写这个世界的专属内容（世界观设定、势力规则、NPC 行为、state_changes 用法），每轮自动与通用叙事内核拼接后注入 LLM。</div>
         <div><b style="color:var(--accent)">不要写</b>：通用叙事规则（禁止反问、推进感、NSFW 要求等）——内核已包含，重复只会浪费 token。</div>
@@ -271,7 +264,7 @@
     <div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;align-items:center">
       <span id="prompt-editor-chars" style="font-size:11px;color:var(--accent-dim);margin-right:auto"></span>
       <button onclick="closePromptEditor()" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:8px 16px;border-radius:4px;cursor:pointer;font-size:13px">取消</button>
-      <button onclick="savePromptEditor()" style="background:var(--accent);color:var(--panel);border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:13px">💾 保存</button>
+      <button onclick="savePromptEditor()" style="background:var(--accent);color:var(--panel);border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:13px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-check"></use></svg>保存</button>
     </div>
     <div id="prompt-editor-msg" style="padding:0 18px 10px;font-size:12px;color:var(--accent-dim);white-space:pre-wrap"></div>
   </div>
@@ -281,7 +274,7 @@
 <div id="share-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center">
   <div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;width:min(480px,94vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border)">
-      <span id="share-title" style="font-size:15px;color:var(--accent)">📤 开源共享世界观</span>
+      <span id="share-title" style="font-size:15px;color:var(--accent)">开源共享世界观</span>
       <span onclick="closeShareModal()" style="cursor:pointer;font-size:20px;color:var(--accent-dim)">✕</span>
     </div>
     <div style="padding:6px 18px;border-bottom:1px solid var(--border);font-size:12px;color:var(--accent-dim)">推送后所有用户都能在「开源世界观广场」看到、评分并一键使用这个世界观。</div>
@@ -297,7 +290,7 @@
     </div>
     <div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
       <button onclick="closeShareModal()" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:8px 16px;border-radius:4px;cursor:pointer;font-size:13px">取消</button>
-      <button onclick="submitShare()" style="background:var(--accent);color:var(--panel);border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:13px">📤 推送</button>
+      <button onclick="submitShare()" style="background:var(--accent);color:var(--panel);border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:13px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-upload"></use></svg>推送</button>
     </div>
     <div id="share-msg" style="padding:0 18px 10px;font-size:12px;color:var(--accent-dim);white-space:pre-wrap"></div>
   </div>
@@ -331,14 +324,14 @@ function _esc(s) {
   });
 }
 
-// ── 通用帮助块：折叠式 ❓ 说明（各编辑器顶部复用）──
+// ── 通用帮助块：折叠式 说明（各编辑器顶部复用）──
 var _helpVisible = false;
 function toggleHelp() {
   _helpVisible = !_helpVisible;
   var b = document.getElementById('help-panel-body');
   var h = document.getElementById('help-panel-header');
   if (b) b.style.display = _helpVisible ? 'block' : 'none';
-  if (h) h.textContent = _helpVisible ? '❓ 收起说明' : '❓ 使用说明（点击展开）';
+  if (h) h.textContent = _helpVisible ? '收起说明' : '使用说明（点击展开）';
 }
 // items: [[词条, 说明], ...]
 function _helpBlock(items) {
@@ -346,7 +339,7 @@ function _helpBlock(items) {
     return '<div style="padding:6px 10px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text);line-height:1.6"><b style="color:var(--accent)">' + it[0] + '</b>：' + it[1] + '</div>';
   }).join('');
   return '<div style="margin-bottom:10px;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:var(--input-bg)">' +
-    '<div id="help-panel-header" onclick="toggleHelp()" style="padding:7px 12px;font-size:12px;color:var(--accent-dim);cursor:pointer;user-select:none">❓ 使用说明（点击展开）</div>' +
+    '<div id="help-panel-header" onclick="toggleHelp()" style="padding:7px 12px;font-size:12px;color:var(--accent-dim);cursor:pointer;user-select:none"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-help"></use></svg>使用说明（点击展开）</div>' +
     '<div id="help-panel-body" style="display:none;border-top:1px solid var(--border)">' + rows + '</div>' +
   '</div>';
 }
@@ -383,15 +376,15 @@ async function loadWorldviewList() {
             '<div style="font-size:11px;color:var(--accent-dim);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _esc(w.description || '') + '</div>' +
           '</div>' +
           '<div style="display:flex;gap:6px;flex-shrink:0">' +
-            (canEdit ? '<button onclick="openFormEditor(\'' + _esc(w.id) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">✏️ 表单</button>' : '') +
-            (canEdit ? '<button onclick="openRecEditor(\'' + _esc(w.id) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">💬 文案</button>' : '') +
-            (canEdit ? '<button onclick="openOptEditor(\'' + _esc(w.id) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">📋 选项</button>' : '') +
-            (canEdit ? '<button onclick="openFactsEditor(\'' + _esc(w.id) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">📖 设定</button>' : '') +
-            (canEdit ? '<button onclick="openPromptEditor(\'' + _esc(w.id) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">📝 prompt</button>' : '') +
+            (canEdit ? '<button onclick="openFormEditor(\'' + _esc(w.id) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-pencil"></use></svg>表单</button>' : '') +
+            (canEdit ? '<button onclick="openRecEditor(\'' + _esc(w.id) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-chat"></use></svg>文案</button>' : '') +
+            (canEdit ? '<button onclick="openOptEditor(\'' + _esc(w.id) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-card"></use></svg>选项</button>' : '') +
+            (canEdit ? '<button onclick="openFactsEditor(\'' + _esc(w.id) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-book"></use></svg>设定</button>' : '') +
+            (canEdit ? '<button onclick="openPromptEditor(\'' + _esc(w.id) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-code"></use></svg>prompt</button>' : '') +
             (canEdit
               ? (shared
-                  ? '<button onclick="unshareWorldview(\'' + _esc(w.id) + '\', \'' + _esc(shared.title || w.name) + '\')" style="background:none;border:1px solid var(--danger,#8a3a3a);color:#b06060;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">🚫 下架</button>'
-                  : '<button onclick="openShareModal(\'' + _esc(w.id) + '\', \'' + _esc(w.name) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">📤 开源</button>')
+                  ? '<button onclick="unshareWorldview(\'' + _esc(w.id) + '\', \'' + _esc(shared.title || w.name) + '\')" style="background:none;border:1px solid var(--danger,#8a3a3a);color:#b06060;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-close"></use></svg>下架</button>'
+                  : '<button onclick="openShareModal(\'' + _esc(w.id) + '\', \'' + _esc(w.name) + '\')" style="background:var(--accent);color:var(--panel);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-upload"></use></svg>开源</button>')
               : '') +
             '<button onclick="validateWorldview(\'' + _esc(w.id) + '\')" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">校验</button>' +
             (canEdit ? '<button onclick="reloadWorldview(\'' + _esc(w.id) + '\')" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">重载</button>' : '') +
@@ -412,8 +405,8 @@ async function validateWorldview(id) {
   try {
     var r = await apiFetch('/worldviews/' + encodeURIComponent(id) + '/validate');
     var d = await r.json();
-    if (d.ok) resultEl.textContent = '✅ ' + id + ' 校验通过';
-    else resultEl.textContent = '❌ ' + id + ' 校验失败\n' + (d.errors || []).join('\n');
+    if (d.ok) resultEl.textContent = '' + id + ' 校验通过';
+    else resultEl.textContent = '' + id + ' 校验失败\n' + (d.errors || []).join('\n');
   } catch(e) {
     frontendLog('ERROR', 'Validate failed: ' + e.message);
     resultEl.textContent = '校验失败: ' + e.message;
@@ -429,7 +422,7 @@ async function reloadWorldview(id) {
     // Reset the remembered worldview selection to the reloaded pack, so the
     // next "create world" defaults to it (rather than an older remembered pick).
     try { localStorage.setItem('ane_last_worldview', id); } catch(e) {}
-    resultEl.textContent = '🔄 ' + d.reloaded + ' 已重载（下次创建会话生效，并默认选中）';
+    resultEl.textContent = '' + d.reloaded + ' 已重载（下次创建会话生效，并默认选中）';
   } catch(e) {
     frontendLog('ERROR', 'Reload failed: ' + e.message);
     resultEl.textContent = '重载失败: ' + e.message;
@@ -442,7 +435,7 @@ async function deleteWorldview(id) {
   try {
     var r = await apiFetch('/worldviews/' + encodeURIComponent(id), { method: 'DELETE' });
     var d = await r.json();
-    resultEl.textContent = '🗑 ' + d.deleted + ' 已删除';
+    resultEl.textContent = '' + d.deleted + ' 已删除';
     loadWorldviewList();
   } catch(e) {
     frontendLog('ERROR', 'Delete failed: ' + e.message);
@@ -494,7 +487,7 @@ async function submitShare() {
     });
     var d = await r.json();
     if (r.ok) {
-      msgEl.textContent = '✅ 已开源推送「' + d.title + '」！所有用户现在可以在主页面「开源世界观广场」看到它。';
+      msgEl.textContent = '已开源推送「' + d.title + '」！所有用户现在可以在主页面「开源世界观广场」看到它。';
       closeShareModal();
       loadWorldviewList();
     } else {
@@ -512,7 +505,7 @@ async function unshareWorldview(wvId, title) {
     var r = await apiFetch('/worldviews/share?worldview_id=' + encodeURIComponent(wvId), { method: 'DELETE' });
     var d = await r.json();
     if (r.ok) {
-      resultEl.textContent = '🚫 已下架「' + wvId + '」，不再公开展示。';
+      resultEl.textContent = '已下架「' + wvId + '」，不再公开展示。';
       loadWorldviewList();
     } else {
       resultEl.textContent = '下架失败: ' + (d.detail || '未知错误');
@@ -536,12 +529,12 @@ async function uploadWorldview() {
     var d = await r.json();
     if (r.ok) {
       var v = d.validation || {};
-      resultEl.textContent = '✅ ' + d.installed + ' v' + (d.manifest && d.manifest.version || '?') + ' 安装成功' +
-        (v.ok ? '' : '\n⚠ 校验警告:\n' + ((v.errors || []).concat(v.warnings || [])).join('\n'));
+      resultEl.textContent = '' + d.installed + ' v' + (d.manifest && d.manifest.version || '?') + ' 安装成功' +
+        (v.ok ? '' : '\n校验警告:\n' + ((v.errors || []).concat(v.warnings || [])).join('\n'));
       input.value = '';
       loadWorldviewList();
     } else {
-      resultEl.textContent = '❌ 上传失败: ' + (d.detail || '未知错误');
+      resultEl.textContent = '上传失败: ' + (d.detail || '未知错误');
     }
   } catch(e) {
     frontendLog('ERROR', 'Upload failed: ' + e.message);
@@ -608,7 +601,7 @@ async function generateWorldview() {
     a.download = body.id + '.zip';
     a.click();
     URL.revokeObjectURL(url);
-    resultEl.textContent = '✅ 已生成并下载 ' + body.id + '.zip\n' +
+    resultEl.textContent = '已生成并下载 ' + body.id + '.zip\n' +
       '现在选择上方「上传安装」按钮旁的 zip 文件，点「上传安装」即可使用。\n' +
       '生成后建议在「世界观列表」中点「校验」确认无误。';
   } catch(e) {
@@ -623,7 +616,7 @@ var _formEditor = { worldview: '', form: null };
 function openFormEditor(wvId) {
   _formEditor.worldview = wvId;
   _formEditor.form = null;
-  document.getElementById('form-editor-title').textContent = '✏️ 编辑角色创建表单 — ' + wvId;
+  document.getElementById('form-editor-title').textContent = '编辑角色创建表单 — ' + wvId;
   document.getElementById('form-editor-msg').textContent = '加载中…';
   document.getElementById('form-editor-overlay').style.display = 'flex';
   apiFetch('/worldviews/' + encodeURIComponent(wvId) + '/form').then(function(r) { return r.json(); }).then(function(d) {
@@ -768,7 +761,7 @@ function _ensurePoolsForForm(fields) {
         body: JSON.stringify({data: data})
       }).then(function() {
         var msgEl = document.getElementById('form-editor-msg');
-        if (msgEl) msgEl.textContent = '✅ 已把数据池带入世界观：' + created.join('、') + '（默认给示例，可在 📋 选项编辑器改成你世界的选项）';
+        if (msgEl) msgEl.textContent = '已把数据池带入世界观：' + created.join('、') + '（默认给示例，可在 选项编辑器改成你世界的选项）';
       });
     }).catch(function() {});
 }
@@ -789,11 +782,11 @@ function renderFormEditor() {
     ['显隐 visible_if', '按世界观条件决定是否显示：有宗门时 has_sects / 有特殊能力时 has_golden_fingers'],
     ['保存联动 derive / 卡片映射 option_map', '选择某选项时自动带出的其他字段（如选身份自动写身份描述、衣物）。这两个字段在编辑中保留，不会丢失'],
   ]) + '<div style="margin-bottom:10px;border:1px solid var(--border);border-radius:6px;padding:8px 10px;background:var(--input-bg)">' +
-    '<div style="font-size:12px;color:var(--accent);margin-bottom:6px">📦 一键套用常见表单（替换当前全部字段）</div>' +
+    '<div style="font-size:12px;color:var(--accent);margin-bottom:6px">一键套用常见表单（替换当前全部字段）</div>' +
     '<div style="margin-bottom:8px">' + Object.keys(_FORM_PRESETS).map(function(name) {
       return '<button onclick="applyFormPreset(\'' + name + '\')" style="background:none;border:1px solid var(--border);color:var(--accent);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;margin-right:6px">' + name + '</button>';
     }).join('') + '</div>' +
-    '<div style="font-size:12px;color:var(--accent-dim);margin-bottom:4px">🧩 常用字段（点击添加到末尾，配置自动带全）</div>' +
+    '<div style="font-size:12px;color:var(--accent-dim);margin-bottom:4px">常用字段（点击添加到末尾，配置自动带全）</div>' +
     '<div>' + Object.keys(_COMMON_FIELD_TEMPLATES).map(function(k) {
       var t = _COMMON_FIELD_TEMPLATES[k];
       var hint = t.kind + (t.options_from ? ' / 选项:' + t.options_from : '') + ' / 存:' + t.store;
@@ -818,7 +811,7 @@ function renderFormEditor() {
         '<div><label style="display:block;font-size:11px;color:var(--accent-dim)">字段键 key（必填，从建议选或手填）</label><input type="text" list="key-suggestions" data-f="key" value="' + _esc(field.key || '') + '" placeholder="如 name / age / identity" style="width:100%;padding:6px 10px;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px"></div>' +
         '<div><label style="display:block;font-size:11px;color:var(--accent-dim)">存储位置 store（保存到哪）</label><input type="text" list="store-suggestions" data-f="store" value="' + _esc(field.store || '') + '" placeholder="如 attrs.gender" style="width:100%;padding:6px 10px;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px"></div>' +
       '</div>' +
-      '<div onclick="toggleFieldAdvanced(this)" style="margin-top:6px;font-size:11px;color:var(--accent-dim);cursor:pointer;user-select:none;padding:4px 2px">⚙️ 可选增强（选项来源/解释模板/允许自定义等）</div>' +
+      '<div onclick="toggleFieldAdvanced(this)" style="margin-top:6px;font-size:11px;color:var(--accent-dim);cursor:pointer;user-select:none;padding:4px 2px">可选增强（选项来源/解释模板/允许自定义等）</div>' +
       '<div class="field-advanced" style="display:none;border-top:1px dashed var(--border);margin-top:4px;padding-top:8px">' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">' +
           '<div><label style="display:block;font-size:11px;color:var(--accent-dim)">选项来源 options_from（下拉框专用）</label><input type="text" data-f="options_from" value="' + _esc(field.options_from || '') + '" placeholder="cultivations / identities / sects" style="width:100%;padding:6px 10px;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px"></div>' +
@@ -842,7 +835,7 @@ function toggleFieldAdvanced(headerEl) {
   if (!wrap) return;
   var hidden = (wrap.style.display === 'none');
   wrap.style.display = hidden ? 'block' : 'none';
-  headerEl.textContent = hidden ? '⚙️ 收起可选增强' : '⚙️ 可选增强（选项来源/解释模板/允许自定义等）';
+  headerEl.textContent = hidden ? '收起可选增强' : '可选增强（选项来源/解释模板/允许自定义等）';
 }
 
 function _kindOptions(cur) {
@@ -899,7 +892,7 @@ function saveFormEditor() {
     body: JSON.stringify({form: f})
   }).then(function(r) { return r.json().then(function(d) { return {ok:r.ok, d:d}; }); }).then(function(res) {
     if (res.ok) {
-      msgEl.textContent = '✅ 已保存 ' + _formEditor.worldview + '（' + f.fields.length + ' 个字段）。下次创建角色生效。';
+      msgEl.textContent = '已保存 ' + _formEditor.worldview + '（' + f.fields.length + ' 个字段）。下次创建角色生效。';
       loadWorldviewList();
     } else {
       msgEl.textContent = '保存失败: ' + (res.d.detail || '未知错误');
@@ -932,14 +925,14 @@ function _cardRowContent(row) { return row.composite || row.key || ''; }
 function renderCardEditor() {
   var cc = (_recEditor.ui && _recEditor.ui.character_card) || {};
   if (!_recEditor.cardRows.length) _recEditor.cardRows = _cardRowsFromSpec(cc);
-  var title = (cc.title || '').trim() || '📋 **角色创建成功**';
+  var title = (cc.title || '').trim() || '角色创建成功';
   var html = '<div style="border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:14px;background:var(--input-bg)">' +
     '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">' +
-      '<div style="font-size:13px;color:var(--accent)">📋 角色创建成功卡片</div>' +
-      '<button onclick="syncCardFromForm()" title="把表单字段一键带成卡片行（label/key 自动映射，特殊能力自动变条件行）" style="background:none;border:1px solid var(--accent);color:var(--accent);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">🔄 从表单同步</button>' +
+      '<div style="font-size:13px;color:var(--accent)">角色创建成功卡片</div>' +
+      '<button onclick="syncCardFromForm()" title="把表单字段一键带成卡片行（label/key 自动映射，特殊能力自动变条件行）" style="background:none;border:1px solid var(--accent);color:var(--accent);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-refresh"></use></svg>从表单同步</button>' +
     '</div>' +
     '<div style="margin-bottom:8px"><label style="display:block;font-size:11px;color:var(--accent-dim);margin-bottom:2px">卡片标题</label>' +
-    '<input id="card-title-input" value="' + _esc(title) + '" placeholder="📋 **角色创建成功**" style="width:100%;padding:6px 10px;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px"></div>' +
+    '<input id="card-title-input" value="' + _esc(title) + '" placeholder="角色创建成功" style="width:100%;padding:6px 10px;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px"></div>' +
     '<div style="font-size:11px;color:var(--accent-dim);margin-bottom:6px">内容行（普通行总是显示；条件行仅在对应数据存在时显示）。内容填<u>玩家数据键</u>（name=姓名、gender=性别、identity=身份…，可从下拉建议选）或带花括号的模板（如 身份：{identity} — {identity_desc}）。衣物/位置等由剧情或状态产生的数据，未填时自动隐藏，无需作者配置。</div>';
   _recEditor.cardRows.forEach(function(row, idx) {
     html += '<div data-card-row="' + idx + '" style="border:1px solid var(--border);border-radius:4px;padding:8px 10px;margin-bottom:6px;background:var(--panel)">' +
@@ -999,7 +992,7 @@ function removeCardRow(idx) { _recEditor.cardRows.splice(idx, 1); renderRecEdito
 
 /* 收集卡片行编辑器状态 → 写回 ui.character_card（title/lines/conditional） */
 function _collectCardEditor() {
-  var title = (document.getElementById('card-title-input') || {}).value.trim() || '📋 **角色创建成功**';
+  var title = (document.getElementById('card-title-input') || {}).value.trim() || '角色创建成功';
   var lines = [], conditional = [];
   var rowEls = document.querySelectorAll('[data-card-row]');
   _recEditor.cardRows.forEach(function(row, idx) {
@@ -1045,7 +1038,7 @@ function openRecEditor(wvId) {
   _recEditor.worldview = wvId;
   _recEditor.ui = null;
   _recEditor.cardRows = [];
-  document.getElementById('rec-editor-title').textContent = '💬 编辑文案 — ' + wvId;
+  document.getElementById('rec-editor-title').textContent = '编辑文案 — ' + wvId;
   document.getElementById('rec-editor-msg').textContent = '加载中…';
   document.getElementById('rec-editor-overlay').style.display = 'flex';
   apiFetch('/worldviews/' + encodeURIComponent(wvId) + '/ui').then(function(r) { return r.json(); }).then(function(d) {
@@ -1081,7 +1074,7 @@ function renderRecEditor() {
     ['通用文案', '按钮文案、弹窗主标题、默认会话名、对玩家的称呼（如 修士/忍者/旅人）'],
     ['初始推荐行动', '新玩家开局时输入框上方的推荐栏，按分组显示：基础推荐（前3条）、选了宗门时、有特殊能力时、无特殊能力时、收尾推荐（后3条），每行一条'],
     ['角色创建成功卡片', '创建角色后聊天区显示的登记卡：标题 title + 行 lines（支持 {name} {identity} 等占位符）+ 条件项 conditional（如只有选了特殊能力才显示）'],
-    ['🔄 从表单同步', '表单（✏️）里加了新字段后，点「🔄 从表单同步」一键把字段带成卡片行——label/key 自动映射，特殊能力自动变条件行、出身自动用摘要。之后可再手动增删调整'],
+    ['从表单同步', '表单编辑器里加了新字段后，点「从表单同步」一键把字段带成卡片行——label/key 自动映射，特殊能力自动变条件行、出身自动用摘要。之后可再手动增删调整'],
     ['卡片数据键（玩家字段字典）', 'name=姓名 / gender=性别 / age=年龄 / courtesy_name=字（历史题材）/ cultivation=能力等级 / identity=身份 / identity_desc=身份描述 / personality=性格 / background_summary=出身 / golden_finger_name=特殊能力名 / clothing=衣物（由剧情或状态产生，未填自动隐藏）/ location=当前位置（由剧情移动产生，未填自动隐藏）'],
     ['保存后', '下次创建角色生效'],
   ]) + '<div style="border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:14px;background:var(--input-bg)">' +
@@ -1142,7 +1135,7 @@ function saveRecEditor() {
     body: JSON.stringify({ui: ui})
   }).then(function(r) { return r.json().then(function(d) { return {ok:r.ok, d:d}; }); }).then(function(res) {
     if (res.ok) {
-      msgEl.textContent = '✅ 已保存文案到 ' + _recEditor.worldview + '。下次创建角色生效。';
+      msgEl.textContent = '已保存文案到 ' + _recEditor.worldview + '。下次创建角色生效。';
       loadWorldviewList();
     } else {
       msgEl.textContent = '保存失败: ' + (res.d.detail || '未知错误');
@@ -1244,7 +1237,7 @@ function openOptEditor(wvId) {
   _optEditor.tab = 'cultivations';
   _optEditor.dirty = false;
   _optEditor.formSources = [];
-  document.getElementById('opt-editor-title').textContent = '📋 编辑选项数据 — ' + wvId;
+  document.getElementById('opt-editor-title').textContent = '编辑选项数据 — ' + wvId;
   document.getElementById('opt-editor-msg').textContent = '加载中…';
   document.getElementById('opt-editor-overlay').style.display = 'flex';
   _optLoadTab();
@@ -1368,7 +1361,7 @@ function renderOptBody() {
   html += '<div style="display:flex;gap:8px;margin-top:8px">' +
     '<button onclick="optAddRow()" style="flex:1;padding:6px 14px;background:none;border:1px dashed var(--border);color:var(--accent-dim);border-radius:4px;cursor:pointer;font-size:12px">＋ 添加一行</button>' +
     (tabDef.dynamic
-      ? '<button onclick="deleteOptPool()" title="删除整个数据池（表单若仍引用该键，选项编辑器会提示可重建）" style="padding:6px 14px;background:none;border:1px solid var(--danger,#8a3a3a);color:#b06060;border-radius:4px;cursor:pointer;font-size:12px">🗑 删除此数据池</button>'
+      ? '<button onclick="deleteOptPool()" title="删除整个数据池（表单若仍引用该键，选项编辑器会提示可重建）" style="padding:6px 14px;background:none;border:1px solid var(--danger,#8a3a3a);color:#b06060;border-radius:4px;cursor:pointer;font-size:12px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-trash"></use></svg>删除此数据池</button>'
       : '') +
   '</div>';
   document.getElementById('opt-editor-body').innerHTML = html;
@@ -1388,7 +1381,7 @@ function _optSourcesHtml() {
   var h = '';
   if (missing.length) {
     h += '<div style="margin-bottom:8px;border:1px solid #8a5a3a;border-radius:6px;padding:8px 10px;background:rgba(138,90,58,0.08)">' +
-      '<div style="font-size:12px;color:#b08060;margin-bottom:4px">⚠️ 表单引用了以下数据源，但包数据中不存在（下拉会是空的）——点「创建」一键建池：</div>' +
+      '<div style="font-size:12px;color:#b08060;margin-bottom:4px">表单引用了以下数据源，但包数据中不存在（下拉会是空的）——点「创建」一键建池：</div>' +
       missing.map(function(k) {
         return '<span style="display:inline-block;margin:2px;padding:2px 8px;background:var(--panel);border:1px solid var(--border);border-radius:3px;font-size:11px;color:var(--accent-dim)">' + _esc(k) + ' <button onclick="createOptPool(\'' + _esc(k) + '\')" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:11px">创建</button></span>';
       }).join('') + '</div>';
@@ -1399,7 +1392,7 @@ function _optSourcesHtml() {
   });
   if (noSource.length) {
     h += '<div style="margin-bottom:8px;border:1px solid #8a5a3a;border-radius:6px;padding:8px 10px;background:rgba(138,90,58,0.08)">' +
-      '<div style="font-size:12px;color:#b08060;margin-bottom:4px">⚠️ 表单以下字段是下拉框/卡片但未填「选项来源 options_from」（下拉会是空的）——请到 ✏️ 表单编辑器展开该字段的配置，在「选项来源」里填数据源键名：</div>' +
+      '<div style="font-size:12px;color:#b08060;margin-bottom:4px">表单以下字段是下拉框/卡片但未填「选项来源 options_from」（下拉会是空的）——请到 表单编辑器展开该字段的配置，在「选项来源」里填数据源键名：</div>' +
       noSource.map(function(f) {
         return '<span style="display:inline-block;margin:2px;padding:2px 8px;background:var(--panel);border:1px solid var(--border);border-radius:3px;font-size:11px;color:var(--accent-dim)">' + _esc(f.label || f.key) + '（' + _esc(f.key) + '）</span>';
       }).join('') + '</div>';
@@ -1419,7 +1412,7 @@ function _optSaveWholeData(msg) {
     body: JSON.stringify({data: data})
   }).then(function(r) { return r.json(); }).then(function(d) {
     if (d.detail) { msgEl.textContent = '保存失败: ' + d.detail; return; }
-    msgEl.textContent = msg || '✅ 已保存';
+    msgEl.textContent = msg || '已保存';
     _optLoadTab();
   }).catch(function(e) { msgEl.textContent = '保存失败: ' + e.message; });
 }
@@ -1437,7 +1430,7 @@ function createOptPool(key) {
   });
   data[key] = defaults ? JSON.parse(JSON.stringify(defaults)) : [];
   _optEditor.playerData = data;
-  _optSaveWholeData('✅ 已把数据池「' + key + '」带入世界观（预填示例，可改为你世界的选项）');
+  _optSaveWholeData('已把数据池「' + key + '」带入世界观（预填示例，可改为你世界的选项）');
 }
 
 function createOptPoolFromInput() {
@@ -1462,7 +1455,7 @@ function deleteOptPool() {
     body: JSON.stringify({data: data})
   }).then(function(r) { return r.json(); }).then(function(d) {
     if (d.detail) { msgEl.textContent = '删除失败: ' + d.detail; return; }
-    msgEl.textContent = '✅ 已删除数据池「' + key + '」';
+    msgEl.textContent = '已删除数据池「' + key + '」';
     _optLoadTab();
   }).catch(function(e) { msgEl.textContent = '删除失败: ' + e.message; });
 }
@@ -1577,7 +1570,7 @@ function saveOptEditor() {
   }).then(function(r) { return r.json().then(function(d) { return {ok:r.ok, d:d}; }); }).then(function(res) {
     if (res.ok) {
       _optEditor.dirty = false;
-      msgEl.textContent = '✅ 已保存 ' + _optEditor.file + '。下次创建角色生效。';
+      msgEl.textContent = '已保存 ' + _optEditor.file + '。下次创建角色生效。';
     } else {
       msgEl.textContent = '保存失败: ' + (res.d.detail || '未知错误');
     }
@@ -1592,7 +1585,7 @@ var _factsEditor = { worldview: '', facts: null };
 function openFactsEditor(wvId) {
   _factsEditor.worldview = wvId;
   _factsEditor.facts = null;
-  document.getElementById('facts-editor-title').textContent = '📖 编辑权威设定 — ' + wvId;
+  document.getElementById('facts-editor-title').textContent = '编辑权威设定 — ' + wvId;
   document.getElementById('facts-editor-msg').textContent = '加载中…';
   document.getElementById('facts-editor-overlay').style.display = 'flex';
   apiFetch('/worldviews/' + encodeURIComponent(wvId) + '/data/world_facts.json').then(function(r) { return r.json(); }).then(function(d) {
@@ -1621,13 +1614,13 @@ function renderFactsEditor() {
     ['这是什么', 'IP 世界观（基于既有作品，如火影/海贼）的「权威设定」文件 world_facts.json，每轮叙事都注入给 LLM，冲突时以此为准'],
     ['知识使用模式', '包内设定 + 常识补全（推荐）：LLM 以本文件为最高权威，未提及细节可用对原作的了解补全；仅包内设定=严格禁预训练知识；基于原作自由发挥=依赖 LLM 记忆'],
     ['必须遵守 / 禁止出现', '每行一条硬性约束，如「故事开始于中忍考试之前」「不得出现第四次忍界大战」'],
-    ['📜 世界观历史与详细介绍', '完整历史/关键事件/人物发展。建议每段一行、空行分段，LLM 每轮阅读，写得越清楚人设越稳'],
+    ['世界观历史与详细介绍', '完整历史/关键事件/人物发展。建议每段一行、空行分段，LLM 每轮阅读，写得越清楚人设越稳'],
     ['关键角色', '每行「名字｜设定」，声明必须还原的角色人设，防止 LLM 演崩角色'],
     ['时间线', '玩家创建会话时可选起始节点（id/label/描述/必须遵守/禁止出现/关键角色），覆盖该时间线的世界状态'],
   ]) + '<div style="margin-bottom:10px;border:1px solid var(--border);border-radius:6px;padding:8px 10px;background:var(--input-bg)">' +
-    '<div style="font-size:12px;color:var(--accent);margin-bottom:4px">✨ AI 生成世界观内容（IP 包一键填充）</div>' +
+    '<div style="font-size:12px;color:var(--accent);margin-bottom:4px">AI 生成世界观内容（IP 包一键填充）</div>' +
     '<div style="font-size:11px;color:var(--accent-dim);margin-bottom:6px">基于作品自动生成「关键角色 / 世界历史 / 时间线」，合并写入当前包（会覆盖这三部分已有内容，保留知识模式与约束）。</div>' +
-    '<button onclick="generateFactsAI()" style="background:var(--accent);color:var(--panel);border:none;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:12px">✨ 生成内容</button>' +
+    '<button onclick="generateFactsAI()" style="background:var(--accent);color:var(--panel);border:none;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:12px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-spark"></use></svg>生成内容</button>' +
     '<span id="facts-ai-msg" style="font-size:11px;color:var(--accent-dim);margin-left:8px"></span>' +
   '</div>' +
   '<div style="margin-bottom:12px"><label style="display:block;font-size:12px;color:var(--accent-dim);margin-bottom:4px">知识使用模式</label>' +
@@ -1638,7 +1631,7 @@ function renderFactsEditor() {
     '</select></div>';
   html += _factsTextarea('must_follow', '必须遵守（每行一条，如：故事开始于中忍考试之前）', f.must_follow, '例：故事开始于中忍考试之前');
   html += _factsTextarea('forbidden', '禁止出现（每行一条，如：不得让佐助提前叛逃）', f.forbidden, '例：不得出现佩恩与晓组织主线剧情');
-  html += '<div style="margin-bottom:12px"><label style="display:block;font-size:12px;color:var(--accent-dim);margin-bottom:4px">📜 世界观历史与详细介绍（每段一行，空行分段。写入完整历史/关键事件/人物发展，每轮叙事注入给 LLM） <span id="facts-lore-count" style="color:var(--accent-dim);font-size:11px"></span></label>' +
+  html += '<div style="margin-bottom:12px"><label style="display:block;font-size:12px;color:var(--accent-dim);margin-bottom:4px">世界观历史与详细介绍（每段一行，空行分段。写入完整历史/关键事件/人物发展，每轮叙事注入给 LLM） <span id="facts-lore-count" style="color:var(--accent-dim);font-size:11px"></span></label>' +
     '<textarea id="facts-lore" oninput="updateFactsLoreCount()" style="width:100%;padding:8px 12px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px;font-family:inherit;resize:vertical;min-height:150px;box-sizing:border-box;line-height:1.6">' +
     _esc(f.lore || '') + '</textarea></div>';
   html += '<div style="margin-bottom:12px"><label style="display:block;font-size:12px;color:var(--accent-dim);margin-bottom:4px">关键角色（每行：名字｜设定）</label>' +
@@ -1658,19 +1651,19 @@ function updateFactsLoreCount() {
   if (el && c) c.textContent = el.value.length + ' 字（建议每段一行、空行分段）';
 }
 
-// ✨ AI 生成 world_facts 内容（IP 包一键填充角色/历史/时间线）
+// AI 生成 world_facts 内容（IP 包一键填充角色/历史/时间线）
 function generateFactsAI() {
   var msgEl = document.getElementById('facts-ai-msg');
   if (!msgEl) return;
-  msgEl.textContent = '⏳ 生成中（约 10-30 秒）…';
+  msgEl.textContent = '生成中（约 10-30 秒）…';
   apiFetch('/worldviews/' + encodeURIComponent(_factsEditor.worldview) + '/generate-facts', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({}),
   }).then(function(r) { return r.json().then(function(d) { return {ok: r.ok, d: d}; }); })
   .then(function(res) {
-    if (!res.ok) { msgEl.textContent = '❌ 失败: ' + (res.d.detail || '未知错误'); return; }
-    msgEl.textContent = '✅ 已生成：关键角色 ' + res.d.characters + ' 个 ｜ 历史 ' + res.d.lore_chars + ' 字 ｜ 时间线 ' + res.d.timelines + ' 条';
+    if (!res.ok) { msgEl.textContent = '失败: ' + (res.d.detail || '未知错误'); return; }
+    msgEl.textContent = '已生成：关键角色 ' + res.d.characters + ' 个 ｜ 历史 ' + res.d.lore_chars + ' 字 ｜ 时间线 ' + res.d.timelines + ' 条';
     // 重新加载编辑器内容
     apiFetch('/worldviews/' + encodeURIComponent(_factsEditor.worldview) + '/data/world_facts.json')
       .then(function(r) { return r.json(); })
@@ -1680,7 +1673,7 @@ function generateFactsAI() {
         _factsEditor.facts = f;
         renderFactsEditor();
       }).catch(function() {});
-  }).catch(function(e) { msgEl.textContent = '❌ 失败: ' + e.message; });
+  }).catch(function(e) { msgEl.textContent = '失败: ' + e.message; });
 }
 
 /* ── 时间线编辑器（world_facts.json 的 timelines）── */
@@ -1715,7 +1708,7 @@ function _timelineListField(idx, key, label, arr) {
 
 function renderTimelinesEditor(timelines) {
   var html = '<div style="border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:14px;background:var(--input-bg)">' +
-    '<div style="font-size:13px;color:var(--accent);margin-bottom:4px">⏳ 起始时间线</div>' +
+    '<div style="font-size:13px;color:var(--accent);margin-bottom:4px">起始时间线</div>' +
     '<div style="font-size:11px;color:var(--accent-dim);margin-bottom:10px">玩家创建会话时可选择的起始时间线节点。每条含 id/label/描述/必须遵守/禁止出现/关键角色，覆盖该时间线的世界状态。</div>';
   if (!timelines.length) {
     html += '<div style="font-size:12px;color:var(--accent-dim);margin-bottom:8px">（暂无时间线 —— 不设置则所有会话从默认时间开始）</div>';
@@ -1834,7 +1827,7 @@ function saveFactsEditor() {
     body: JSON.stringify({data: f})
   }).then(function(r) { return r.json().then(function(d) { return {ok:r.ok, d:d}; }); }).then(function(res) {
     if (res.ok) {
-      msgEl.textContent = '✅ 已保存权威设定到 ' + _factsEditor.worldview + '。每轮叙事将遵守这些设定。';
+      msgEl.textContent = '已保存权威设定到 ' + _factsEditor.worldview + '。每轮叙事将遵守这些设定。';
     } else {
       msgEl.textContent = '保存失败: ' + (res.d.detail || '未知错误');
     }
@@ -1847,7 +1840,7 @@ function saveFactsEditor() {
 var _promptEditor = { worldview: '' };
 function openPromptEditor(wvId) {
   _promptEditor.worldview = wvId;
-  document.getElementById('prompt-editor-title').textContent = '📝 编辑世界观 prompt — ' + wvId;
+  document.getElementById('prompt-editor-title').textContent = '编辑世界观 prompt — ' + wvId;
   var overlay = document.getElementById('prompt-editor-overlay');
   var textEl = document.getElementById('prompt-editor-text');
   var msgEl = document.getElementById('prompt-editor-msg');
@@ -1889,7 +1882,7 @@ function savePromptEditor() {
     body: JSON.stringify({prompt: prompt})
   }).then(function(r) { return r.json().then(function(d) { return {ok:r.ok, d:d}; }); }).then(function(res) {
     if (res.ok) {
-      msgEl.textContent = '✅ 已保存世界观 prompt（' + res.d.chars + ' 字符），立即生效。';
+      msgEl.textContent = '已保存世界观 prompt（' + res.d.chars + ' 字符），立即生效。';
     } else {
       msgEl.textContent = '保存失败: ' + (res.d.detail || '未知错误');
     }

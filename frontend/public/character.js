@@ -190,7 +190,7 @@ function renderFormFields() {
     html += '<label style="' + _labelStyle + '">' + _escH(label) + '</label>';
 
     if (f.kind === 'text') {
-      var randomBtn = f.random_button ? '<button onclick="randomName()" title="随机生成姓名" style="padding:8px 14px;background:var(--accent);color:#1a1410;border:none;border-radius:4px;cursor:pointer;font-size:16px;white-space:nowrap">🎲</button>' : '';
+      var randomBtn = f.random_button ? '<button onclick="randomName()" title="随机生成姓名" aria-label="随机生成姓名" style="padding:8px 14px;background:var(--accent);color:#1a1410;border:none;border-radius:4px;cursor:pointer;display:inline-flex;align-items:center;white-space:nowrap"><svg class="icon" aria-hidden="true"><use href="/public/icons.svg#i-spark"></use></svg></button>' : '';
       html += '<div style="display:flex;gap:6px">' +
         '<input type="text" id="field-' + key + '" data-key="' + key + '" placeholder="' + _escH(f.placeholder || '') + '" value="' + _escH(f.default != null ? f.default : '') + '" maxlength="' + (f.maxlength || 20) + '" style="' + _inputStyle + ';flex:1">' +
         randomBtn + '</div>';
@@ -250,7 +250,7 @@ function renderLegacyFields() {
   if (!container) return;
   container.innerHTML =
     '<label style="' + _labelStyle + '">姓名</label>' +
-    '<div style="display:flex;gap:6px"><input type="text" id="char-name" placeholder="输入你的道号或姓名" value="张二狗" maxlength="20" style="' + _inputStyle + ';flex:1"><button onclick="randomName()" title="随机生成姓名" style="padding:8px 14px;background:var(--accent);color:#1a1410;border:none;border-radius:4px;cursor:pointer;font-size:16px;white-space:nowrap">🎲</button></div>' +
+    '<div style="display:flex;gap:6px"><input type="text" id="char-name" placeholder="输入你的道号或姓名" value="张二狗" maxlength="20" style="' + _inputStyle + ';flex:1"><button onclick="randomName()" title="随机生成姓名" aria-label="随机生成姓名" style="padding:8px 14px;background:var(--accent);color:#1a1410;border:none;border-radius:4px;cursor:pointer;display:inline-flex;align-items:center;white-space:nowrap"><svg class="icon" aria-hidden="true"><use href="/public/icons.svg#i-spark"></use></svg></button></div>' +
     '<label style="' + _labelStyle + '">年龄</label><input type="number" id="char-age" value="19" min="12" max="999" style="' + _inputStyle + '">' +
     '<label style="' + _labelStyle + '">性别</label><select id="char-gender" style="' + _inputStyle + '"></select>' +
     '<label style="' + _labelStyle + '">出身背景</label><select id="char-background" style="' + _inputStyle + '"></select><div class="hint" id="char-background-hint" style="' + _hintStyle + '"></div>' +
@@ -261,7 +261,7 @@ function renderLegacyFields() {
     '<div id="identity-custom-wrap" style="display:none;margin-top:6px"><label style="' + _labelStyle + '">自定义身份描述</label><textarea id="identity-custom" placeholder="描述你的身份背景…" maxlength="300" style="width:100%;padding:8px 12px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px;font-family:inherit;resize:vertical;min-height:60px;box-sizing:border-box"></textarea></div>' +
     '<div id="sect-row"><label style="' + _labelStyle + '">' + _wvLabel('sect','宗门') + '</label><select id="char-sect" style="' + _inputStyle + '"><option value="">无宗门（散修）</option></select><div class="hint" style="' + _hintStyle + '">选择你的初始宗门，系统会自动分配一个对应城市</div></div>' +
     '<hr style="border:none;border-top:1px solid var(--border);margin:16px 0">' +
-    '<div id="gf-section"><label style="color:var(--accent);font-size:14px;margin-top:0">✨ 金手指 — 你的天命所在</label>' +
+    '<div id="gf-section"><label style="color:var(--accent);font-size:14px;margin-top:0">金手指 — 你的天命所在</label>' +
     '<div id="gf-grid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px"></div>' +
     '<div id="gf-custom-wrap" style="display:none;margin-top:10px"><label style="' + _labelStyle + '">自定义描写</label><textarea id="gf-custom" placeholder="详细描写你的金手指…" maxlength="500" style="width:100%;padding:10px 14px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px;font-family:inherit;resize:vertical;min-height:80px;box-sizing:border-box"></textarea></div></div>';
   bindLegacyFieldEvents();

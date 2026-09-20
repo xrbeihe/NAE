@@ -38,6 +38,9 @@ user_logs/
 debug_*.txt
 nul
 
+# Local agent backups / probe scripts (never for repo)
+.backups/
+
 # OS
 Thumbs.db
 .DS_Store

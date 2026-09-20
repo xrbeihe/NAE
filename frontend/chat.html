@@ -2,18 +2,16 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>1v1 陪伴对话</title>
+<link rel="icon" href="/public/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/public/theme.css">
 <style>
-  :root {
-    --bg: #1a1410; --panel: #231d16; --border: #3a3026; --text: #d4c8b8;
-    --accent: #c9a96e; --accent-dim: #6b5a3e; --danger: #8b4545; --input-bg: #2a2218;
-    --color-ai: #d4c8b8; --color-user: #e8dcc8;
-  }
+  /* 颜色 / 字体 / 圆角 / 间距 token → /public/theme.css（墨卷设计系统 v1）*/
   * { margin:0; padding:0; box-sizing:border-box; }
   body {
-    font-family: "Microsoft YaHei", "SimSun", serif;
-    background: var(--bg); color: var(--text);
+    font-family: var(--font-ui);
+    background: var(--surface-canvas); color: var(--text-primary);
     height: 100vh; height: 100dvh;
     display: flex; flex-direction: column;
   }
@@ -64,7 +62,7 @@
   .msg-wrapper { display: flex; flex-direction: row; align-items: flex-start; gap: 8px; max-width: 100%; }
   .msg-wrapper.user { flex-direction: row-reverse; margin-left: auto; }
   .msg-wrapper .msg { max-width: 85%; padding: 8px 12px; border-radius: 6px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; }
-  .msg-wrapper.user .msg { background: var(--accent-dim); color: var(--color-user); }
+  .msg-wrapper.user .msg { background: var(--bubble-user); color: var(--color-user); }
   .msg-wrapper.ai .msg { background: var(--panel); border: 1px solid var(--border); color: var(--color-ai); }
   .msg-avatar { width: 30px; height: 30px; border-radius: 50%; overflow: hidden; flex-shrink: 0; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 14px; background: var(--panel); color: var(--accent-dim); }
   .msg-emotion { font-size: 10px; color: var(--accent-dim); margin-top: 2px; }
@@ -197,13 +195,13 @@
 <body>
 
 <header id="header">
-  <h1 onclick="location.href='/'" title="返回首页">🏠</h1>
+  <h1 onclick="location.href='/'" title="返回首页"><svg class="icon" aria-hidden="true"><use href="/public/icons.svg#i-book"></use></svg></h1>
   <span id="session-name"></span>
-  <button class="cmd-btn" onclick="showHome()">💬 会话</button>
-  <button class="cmd-btn" onclick="location.href='/card-editor'">🃏 角色卡</button>
-  <button class="cmd-btn" id="mem-btn" onclick="showMemories()" style="display:none;">💭 TA记得</button>
-  <button class="cmd-btn" id="nudge-btn" onclick="showNudgeSettings()" style="display:none;">⚙️ 主动</button>
-  <button class="cmd-btn" id="me-btn" onclick="showMeAvatar()" style="display:none;" title="设置你的头像">🧑 我</button>
+  <button class="cmd-btn" onclick="showHome()"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-chat"></use></svg>会话</button>
+  <button class="cmd-btn" onclick="location.href='/card-editor'"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-card"></use></svg>角色卡</button>
+  <button class="cmd-btn" id="mem-btn" onclick="showMemories()" style="display:none;"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-history"></use></svg>TA记得</button>
+  <button class="cmd-btn" id="nudge-btn" onclick="showNudgeSettings()" style="display:none;"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-clock"></use></svg>主动</button>
+  <button class="cmd-btn" id="me-btn" onclick="showMeAvatar()" style="display:none;" title="设置你的头像"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-npc"></use></svg>我</button>
   <button class="cmd-btn" onclick="logout()">退出</button>
 </header>
 
@@ -211,10 +209,10 @@
 <div id="home-page">
   <h2>选择一个角色开始对话</h2>
 
-  <h3>✨ 我的角色卡</h3>
+  <h3>我的角色卡</h3>
   <div id="char-grid" class="char-grid"></div>
 
-  <h3>📁 历史对话</h3>
+  <h3>历史对话</h3>
   <div id="sess-list" class="sess-list"></div>
 </div>
 
@@ -231,7 +229,7 @@
 <div id="mem-modal">
   <div class="modal-box">
     <div class="modal-head">
-      <h3>💭 TA 记得的事</h3>
+      <h3>TA 记得的事</h3>
       <span class="modal-close" onclick="closeMemories()">✕</span>
     </div>
     <div class="modal-body" id="mem-body"></div>
@@ -243,7 +241,7 @@
 <div id="me-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:100;display:none;align-items:center;justify-content:center" onclick="if(event.target===this)closeMeAvatar()">
   <div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;width:min(520px,calc(100vw - 32px));display:flex;flex-direction:column;overflow:hidden;max-height:85vh">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)">
-      <h3 style="color:var(--accent);font-size:15px">🧑 我的头像</h3>
+      <h3 style="color:var(--accent);font-size:15px">我的头像</h3>
       <span onclick="closeMeAvatar()" style="cursor:pointer;color:var(--accent-dim);font-size:16px">✕</span>
     </div>
     <div style="padding:12px 16px;flex:1;overflow-y:auto">
@@ -272,7 +270,7 @@
 <div id="nudge-modal">
   <div class="modal-box">
     <div class="modal-head">
-      <h3>⚙️ TA 多主动找你</h3>
+      <h3>TA 多主动找你</h3>
       <span class="modal-close" onclick="closeNudgeSettings()">✕</span>
     </div>
     <div class="modal-body" id="nudge-body"></div>
@@ -540,10 +538,10 @@ async function loadHome() {
     (cs.characters || []).forEach(c => {
       const isCard = c.source === 'card';
       const meta = [c.basic.gender, c.basic.identity, c.basic.cultivation].filter(Boolean).join(' · ');
-      const relBadge = c.initial_relationship ? `<div class="cmeta" style="color:var(--accent)">💞 ${escHtml(c.initial_relationship)}${c.clinginess ? ' · 主动' + escHtml(c.clinginess) : ''}</div>` : '';
+      const relBadge = c.initial_relationship ? `<div class="cmeta" style="color:var(--accent)"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-relation"></use></svg>${escHtml(c.initial_relationship)}${c.clinginess ? ' · 主动' + escHtml(c.clinginess) : ''}</div>` : '';
       const el = document.createElement('div');
       el.className = 'char-card';
-      el.innerHTML = `<div class="cname">${isCard ? '🃏 ' : ''}${escHtml(c.name)}</div><div class="cmeta">${escHtml(meta || '—')}</div>${relBadge}`;
+      el.innerHTML = `<div class="cname">${isCard ? '<svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-card"></use></svg> ' : ''}${escHtml(c.name)}</div><div class="cmeta">${escHtml(meta || '—')}</div>${relBadge}`;
       el.onclick = () => startChat(c.id, c.name, isCard);
       grid.appendChild(el);
     });

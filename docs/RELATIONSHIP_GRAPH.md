@@ -94,7 +94,7 @@ GET /api/sessions/{session_id}/relationship-graph
 
 ### UI
 
-推荐行动栏右侧 🚻 按钮，点击弹出关系网面板：
+输入区上方工具栏（`#rec-area`）的 🚻 按钮，点击弹出关系网面板：
 
 - 按 source 姓名分组
 - 亲和度颜色编码：绿色 >= 50，黄色 >= 0，红色 < 0

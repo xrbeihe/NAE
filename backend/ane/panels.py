@@ -8,6 +8,7 @@ byte-for-byte; other worldviews define their own field lists.
 """
 
 from dataclasses import dataclass
+import re
 
 
 @dataclass
@@ -47,6 +48,45 @@ def _render_extensions(player) -> str | None:
         else:
             parts.append(f"{ek}→{ev}")
     return " / ".join(parts) if parts else None
+
+
+_HEADING_RE = re.compile(r"^\s*【(.+?)】\s*$")
+
+
+def strip_extension_echo_sections(text: str, player) -> str:
+    """删掉 info_panel 里"照抄主角面板扩展项"的分节。
+
+    权威主角面板已经用「扩展：」列出全部 `_extensions` 栏目（如「技能栏·粘遁」）。
+    但 LLM 经常把这些栏目再抄成一个 `【栏目名】` 分节；而上一轮 info_panel 是
+    每轮原样回喂的，于是这份回声会被固化下来、逐轮累积（提示词膨胀，正文也跟着
+    复述同一批设定）。这里按"分节标题 == 扩展栏目名"**精确匹配**删除该分节：
+    从标题行删到**空行**（或下一个标题行）为止——只删连续块，不碰后面的
+    主角动态状态行/交互人物行，避免误删。
+    """
+    if not text:
+        return text
+    attrs = dict(player.attributes or {}) if player is not None and isinstance(player.attributes, dict) else {}
+    exts = attrs.get("_extensions", {})
+    if not isinstance(exts, dict) or not exts:
+        return text
+    keys = {str(k).strip() for k in exts if k}
+    if not keys:
+        return text
+
+    kept: list[str] = []
+    dropping = False
+    for line in text.splitlines():
+        m = _HEADING_RE.match(line)
+        if m:
+            dropping = m.group(1).strip() in keys
+            if dropping:
+                continue
+        if dropping:
+            if not line.strip():      # 空行 = 该分节结束，其余内容照常保留
+                dropping = False
+            continue
+        kept.append(line)
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip()
 
 
 def render_player_panel(player, panel_spec: dict) -> str:

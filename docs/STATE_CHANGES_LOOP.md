@@ -31,8 +31,11 @@
 玩家/LLM 可以自由定义跟踪栏目（灵兽、任务进度、签到等），无需改代码：
 
 - **写**：`status_change {target:"player", field:"_extensions", value:'{"栏目":"值"}'}`
-- **读（Prompt）**：`extension: 栏目→值 / 栏目2→值2`
-- **读（面板）**：`扩展：栏目→值 / 栏目2→值2`
+- **读（唯一渲染路径）**：主角面板 `扩展：栏目→值 / 栏目2→值2`（`panels.py::_render_extensions`）
+  - **原则：同一份栏目只渲染一次。** 此前 `prompt_builder.py` 还会另出一行 `extension: …`，
+    同一 prompt 里出现两遍（token 翻倍），并诱使 LLM 在自己的 info_panel 里再复述一遍 → 已移除该渲染
+  - **防回声**：`panels.py::strip_extension_echo_sections()` 在"存库前"与"回喂前"删掉
+    info_panel 里标题 == 扩展栏目名的分节（删到空行为止，不触碰主角动态状态行/交互人物行）
 - 子 dict 自动展平：`签到系统→已签到天数:3 | 连续签到:3`
 
 ### 3. 玩家面板精简（`game_engine.py:684-747`）

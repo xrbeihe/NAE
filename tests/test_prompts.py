@@ -416,6 +416,99 @@ async def test_info_panel_persistence_across_turns(db, client_a, mock_llm):
     assert "明日交任务" in stored2
 
 
+# ── info_panel 去回声：扩展栏目只保留主角面板一条渲染路径 ──────────────
+
+def test_strip_extension_echo_sections_unit():
+    """分节标题 == 扩展栏目名 → 删掉该分节（标题+正文）；其余内容原样保留。"""
+    from ane.panels import strip_extension_echo_sections
+
+    class _P:
+        attributes = {"_extensions": {"技能栏·粘遁": "粘液墙：防御型忍术"}}
+
+    text = (
+        "【技能栏·粘遁】\n"
+        "粘液墙：防御型忍术\n"
+        "粘液分身：制造粘液构成的分身\n"
+        "\n"
+        "北荷茶光：查克拉严重消耗（约两成），精神平稳\n"
+        "\n"
+        "【交互人物】\n"
+        "白｜原雾隐叛忍属下｜温柔忠诚"
+    )
+    out = strip_extension_echo_sections(text, _P())
+    assert "技能栏·粘遁" not in out
+    assert "粘液墙" not in out                      # 栏目正文一并删除
+    assert "北荷茶光：查克拉严重消耗" in out          # 主角动态状态保留
+    assert "【交互人物】" in out and "白｜" in out    # 交互人物保留
+
+    class _Q:
+        attributes = {}
+
+    assert strip_extension_echo_sections(text, _Q()) == text  # 无扩展栏目 → 不动
+    assert strip_extension_echo_sections("", _P()) == ""
+
+
+@pytest.mark.asyncio
+async def test_extension_echo_stripped_from_info_panel(db, client_a):
+    """LLM 把主角面板「扩展：」栏目抄进 info_panel → 存库/返回前剔除；
+    权威主角面板仍带该栏目（保证只有一条渲染路径，不丢信息）。"""
+    from ane.game_engine import game_engine
+    from ane.modules.memory_manager import memory_manager
+
+    info = await game_engine.create_session(db, user_id=USER_A, name="去回声")
+    session_id = info["session_id"]
+    ext = {"技能栏·粘遁": "粘液墙：防御型忍术"}
+    echo = (
+        "【技能栏·粘遁】\n粘液墙：防御型忍术\n\n"
+        "无名修士：查克拉充足，精神平稳\n\n"
+        "【交互人物】\n白｜原雾隐叛忍属下｜温柔忠诚"
+    )
+    turn = {"n": 0}
+
+    async def _fake(prompt, model=None, **kwargs):
+        # 按 prompt 里的 ASCII 标记分派：prompt 自带的规则文本里就含「建立栏目」示例词，
+        # 用它做判据会误命中；短输出重试也会让 llm_main 被调两次，所以不能按调用次数。
+        if kwargs.get("label") == "llm_main":
+            turn["n"] += 1
+            if "TURN1_MARKER" in prompt:
+                return json.dumps(
+                    {"narrative": "叙事一。",
+                     "state_changes": [{"type": "status_change", "target": "player",
+                                        "field": "_extensions",
+                                        "value": json.dumps(ext, ensure_ascii=False)}],
+                     "nearby_characters": [],
+                     "info_panel": "无名修士：查克拉充足"},
+                    ensure_ascii=False,
+                )
+            return json.dumps(
+                {"narrative": "叙事二。", "state_changes": [], "nearby_characters": [],
+                 "info_panel": echo},
+                ensure_ascii=False,
+            )
+        return json.dumps({"narrative": "x", "state_changes": [], "nearby_characters": []},
+                          ensure_ascii=False)
+
+    with patch.object(ModelAdapter, "generate", new_callable=AsyncMock, side_effect=_fake):
+        r1 = await client_a.post(f"/sessions/{session_id}/turn",
+                                 json={"input": "TURN1_MARKER 建立栏目「技能栏·粘遁」：记录技能"})
+        assert r1.status_code == 200, r1.text
+        r2 = await client_a.post(f"/sessions/{session_id}/turn",
+                                 json={"input": "TURN2_MARKER 继续"})
+        assert r2.status_code == 200, r2.text
+
+    body = r2.json()
+    # ① 抄写分节被剔除，但同轮的其他内容保留
+    assert "技能栏·粘遁" not in body["info_panel"]
+    assert "【交互人物】" in body["info_panel"]
+    assert "无名修士：查克拉充足" in body["info_panel"]
+    # ② 权威主角面板仍承载该栏目 → 信息没有丢，只是不再重复
+    assert "扩展" in body["player_panel"]
+    assert "技能栏·粘遁" in body["player_panel"]
+    # ③ 落库版本同样已剔除 → 下一轮回喂不再带重复
+    stored = await memory_manager.get_latest_info_panel(db, session_id)
+    assert "技能栏·粘遁" not in stored
+
+
 # ── 自定义性格/身份存储修复（__custom__ 不泄漏）───────────────
 
 @pytest.mark.asyncio

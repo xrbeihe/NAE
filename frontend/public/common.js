@@ -80,19 +80,22 @@ function escHtml(s) {
 
 function escAttr(s) { return (s||'').replace(/"/g, '&quot;').replace(/</g,'&lt;'); }
 
-// ── Color settings helpers (shared across chat.html and settings.html) ──
+// ── Font setting ──
+// 只作用于"正文与标题"（--font-prose）；界面控件的字体固定走 --font-ui，
+// 这样用户换字体是换阅读质感，不会把整个界面搞花。
 function applyFont(value) {
   const fontMap = {
-    default: '"Microsoft YaHei", "SimSun", serif',
-    songti: '"SimSun", "Songti SC", serif',
-    heiti: '"SimHei", "Heiti SC", sans-serif',
-    kaiti: '"KaiTi", "STKaiti", serif',
+    default: '"Songti SC", "SimSun", "Noto Serif CJK SC", serif',
+    songti: '"SimSun", "Songti SC", "Noto Serif CJK SC", serif',
+    heiti: '"PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif',
+    kaiti: '"KaiTi", "STKaiti", "Noto Serif CJK SC", serif',
     fangsong: '"FangSong", "STFangsong", serif',
     lishu: '"LiSu", serif',
     xingkai: '"STXingkai", "Xingkai SC", fantasy',
   };
   const family = fontMap[value] || fontMap.default;
-  document.body.style.fontFamily = family;
+  document.documentElement.style.setProperty('--font-prose', family);
+  document.body.style.fontFamily = '';   // 清理旧版本写在 body 上的整页覆盖
   localStorage.setItem('font_family', value);
 }
 
@@ -107,12 +110,12 @@ function applyColor(type, hex) {
 
 function rgbToHex(rgb) {
   const m = rgb.match(/\d+/g);
-  if (!m) return '#d4c8b8';
+  if (!m) return '#E8DCCA';
   return '#' + m.slice(0,3).map(x => parseInt(x).toString(16).padStart(2,'0')).join('');
 }
 
 function resetColors() {
-  const defaults = {'ai':'#d4c8b8','system':'#6b5a3e','user':'#e8dcc8'};
+  const defaults = {'ai':'#E8DCCA','system':'#A6947B','user':'#F0E6D6'};
   ['ai','system','user'].forEach(t => {
     document.documentElement.style.setProperty('--color-' + t, defaults[t]);
     localStorage.setItem('color_' + t, defaults[t]);
@@ -253,7 +256,7 @@ function formatNpcModel(md, name, status) {
     renderSection(md[sec], 1, extraLines);
   }
   const lines = [
-    `⭐ ${name}${status || ''}`,
+    `${name}${status || ''}`,
     `修为：${basic.cultivation || basic.level || basic.rank || '未知'}`,
     `身份：${basic.identity || basic.title || basic.occupation || '散修'}`,
     `年龄：${basic.age || '?'}岁  身高：${basic.height || '?'}  ${basic.race || ''} ${basic.gender || ''}`,

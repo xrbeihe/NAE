@@ -85,26 +85,27 @@ llmmain 输出中包含 offstage_npcs 数组
 **产生方式**（唯一入口）：
 
 ```
-llmmain 输出中的 nearby_characters 数组（3 个，1 男 2 女）
-  → OutputParser 提取
-  → 存入 conversation 记录（【附近人物】JSON 前缀）
-  → 前端渲染可点击卡片
+llm_main 写进 info_panel 的【附近人物】段（3 位，1 男 2 女）
+  → OutputParser 提取 info_panel
+  → 落库保存（会话级单份，原样回喂下一轮）
+  → 前端按纯文本渲染进「信息栏」卡片（无独立卡片、无点击交互）
 ```
 
-**关键设计**（不回流的副产物）：
+**关键设计**（信息栏是结构化信息的唯一去处）：
 
 ```
-llmmain 输出
-  ├── narrative          → 流入下一轮 Prompt（通过 shortmemory）
-  ├── state_changes      → 写入 DB，间接影响后续轮
-  ├── offstage_npcs      → 写入 DB，成为"有名 NPC"
-  ├── nearby_characters  → 仅存 conversation，永不回流
-  └── recommendations    → 仅存 conversation，前端展示
+llm_main 输出
+  ├── narrative              → 流入下一轮 Prompt（通过 shortmemory）
+  ├── state_changes          → 写入 DB，间接影响后续轮
+  ├── offstage_npcs          → 写入 DB，成为"有名 NPC"
+  ├── player_relationships   → 写入 DB（关系网）
+  └── info_panel             → 落库 + 原样回喂；四段：
+         【主角动态】【交互人物】【附近人物】【推荐行动】
 ```
 
-- `compact` 版本（llm_summary → shortmemory）**不包含** nearby_characters
-- 下一轮 LLM **看不见**上一轮的路人
-- 前端从 `conversation` 记录恢复历史时重新渲染卡片
+- 旧字段 `nearby_characters` / `recommendations` 仅为兼容保留（OutputParser 仍能解析老输出），prompt 不再要求模型产出、前端不再独立渲染
+- 附近人物仍是"不建模、不参与 Active Set"的一次性氛围点缀，只是载体从独立 JSON 字段变成信息栏段落
+- 下一轮 LLM 能看见上一轮的信息栏文本（模型自己维护），但附近人物不会进入建模/NPC 总库
 
 ---
 

@@ -53,7 +53,7 @@ Token 有效期 7 天。前端存储在 `localStorage`，每次请求自动附�
 - `worldview`：可选，`^[a-z0-9_]{1,48}$`，无效或不存在返回 400 + 可用列表
 
 ### `GET /sessions/{session_id}` — 返回的额外数据
-- `conversation`: 完整对话历史（`[{turn_number, content}]`，格式为【玩家】xxx\n【AI】yyy\n【附近人物】[...]）
+- `conversation`: 完整对话历史（`[{turn_number, content}]`，格式为【玩家】xxx\n【AI】yyy；旧数据尾部可能带 `【附近人物】[...]` JSON 尾，前端按块边界跳过）
 - `npc_names`: 核心 NPC 的姓名列表
 - `world_intro`: 世界简介文本（角色创建时生成，刷新后仍可查看）
 - `prompts`: 全量 Prompt 历史（`[{turn_number, content}]`，按 `memory_type="prompt"` 永久保留）
@@ -85,13 +85,13 @@ Token 有效期 7 天。前端存储在 `localStorage`，每次请求自动附�
   "time_delta": 2,
   "npc_updates": [],
   "nearby_characters": [],
-  "htem_directory": "",
   "is_system_command": false,
   "system_response": null,
   "prompt": "完整 LLM Prompt（调试用）",
   "shortmemory_summary": "llm_summary 结构化事实提取内容",
   "player_panel": "【主角面板】\n姓名：陆星河 ｜ 男 ｜ 14岁\n出身：家族旁支\n…",
-  "important_npcs_panel": "【重要人物】\n（无）"
+  "important_npcs_panel": "【重要人物】\n（无）",
+  "info_panel": "【主角动态】\n陆星河：状态：灵力充盈 ｜位置：青云城\n\n【推荐行动】\n1. 去百草堂买药材\n…"
 }
 ```
 
@@ -99,11 +99,12 @@ Token 有效期 7 天。前端存储在 `localStorage`，每次请求自动附�
 
 | 字段 | 说明 |
 |------|------|
-| `nearby_characters` | llm_main 输出的结构化副产物——3 个场景路人 NPC，前端渲染可点击卡片。**不会回流到后续 LLM Prompt**（shortmemory 版本不含此数据）。详见 DATA_FLOW.md 的 Nearby Characters 架构详解 |
+| `info_panel` | **信息类内容的唯一去处**：模型撰写的四段文本（【主角动态】/【交互人物】/【附近人物】/【推荐行动】）。前端渲染为聊天流里的「信息栏」纯文本卡片，落库并原样回喂下一轮。详见 DATA_FLOW.md 的信息栏架构详解 |
+| `nearby_characters` | 兼容字段：老输出仍是 3 个场景路人 NPC 的数组，但 prompt 已不再要求模型产出、前端不再独立渲染（附近人物现写在 `info_panel` 的【附近人物】段） |
 | `shortmemory_summary` | llm_summary 提取的短期记忆（场景事实），格式已改为紧凑单列版，包含当前地点/氛围/行动/物品/交互NPC/世界事件/推荐行动 |
 | `player_panel` | 当前主角面板文本（出身/身份/灵根/金手指等），直接在前端系统消息中展示 |
 | `important_npcs_panel` | 已标记为重要的 NPC 列表（含 model_data 中的背景/性格/执念），无则显示"（无）" |
-| `recommendations` | 推荐行动列表（最多 10 条），前端显示在输入区上方推荐栏 |
+| `recommendations` | 兼容字段：老输出仍返回推荐行动列表；新流程由模型写在 `info_panel` 的【推荐行动】段，前端只把世界观包的初始推荐行动并入信息栏文本 |
 
 ---
 

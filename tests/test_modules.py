@@ -818,8 +818,12 @@ class TestPromptBuilder:
         assert "内门大长老嫡孙" in prompt
 
     def test_build_does_not_inject_suggestions(self):
-        """Recommendations are for the player only — they must NOT appear in
-        the prompt sent to the model."""
+        """玩家推荐行动只给玩家看——预生成的推荐内容不得渲染进发给模型的 prompt。
+
+        NOTE：「【推荐行动】」这个标题现在会作为 info_panel 的必备分节名出现在规则里
+        （改由模型自己撰写、随信息栏返回），因此这里只断言"推荐内容"不泄漏，
+        不再断言标题字面串缺席。
+        """
         from ane.modules.prompt_builder import (
             prompt_builder, PromptContext,
             AgenticContext, WorldContext, PlayerContext, SceneContext,
@@ -836,9 +840,9 @@ class TestPromptBuilder:
             user_input="你好",
         )
         prompt = prompt_builder.build(ctx)
-        assert "【推荐行动】" not in prompt
         assert "假装受宠若惊" not in prompt
         assert "捂住伤口" not in prompt
+        assert "1. 假装受宠若惊" not in prompt
 
     def test_build_conversation_with_slot_counter(self):
         """Conversation block should show slot counter."""

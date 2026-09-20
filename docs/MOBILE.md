@@ -14,7 +14,7 @@ body (100vh, flex-col)
       #chat-panel (flex: 1, min-height: 0, flex-col)   ← 自适应核心
         #session-bar (flex-shrink: 0, flex-wrap)         ← 🎨 模型/颜色按钮
         #chat (flex: 1, min-height: 0, overflow: auto)   ← 聊天区，可滚动
-        #rec-area (flex-shrink: 0)                       ← 推荐行动 / ❤️ 🚻
+        #rec-area (flex-shrink: 0)                       ← 工具按钮（❤️ 🚻 📚）
         #input-area (flex-shrink: 0)                     ← 输入框 + 勾选 + 发送
 ```
 
@@ -29,13 +29,10 @@ body (100vh, flex-col)
 | `#header` | `flex-wrap`，字号缩小 |
 | `#main-layout` | `flex-direction: column`（侧栏 → 顶部抽屉） |
 | `#chat-panel` | `min-height: 0`（非 50vh） |
-| `#rec-grid` | `display: none` |
-| `#rec-label` + `#rec-count` | `display: none` |
-| `#rec-mobile-btn` | `display: inline-flex`（💡 推荐 N 按钮） |
-| `#help-btn` ❤️ | 正常显示，不隐藏 |
 | `#model-btn` / `#color-btn` | 字号缩小 |
 
-推荐行动在手机端显示为 `💡 推荐(N)` 按钮（替代桌面端的 3 卡片 + 标签）。
+> 推荐行动/附近人物不再有独立渲染（原本的桌面 3 卡片 + 手机 `💡 推荐(N)` 按钮已移除），
+> 全部信息统一由「信息栏」纯文本卡片承担（`white-space: pre-wrap`，手机端自动换行）。
 
 ---
 
@@ -53,9 +50,7 @@ body (100vh, flex-col)
 
 🎨 按钮在 `#session-bar` 中，手机端没被隐藏。调色浮窗是 `position: fixed`，触摸正常。颜色存在 `localStorage`，桌面/手机共用。
 
-## 帮助说明
-
-❤️ 按钮在推荐行动右侧，点击弹出 `position: fixed` 浮窗说明 ⭐ 和 📦 的作用。全屏点击关闭。
+> 「勾选说明」浮窗已移除（按钮 + 浮窗 + `showHelpPopup()` 一并删除）；「加载建模」的说明保留在该复选框的 `title` 上。
 
 ## 侧栏
 

@@ -87,7 +87,7 @@ def _render_character_card(wv, player, attrs: dict) -> str:
         return fields
 
     spec = (wv.ui or {}).get("character_card") or {}
-    title = spec.get("title") or "📋 **角色创建成功**"
+    title = spec.get("title") or "角色创建成功"
     parts = [title]
     fields = _composite_fields()
     for line in spec.get("lines") or []:

@@ -2,23 +2,16 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>主页 — AI Narrative Engine</title>
+<link rel="icon" href="/public/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/public/theme.css">
 <style>
-  :root {
-    --bg: #1a1410;
-    --panel: #231d16;
-    --border: #3a3026;
-    --text: #d4c8b8;
-    --accent: #c9a96e;
-    --accent-dim: #6b5a3e;
-    --danger: #8b4545;
-    --input-bg: #2a2218;
-  }
+  /* 颜色 / 字体 / 圆角 / 间距 token → /public/theme.css（墨卷设计系统 v1）*/
   * { margin:0; padding:0; box-sizing:border-box; }
   body {
-    font-family: "Microsoft YaHei", "SimSun", serif;
-    background: var(--bg); color: var(--text);
+    font-family: var(--font-ui);
+    background: var(--surface-canvas); color: var(--text-primary);
     height: 100vh; height: 100dvh;
     display: flex; flex-direction: column;
   }
@@ -102,19 +95,19 @@
 <body>
 
 <div id="header">
-  <h1 onclick="renderHomePage()">⚔ AI Narrative Engine</h1>
+  <h1 onclick="renderHomePage()"><svg class="icon" aria-hidden="true"><use href="/public/icons.svg#i-book"></use></svg>AI Narrative Engine</h1>
   <div style="margin-left:auto;display:flex;align-items:center;gap:6px;position:relative">
-    <div id="user-avatar" onclick="toggleUserMenu()" style="width:30px;height:30px;border-radius:50%;background:var(--accent);color:var(--panel);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;overflow:hidden;flex-shrink:0;border:1px solid var(--border)">🧑</div>
+    <div id="user-avatar" onclick="toggleUserMenu()" style="width:30px;height:30px;border-radius:50%;background:var(--accent);color:var(--panel);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;overflow:hidden;flex-shrink:0;border:1px solid var(--border)"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-npc"></use></svg></div>
     <div id="user-menu" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:4px;min-width:140px;z-index:500;box-shadow:0 4px 12px rgba(0,0,0,0.4)">
-      <button onclick="location.href='/settings'" style="display:block;width:100%;padding:8px 12px;background:none;border:none;color:var(--text);cursor:pointer;font-size:13px;text-align:left;border-radius:4px">⚙️ 用户设置</button>
-      <button onclick="handleLogout()" style="display:block;width:100%;padding:8px 12px;background:none;border:none;color:var(--danger);cursor:pointer;font-size:13px;text-align:left;border-radius:4px">🚪 退出登录</button>
+      <button onclick="location.href='/settings'" style="display:block;width:100%;padding:8px 12px;background:none;border:none;color:var(--text);cursor:pointer;font-size:13px;text-align:left;border-radius:4px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-settings"></use></svg>用户设置</button>
+      <button onclick="handleLogout()" style="display:block;width:100%;padding:8px 12px;background:none;border:none;color:var(--danger);cursor:pointer;font-size:13px;text-align:left;border-radius:4px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-logout"></use></svg>退出登录</button>
     </div>
   </div>
 </div>
 
 <div id="home-page">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-shrink:0">
-    <h2 style="margin:0;color:var(--accent)">📚 NPC总库</h2>
+    <h2 style="margin:0;color:var(--accent)">NPC总库</h2>
     <div style="display:flex;gap:6px;align-items:center">
       <button onclick="showCreateNpcModal()" style="background:var(--accent);color:var(--panel);border:none;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:13px">+ 新建建模NPC</button>
       <button onclick="npcLibRefresh()" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px">↻ 刷新</button>
@@ -123,7 +116,7 @@
   <div id="home-npc-table">
   </div>
   <div style="margin-top:12px;flex-shrink:0">
-    <button onclick="showWorldManage()" style="background:var(--accent);color:var(--panel);border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:13px">🌍 世界管理</button>
+    <button onclick="showWorldManage()" style="background:var(--accent);color:var(--panel);border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:13px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-world"></use></svg>世界管理</button>
   </div>
 </div>
 
@@ -131,9 +124,9 @@
 <div id="world-manage-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:20000;align-items:center;justify-content:center" onclick="if(event.target===this)closeWorldManageModal()">
   <div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;width:520px;max-height:95vh;min-height:60vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 6px 24px rgba(0,0,0,0.5)">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--border);flex-shrink:0">
-      <h2 style="margin:0;color:var(--accent);font-size:16px">🌍 世界管理</h2>
+      <h2 style="margin:0;color:var(--accent);font-size:16px">世界管理</h2>
       <div style="display:flex;gap:8px;align-items:center">
-        <button onclick="startNewWorld()" style="background:var(--accent);color:var(--panel);border:none;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:13px">🌍 创建新世界</button>
+        <button onclick="startNewWorld()" style="background:var(--accent);color:var(--panel);border:none;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:13px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-world"></use></svg>创建新世界</button>
         <span onclick="closeWorldManageModal()" style="cursor:pointer;font-size:16px;color:var(--accent-dim);padding:2px 4px">✕</span>
       </div>
     </div>
@@ -150,7 +143,7 @@
 <!-- NPC Library Popup -->
 <div id="npc-library-popup">
   <div id="npc-lib-header">
-    <span>📚 NPC总库</span>
+    <span>NPC总库</span>
     <span onclick="closeNpcLibraryPopup()" style="cursor:pointer;font-size:16px;color:var(--accent-dim)">✕</span>
   </div>
   <div id="npc-lib-main" style="display:flex;flex:1;min-height:0;overflow:hidden">
@@ -177,7 +170,7 @@
 <!-- NPC创建弹窗 -->
 <div id="create-npc-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:20000;align-items:center;justify-content:center">
   <div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:28px;width:480px;max-height:85vh;overflow-y:auto;box-shadow:0 6px 24px rgba(0,0,0,0.5)">
-    <h2 style="margin:0 0 6px;color:var(--accent);font-size:18px">✨ 新建建模NPC</h2>
+    <h2 style="margin:0 0 6px;color:var(--accent);font-size:18px">新建建模NPC</h2>
     <p style="margin:0 0 18px;font-size:12px;color:var(--accent-dim);line-height:1.6">
       输入你对这个NPC的描述，AI将根据描述自动生成本相貌、身份、性格等完整人物模型。
     </p>
@@ -206,7 +199,7 @@
 
     <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end">
       <button onclick="closeCreateNpcModal()" style="padding:8px 20px;background:transparent;border:1px solid var(--border);color:var(--accent-dim);border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit">取消</button>
-      <button id="create-npc-submit-btn" onclick="submitCreateNpc()" style="padding:8px 24px;background:var(--accent);color:#1a1410;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:bold;font-family:inherit">✨ 开始建模</button>
+      <button id="create-npc-submit-btn" onclick="submitCreateNpc()" style="padding:8px 24px;background:var(--accent);color:#1a1410;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:bold;font-family:inherit"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-spark"></use></svg>开始建模</button>
     </div>
   </div>
 </div>
@@ -387,12 +380,12 @@ async function npcLibCreate(inputText, tags) {
     if (!res.ok) { var err = await res.json(); throw new Error(err.detail || '创建失败'); }
     var data = await res.json();
     closeCreateNpcModal();
-    alert('✅ NPC「' + data.name + '」已添加至总库');
+    alert('NPC「' + data.name + '」已添加至总库');
     await npcLibLoad();
     renderNpcTable();
   } catch (e) {
     frontendLog('ERROR', 'NPC create failed: ' + e.message);
-    alert('❌ 创建NPC失败: ' + e.message);
+    alert('创建NPC失败: ' + e.message);
   }
   if (btn) { btn.disabled = false; btn.textContent = '+ 新建建模NPC'; }
 }
@@ -425,10 +418,10 @@ function submitCreateNpc() {
   var tags = Array.from(tagCbs).map(function(cb) { return cb.value; });
   var submitBtn = document.getElementById('create-npc-submit-btn');
   submitBtn.disabled = true;
-  submitBtn.textContent = '⏳ 建模中...';
+  submitBtn.textContent = '建模中...';
   npcLibCreate(input, tags.length ? tags : null).finally(function() {
     submitBtn.disabled = false;
-    submitBtn.textContent = '✨ 开始建模';
+    submitBtn.textContent = '开始建模';
   });
 }
 
@@ -511,7 +504,7 @@ async function homeNpcEdit(name) {
     if (!res.ok) { var err = await res.json(); throw new Error(err.detail || '更新失败'); }
     await npcLibLoad();
     renderNpcTable();
-    alert('✅ NPC「' + name + '」已更新');
+    alert('NPC「' + name + '」已更新');
   } catch (e) {
     frontendLog('ERROR', 'NPC edit failed: ' + e.message);
     alert('更新NPC失败: ' + e.message);
@@ -525,7 +518,7 @@ async function homeNpcDelete(name) {
     if (!res.ok) { var err = await res.json(); throw new Error(err.detail || '删除失败'); }
     await npcLibLoad();
     renderNpcTable();
-    alert('🗑 NPC「' + name + '」已从总库删除');
+    alert('NPC「' + name + '」已从总库删除');
   } catch (e) {
     frontendLog('ERROR', 'NPC delete failed: ' + e.message);
     alert('删除NPC失败: ' + e.message);
