@@ -13,6 +13,7 @@
     "sword-and-sorcery"
   ],
   "assembly": "shell+kernel",
+  "open_source": true,
   "player_defaults": {
     "name": "无名旅人",
     "cultivation": "平民",

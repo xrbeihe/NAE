@@ -170,6 +170,9 @@ def _build_manifest(author: dict) -> dict:
         "maturity_rating": "adult",
         "tags": author.get("tags") or [genre],
         "assembly": "shell+kernel",
+        # 是否默认开源到「开源世界观广场」（开源只授使用权限，修改权仍在作者/白名单管理员）。
+        # 生成的包默认 false：作者可在设计器点「开源」推送，或把这里改成 true 让它随包默认开源。
+        "open_source": False,
         "player_defaults": {
             "name": fields["default_name"],
             "cultivation": fields["cultivation_value"],

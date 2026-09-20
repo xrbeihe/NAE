@@ -13,11 +13,11 @@
     "谋略"
   ],
   "assembly": "shell+kernel",
+  "open_source": true,
   "player_defaults": {
     "name": "无名旅人",
     "cultivation": "",
     "status_label": "豪杰"
   },
-  "extra_event_types": [],
-  "owner_user_id": "3bc7553ba877"
+  "extra_event_types": []
 }

@@ -2465,7 +2465,7 @@ function renderSharedWorldviews() {
   grid.innerHTML = _sharedWorldviews.map(function(w) {
     var stars = renderStars(w.avg_rating, w.rating_count, w.worldview_id, w.my_rating);
     var tags = (w.tags || []).map(function(t) { return '<span style="padding:1px 8px;border-radius:10px;font-size:10px;color:var(--accent-dim);background:var(--panel);border:1px solid var(--border)">' + escHtml(t) + '</span>'; }).join('');
-    var authorLine = '<div style="font-size:11px;color:var(--accent-dim);margin-top:2px">作者：' + escHtml(w.author || '匿名') + ' · v' + escHtml(w.version || '?') + (w.installed ? ' · <span style="color:var(--accent)">已安装</span>' : '') + (w.mine ? ' · <span style="color:var(--accent-dim)">我的作品</span>' : '') + '</div>';
+    var authorLine = '<div style="font-size:11px;color:var(--accent-dim);margin-top:2px">' + (w.official ? '<span style="padding:0 6px;border-radius:3px;font-size:10px;color:var(--accent);border:1px solid var(--accent-dim);margin-right:4px">官方</span>' : '') + '作者：' + escHtml(w.author || '匿名') + ' · v' + escHtml(w.version || '?') + (w.installed ? ' · <span style="color:var(--accent)">已安装</span>' : '') + (w.mine && !w.official ? ' · <span style="color:var(--accent-dim)">我的作品</span>' : '') + '</div>';
     return '<div style="border:1px solid var(--border);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:6px;background:var(--panel)">' +
       '<div style="font-size:13px;color:var(--text);font-weight:bold">' + escHtml(w.title) + '</div>' +
       authorLine +
@@ -2475,7 +2475,7 @@ function renderSharedWorldviews() {
       '<div style="display:flex;gap:6px;margin-top:2px">' +
         '<button onclick="useSharedWorldview(\'' + escAttr(w.worldview_id) + '\', \'' + escAttr(w.title) + '\')" style="flex:1;background:var(--accent);color:var(--panel);border:none;padding:6px 10px;border-radius:4px;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center;gap:4px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-chevron"></use></svg>使用</button>' +
         (w.lore ? '<button onclick="showWorldviewLore(\'' + escAttr(w.worldview_id) + '\', \'' + escAttr(w.title) + '\')" style="background:none;border:1px solid var(--border);color:var(--accent-dim);padding:6px 10px;border-radius:4px;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center;gap:4px"><svg class="icon icon--sm" aria-hidden="true"><use href="/public/icons.svg#i-book"></use></svg>详细介绍</button>' : '') +
-        (w.mine ? '<button onclick="unshareWorldview(\'' + escAttr(w.worldview_id) + '\')" style="background:none;border:1px solid var(--danger);color:#b06060;padding:6px 10px;border-radius:4px;cursor:pointer;font-size:12px">撤销开源</button>' : '') +
+        (w.mine && !w.official ? '<button onclick="unshareWorldview(\'' + escAttr(w.worldview_id) + '\')" style="background:none;border:1px solid var(--danger);color:#b06060;padding:6px 10px;border-radius:4px;cursor:pointer;font-size:12px">撤销开源</button>' : '') +
       '</div>' +
     '</div>';
   }).join('');

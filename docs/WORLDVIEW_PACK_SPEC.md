@@ -39,6 +39,7 @@ worldviews/<worldview_id>/
   "maturity_rating": "adult",
   "tags": ["tag1", "tag2"],
   "assembly": "shell+kernel",
+  "open_source": false,
   "player_defaults": {
     "name": "无名人士",
     "cultivation": "无",
@@ -55,6 +56,17 @@ worldviews/<worldview_id>/
 
 - `"shell+kernel"`（默认）：`system_prompt.txt` 作为世界观外壳，引擎自动在其后拼接通用叙事内核（叙事原则/输出 JSON 格式/禁用反问句）。四个内置包均用此模式。
 - `"full"`：`system_prompt.txt` 就是完整 System Prompt，引擎原样使用（作者完全掌控全文）。保留兼容旧包，无包时兜底用引擎内建 legacy 修仙提示词。
+
+### open_source 字段（默认开源）
+
+| 值 | 行为 |
+|----|------|
+| `true` | 包**默认开源**：服务启动时（以及每次打开开源广场时）自动往 `worldview_shares` 补一条条目（`is_official=True`，广场作者显示「官方内置」），所有账号都能在角色创建和广场看到/使用它。**不可用「撤销开源」下架**——要下架就把这个字段去掉。 |
+| 省略 / `false` | 默认不开源：作者在设计器点「开源」按钮手动推送（可自行下架）。生成器产出的包默认此值。 |
+
+**权限语义（重要）**：`open_source` 与「开源」只**授使用权限**——任何登录账号都能用这个包开局（`POST /sessions`，`GET /worldviews` 默认列出全部已安装包）。
+
+**修改权限与开源无关**，仍由 manifest 的 `owner_user_id` 决定：有 owner → 仅作者或白名单管理员可改；无 owner（内置系统包）→ 仅白名单管理员可改（`config.json` 的 `worldview_admin_ids` / env `ANE_WORLDVIEW_ADMIN_IDS`）。非白名单账号即使包已开源，编辑接口仍返回 403。
 
 ### player_defaults
 

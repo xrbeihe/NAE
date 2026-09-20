@@ -82,6 +82,28 @@ watch_backup.bat
 
 ## 功能变更记录
 
+### 🐛 修复：pytest 跑完全套后进程不退出（aiosqlite 非守护线程卡住解释器关闭）
+- **症状**：`pytest tests/` 打印完 `286 passed` 后永久挂住（CI 里 job 一直跑到超时）
+- **根因**：① `aiosqlite 0.22.1` 每个连接起一个**非守护**工作线程（`Thread(target=_connection_worker_thread)` 无 `daemon=True`），Python 退出时 `threading._shutdown()` 会 join 它们；② 测试里有连接没人关——turn 提交后 fire-and-forget 的后台 llm_summary 用**全局 session 工厂**（指向真实 `data/ane.db`）另开 session，测试只 dispose 自己的内存引擎
+- **定位手法**（可复用）：`faulthandler.dump_traceback_later(20, exit=True)` + `pytest.main(...)` 抓超时瞬间全线程栈 → 直指 `aiosqlite/core.py:_connection_worker_thread` 与 `threading.py:_shutdown`；再用「给 `aiosqlite.Connection.__init__` 打桩 + pytest 钩子记录当前 `nodeid`」精确定位到泄漏用例
+- **修法**：`tests/conftest.py` 加 session 级 autouse fixture，会话结束时对仍活着的 `aiosqlite.Connection` 调 `Connection.stop()`（把"关连接+停线程"投进工作线程队列，不需要事件循环）。**注意不能每用例后扫**——会停掉后台任务正在 await 的连接导致跑中挂
+- **验证**：修复前挂 >5 分钟；修复后 `286 passed / 退出码 0 / 6.2s`，探针残留连接线程 `1 → 0`
+- **文档**：docs/BUG_FIXES.md「Bug 8」
+
+### 🌐 世界观包「默认开源」（开源 = 使用权限，修改权限仅白名单）
+- **语义**：开源只授**使用**权——所有账号都能在角色创建里用这些包开局、也能在开源广场看到它们；
+  **改包内容仍然只有白名单管理员**（有 owner 的包则是作者或管理员）。非白名单账号写接口一律 403
+- **包清单**：6 个内置包（xianxia_v1 / modern_city / fantasy_kingdom / naruto_shippuden / one_piece / sanguo_yanyi）
+  manifest 全部加 `"open_source": true`；`sanguo_yanyi` 去掉 `owner_user_id` → 六包权限完全统一（内置系统包）
+- **自动发布**：新增 `backend/ane/open_source.py::ensure_open_source_shares()`——把 `open_source: true` 的包幂等补进
+  `worldview_shares`（`is_official=True`，广场作者显示「官方内置」+「官方」标记）；调用点＝服务启动（`main.py` lifespan）
+  + `GET /worldviews/shared`（打开广场自愈，无需重启也能看到）。条目挂靠真实用户（外键）：优先白名单管理员，其次最早注册用户；库里无用户时跳过等下次补
+- **不可下架**：内置开源包 `DELETE /worldviews/share` 返回 400（要下架就删 manifest 的 `open_source`）；广场卡片对官方包隐藏「撤销开源」按钮
+- **DB**：`worldview_shares.is_official` 新列（`init_db` 无损迁移 `ALTER TABLE ... ADD COLUMN`）
+- **生成器**：`pack_generator` 产出 manifest 显式写 `"open_source": false`（作者可改 true 或走设计器「开源」按钮）
+- **测试**：新增 `tests/test_open_source.py`（9 用例：清单声明 / 自动发布幂等 / 无用户时跳过 / 广场官方条目 / 任意账号可用内置包开局 / 非白名单改不动 / 管理员可改且官方包不可下架）
+- **文档**：WORLDVIEW_PACK_SPEC.md 新增「open_source 字段（默认开源）」+ 权限语义；docs/CLAUDE.md「世界观包权限」章节同步
+
 ### 📋 信息栏合并（取消附近人物 / 推荐行动的独立渲染）
 - **需求**：「取消附近人物的独立渲染，取消推荐行动的独立渲染。所有信息类内容都进入信息栏」
 - **提示词（两份都改：SYSTEM_PROMPT + NARRATIVE_KERNEL）**：输出 JSON 骨架从 `narrative/state_changes/player_relationships/nearby_characters/recommendations` 收敛为 `narrative/state_changes/player_relationships/info_panel`；删除 `recommendations 规则`/`nearby_characters 规则` 两个独立块，改为 **`info_panel 规则`**——「信息栏 = 所有信息类内容的唯一去处」，固定四段 `【主角动态】/【交互人物】/【附近人物】/【推荐行动】`（各段用【…】小标题、段间空行、无内容整段省略），并保留「禁止复述主角面板已有内容」

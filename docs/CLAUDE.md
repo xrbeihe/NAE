@@ -113,12 +113,28 @@
 
 ## 世界观包权限（系统包隔离 + 白名单）
 
+> **开源 = 使用权限，不是修改权限**。包里 `open_source: true` 只让"所有账号都能用它开局 +
+> 在开源广场看到它"；**改包内容依旧只有白名单管理员（或包作者）**，非白名单账号的写接口
+> 一律 403。详见 WORLDVIEW_PACK_SPEC.md「open_source 字段」。
+
 ### 系统包 vs 用户包
 - **系统包（内置公共包）**：`worldviews/` 下 manifest **无 `owner_user_id`** 的包
-  （xianxia_v1 / modern_city / fantasy_kingdom / naruto_shippuden / one_piece）。
-  属于项目公共资源：所有玩家可玩（角色创建下拉可见），但**只有白名单管理员可编辑**。
+  （xianxia_v1 / modern_city / fantasy_kingdom / naruto_shippuden / one_piece / sanguo_yanyi，
+  全部 `open_source: true`）。
+  属于项目公共资源：所有玩家可玩（角色创建下拉可见、广场可见），但**只有白名单管理员可编辑**。
 - **用户包**：通过 `POST /worldviews/upload` 上传安装，manifest 写入 `owner_user_id`。
-  仅**作者本人或白名单管理员**可编辑。
+  仅**作者本人或白名单管理员**可编辑；开源与否由作者在设计器点「开源」决定
+  （或在 manifest 写 `open_source: true` 让它随包默认开源）。
+
+### 开源条目自动发布（内置包默认开源）
+- `backend/ane/open_source.py::ensure_open_source_shares()`：把 manifest 里
+  `open_source: true` 的包幂等地补一条 `worldview_shares` 记录（`is_official=True`，
+  广场作者显示「官方内置」）。
+- 调用点：服务启动（`main.py` lifespan）+ `GET /worldviews/shared`（打开广场时自愈）。
+- 条目必须挂在一个真实用户上（外键）：优先白名单管理员账号，其次最早注册的用户；
+  库里一个用户都没有时跳过，等下次启动/打开广场再补。
+- 内置开源包**不能用「撤销开源」下架**（`DELETE /worldviews/share` 返回 400）——
+  下架方式是把该包 manifest 的 `open_source` 去掉。
 
 ### API/网页层权限（后端强制）
 - 包写操作（form/ui/data/prompt/reload/delete/upload/share/unshare）一律要求登录：

@@ -131,3 +131,45 @@ Uncaught SyntaxError: await is only valid in async functions and the top level b
 3. **pending_debut 路径**：建模完成 → `pending_debut=True` → turn 管线 debut 检查 → Prompt Builder 注入
 4. **建模 prompt 路径**：前端确认 → `_run_npc_modeling()` → prompt 拼装 → LLM
 5. **配置加载路径**：`config.json` → `config.py` → 各模块 import
+
+---
+
+## Bug 8 — pytest 跑完全套后进程不退出（aiosqlite 非守护线程）
+
+### 症状
+`pytest tests/` 打印完 `286 passed, ... in 6.2s` 之后**永久挂住**，不返回、不退出（CI 里表现为 job 一直跑到超时；本地表现为命令挂着不动）。
+
+### 定位方法
+用 `faulthandler` 抓超时瞬间的全线程栈：
+
+```bash
+.venv\Scripts\python.exe -c "import faulthandler,sys; faulthandler.dump_traceback_later(20, exit=True); import pytest; sys.exit(pytest.main(['tests/','-q']))"
+```
+
+输出直接指认病因——主线程卡在解释器关闭阶段等一个线程：
+
+```
+Thread 0x00005274 (most recent call first):
+  File "...\aiosqlite\core.py", line 59 in _connection_worker_thread
+Thread 0x0000359c (most recent call first):
+  File "...\threading.py", line 1542 in _shutdown        ← 主线程在 join 非守护线程
+```
+
+### 根因
+两件事叠加：
+
+1. **aiosqlite 每个连接起一个非守护线程**（`aiosqlite 0.22.1`：`Thread(target=_connection_worker_thread, args=(...))`，**没有 `daemon=True`**）。Python 退出时 `threading._shutdown()` 会 join 所有非守护线程 —— 只要有一个连接没被关闭，就永远等下去。
+2. **测试里有个连接没人关**：turn 提交后 fire-and-forget 的后台任务 `_run_background_summary`（`game_engine.py:1056+`）用**全局 session 工厂** `ane.database.engine.async_session_factory` 另开 session，而测试只 dispose 自己的内存引擎，全局引擎（指向真实 `data/ane.db`）从不关闭 → 该连接的 worker 线程活到进程退出。
+
+（用打桩法定位到具体用例：给 `aiosqlite.Connection.__init__` 打桩 + pytest 钩子记录当前 `nodeid`，泄漏点＝`tests/test_prompts.py::test_info_panel_persistence_across_turns`。）
+
+### 修复
+`tests/conftest.py` 增加 session 级 autouse fixture：会话结束时遍历 `gc.get_objects()` 里仍活着的 `aiosqlite.Connection`，调 `Connection.stop()` 让工作线程收到哨兵后退出（`stop()` 把"关连接 + 停线程"投进工作线程队列，不需要事件循环，因此不会踩 cross-loop 的坑）。
+
+**注意**：不能在每个用例结束后扫（会停掉后台任务正在 await 的连接，future 永不 resolve → 变成跑中挂）；只在**会话结束**时扫才安全。
+
+### 相关文件
+`tests/conftest.py`
+
+### 验证
+修复前：`286 passed` 后挂 >5 分钟不退出；修复后：`286 passed，退出码 0，用时 6.2s`；探针复验残留连接线程数 `1 → 0`。

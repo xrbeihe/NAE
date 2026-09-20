@@ -12,6 +12,7 @@
     "chinese-fantasy"
   ],
   "assembly": "shell+kernel",
+  "open_source": true,
   "player_defaults": {
     "name": "无名修士",
     "cultivation": "凡人",

@@ -78,6 +78,16 @@ async def lifespan(app: FastAPI):
     await init_db()
     logger.info("Database ready — server is live")
 
+    # 内置包「默认开源」：把 manifest 里 open_source: true 的包补进开源共享库（幂等）
+    try:
+        from ane.database.engine import async_session_factory
+        from ane.open_source import ensure_open_source_shares
+        async with async_session_factory() as _db:
+            published = await ensure_open_source_shares(_db)
+        logger.info("Open-source packs ensured (newly published: %s)", published or "none")
+    except Exception as exc:  # noqa: BLE001 — 开源发布失败不应阻断启动
+        logger.warning("Open-source publish skipped: %s", exc)
+
     # Start the database auto-unpacker (monitors ane.db, dumps to text)
     unpacker = get_unpacker(DATA_DIR / "ane.db")
     await unpacker.start()

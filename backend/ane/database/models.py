@@ -285,7 +285,11 @@ class UserImage(Base):
 # ── Worldview Share (开源共享库) ─────────────────────────
 
 class WorldviewShare(Base):
-    """An open-sourced worldview pushed by a user for others to browse/use."""
+    """An open-sourced worldview pushed by a user for others to browse/use.
+
+    is_official=True 表示"内置包默认开源"自动发布的条目（不是某个用户手动推的），
+    广场上作者显示为「官方内置」。开源只授"使用"权——修改权仍只属于白名单管理员/包作者。
+    """
     __tablename__ = "worldview_shares"
 
     id            = Column(String, primary_key=True, default=_new_id)
@@ -295,6 +299,7 @@ class WorldviewShare(Base):
     description   = Column(Text, default="")
     tags          = Column(JSON, default=list)
     version       = Column(String, default="")
+    is_official   = Column(Boolean, default=False)   # 内置包自动开源（作者显示「官方内置」）
     created_at    = Column(DateTime, default=datetime.utcnow)
     updated_at    = Column(DateTime, default=datetime.utcnow)
 

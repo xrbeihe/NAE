@@ -13,6 +13,7 @@
     "anime"
   ],
   "assembly": "shell+kernel",
+  "open_source": true,
   "player_defaults": {
     "name": "无名忍者",
     "cultivation": "",

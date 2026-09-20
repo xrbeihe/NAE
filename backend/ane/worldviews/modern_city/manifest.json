@@ -12,6 +12,7 @@
     "urban"
   ],
   "assembly": "shell+kernel",
+  "open_source": true,
   "player_defaults": {
     "name": "无名市民",
     "cultivation": "无",

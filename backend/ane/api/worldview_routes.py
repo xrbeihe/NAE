@@ -2,6 +2,7 @@
 
 import io
 import json
+import logging
 import shutil
 import zipfile
 from datetime import datetime
@@ -30,6 +31,8 @@ from ane.worldview import (
 )
 
 router = APIRouter(prefix="/worldviews", tags=["worldviews"])
+
+logger = logging.getLogger(__name__)
 
 
 @router.get("")
@@ -402,6 +405,13 @@ async def unshare_worldview(
     if share.user_id != user.id:
         if not _is_admin(user):
             raise HTTPException(status_code=403, detail="只能撤销自己推送的世界观")
+    # 内置开源包不可下架（开源是"默认状态"，要下架就改包 manifest 的 open_source）
+    from ane.open_source import is_open_source
+    if is_open_source(wv_id):
+        raise HTTPException(
+            status_code=400,
+            detail=f"世界观 {wv_id} 是内置开源包，无法下架（如需下架请去掉该包 manifest 的 open_source）",
+        )
     await db.delete(share)
     await db.commit()
     return {"unshared": wv_id}
@@ -637,9 +647,18 @@ async def list_shared_worldviews(
     db: AsyncSession = Depends(get_db),
     user = Depends(get_optional_user),
 ):
-    """List all open-sourced worldviews with avg rating + rating count."""
+    """List all open-sourced worldviews with avg rating + rating count.
+
+    内置包（manifest open_source: true）在读取时自动补齐条目——即使没有重启服务，
+    打开广场也能看到它们（自愈；幂等）。
+    """
     from sqlalchemy import select, func
     from ane.database.models import WorldviewShare, WorldviewRating, User
+    from ane.open_source import ensure_open_source_shares, OFFICIAL_AUTHOR
+    try:
+        await ensure_open_source_shares(db)
+    except Exception as exc:  # noqa: BLE001 — 自动发布失败不应影响广场浏览
+        logger.warning("Open-source publish on list failed: %s", exc)
     result = await db.execute(select(WorldviewShare).order_by(WorldviewShare.updated_at.desc()))
     shares = result.scalars().all()
 
@@ -674,7 +693,7 @@ async def list_shared_worldviews(
     items = []
     for s in shares:
         cnt, avg = agg.get(s.worldview_id, (0, 0))
-        author_name = author_names.get(s.user_id, "")
+        author_name = OFFICIAL_AUTHOR if s.is_official else author_names.get(s.user_id, "")
         # 详细历史（lore）从该包 world_facts.json 读取——作者在设计器写的科普文本
         from ane.worldview import get as _get_wv
         lore = ""
@@ -692,6 +711,7 @@ async def list_shared_worldviews(
             "tags": s.tags or [],
             "version": s.version,
             "author": author_name,
+            "official": bool(s.is_official),
             "created_at": s.created_at.isoformat() if s.created_at else "",
             "rating_count": int(cnt),
             "avg_rating": round(float(avg), 1) if avg else 0.0,

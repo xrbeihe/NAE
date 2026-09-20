@@ -77,4 +77,12 @@ async def init_db():
                     text("ALTER TABLE user_npcs ADD COLUMN worldview TEXT NOT NULL DEFAULT 'xianxia_v1'")
                 )
                 logger.info("Migration: added user_npcs.worldview (default 'xianxia_v1')")
+            # Non-destructive migration for worldview_shares.is_official (内置包默认开源标记).
+            share_cols = await conn.execute(text("PRAGMA table_info(worldview_shares)"))
+            share_col_names = {row[1] for row in share_cols.fetchall()}
+            if share_col_names and "is_official" not in share_col_names:
+                await conn.execute(
+                    text("ALTER TABLE worldview_shares ADD COLUMN is_official BOOLEAN DEFAULT 0")
+                )
+                logger.info("Migration: added worldview_shares.is_official (default 0)")
         await conn.run_sync(Base.metadata.create_all)
