@@ -81,8 +81,7 @@ SYSTEM_PROMPT = """你是一个修仙世界的叙事引擎。你的职责是讲�
 info_panel 规则（**信息栏 = 所有信息类内容的唯一去处**，不再有独立的推荐/附近人物区块）：
 - 一整个独立的信息文本区域，不是正文，也不替代 narrative。共四段，各段用【…】小标题起头，段间空一行；没内容的段整段省略。
 - **段标题固定照抄这四个：【主角动态】【交互人物】【附近人物】【推荐行动】**——不要改名、不要用主角名/人物名当标题（如「【无名忍者】」「【当前交互人物】」都是错的），也不要自创段名。
-- 【主角动态】只写**动态**内容（状态/伤势/心情/当前行动等）。**绝不重复主角面板里已有的静态字段**：姓名、性别、年龄、身份、能力、血继限界、性格、宗门、**位置**——一个都不要写。格式如「主角名：状态：查克拉消耗过半，精神紧绷 ｜当前行动：正赶往杉谷村口」，无显著变化也输出最小一行。**示例里没有「位置：」，你也别加**（位置以主角面板为准）。
-- 位置变化必须用 state_changes 的 location_change 写回（target="player"），不要只在【主角动态】里写位置——只有写回才会更新主角面板上的位置。
+- 【主角动态】只写**动态**内容（状态/伤势/心情/当前行动等）。**绝不重复主角面板里已有的静态字段**：姓名、性别、年龄、身份、能力、血继限界、性格、宗门——一个都不要写。格式如「主角名：状态：查克拉消耗过半，精神紧绷 ｜当前行动：正赶往杉谷村口」，无显著变化也输出最小一行。**位置不需要写**（程序不再跟踪任何角色的位置，位置在叙事里交代即可）。
 - 【交互人物】本轮与主角有实质互动的角色，最多 1-2 位。每位按「姓名｜身份｜性格｜外貌｜行为｜状态｜装备」七维单行输出，有建模数据则外貌适当详细。路人角色不放这里。
 - 【附近人物】本轮场景里出现的其他人物：**有谁、几位，由你按当前场景自行决定**（不做人数或性别限制，也不要求凑数）。每位一行「姓名｜身份｜外貌｜正在做什么」。玩家点名的、与其有重要关系的 NPC 必须列入。
 - 【推荐行动】固定 5 条，编号列表（1. 2. 3. 4. 5.），每条一句话、10-20 字。贴合当前场景与玩家身份；每轮与上轮明显不同；类型多样化（修炼/社交/探索/任务/机遇）；叙事里出现的宗门、秘闻、异常现象、特殊人物优先纳入；第一轮若玩家在宗门内则围绕宗门场景，不推荐城市相关行动。
@@ -91,13 +90,12 @@ info_panel 规则（**信息栏 = 所有信息类内容的唯一去处**，不�
 - 用等宽友好的简洁排版。
 
 state_changes 可用类型：
-location_change, cultivation_change, status_change, npc_status, character_status,
+cultivation_change, status_change, npc_status, character_status,
 item_added, item_removed, relationship_change, quest_accepted, quest_completed,
 player_name_change, npc_important
 
 各类型用法（target="player" 时自动写回数据库，下一轮生效）：
 - cultivation_change：target="player", value="筑基期" → 更新玩家修为
-- location_change：target="player", value="天风城" → 更新玩家位置
 - player_name_change：target="player", value="新名字" → 改名
 - item_added：target="player", value="物品名", description="描述" → 背包增加
 - item_removed：target="player", value="物品名" → 背包移除
@@ -110,7 +108,7 @@ player_name_change, npc_important
   等），value 为完整 JSON 对象。当期已有栏目见主角面板的「扩展：」项，
   LLM 根据叙事进展持续更新。活动结束后栏目可自然消失。
 - npc_status / character_status：target=NPC_ID, field="cultivation", value="新修为" →
-  更新 NPC 的修为/位置/身份
+  更新 NPC 的修为/身份/状态（位置不在其中——程序不跟踪任何角色的位置）
 如果本轮没有状态变更，state_changes 为空数组 []。
 
 player_relationships 规则：
@@ -186,8 +184,7 @@ NARRATIVE_KERNEL_PROMPT = """【叙事原则】
 info_panel 规则（**信息栏 = 所有信息类内容的唯一去处**，不再有独立的推荐/附近人物区块）：
 - 一整个独立的信息文本区域，不是正文，也不替代 narrative。共四段，各段用【…】小标题起头，段间空一行；没内容的段整段省略。
 - **段标题固定照抄这四个：【主角动态】【交互人物】【附近人物】【推荐行动】**——不要改名、不要用主角名/人物名当标题（如「【无名忍者】」「【当前交互人物】」都是错的），也不要自创段名。
-- 【主角动态】只写**动态**内容（状态/伤势/心情/当前行动等）。**绝不重复主角面板里已有的静态字段**：姓名、性别、年龄、身份、能力、血继限界、性格、宗门、**位置**——一个都不要写。格式如「主角名：状态：查克拉消耗过半，精神紧绷 ｜当前行动：正赶往杉谷村口」，无显著变化也输出最小一行。**示例里没有「位置：」，你也别加**（位置以主角面板为准）。
-- 位置变化必须用 state_changes 的 location_change 写回（target="player"），不要只在【主角动态】里写位置——只有写回才会更新主角面板上的位置。
+- 【主角动态】只写**动态**内容（状态/伤势/心情/当前行动等）。**绝不重复主角面板里已有的静态字段**：姓名、性别、年龄、身份、能力、血继限界、性格、宗门——一个都不要写。格式如「主角名：状态：查克拉消耗过半，精神紧绷 ｜当前行动：正赶往杉谷村口」，无显著变化也输出最小一行。**位置不需要写**（程序不再跟踪任何角色的位置，位置在叙事里交代即可）。
 - 【交互人物】本轮与主角有实质互动的角色，最多 1-2 位。每位按「姓名｜身份｜性格｜外貌｜行为｜状态｜装备」七维单行输出，有建模数据则外貌适当详细。路人角色不放这里。
 - 【附近人物】本轮场景里出现的其他人物：**有谁、几位，由你按当前场景自行决定**（不做人数或性别限制，也不要求凑数）。每位一行「姓名｜身份｜外貌｜正在做什么」。玩家点名的、与其有重要关系的 NPC 必须列入。
 - 【推荐行动】固定 5 条，编号列表（1. 2. 3. 4. 5.），每条一句话、10-20 字。贴合当前场景与玩家身份；每轮与上轮明显不同；类型多样化（社交/探索/任务/奇遇等，具体类型由当前世界观定义）；叙事里出现的秘闻、异常现象、特殊人物优先纳入。
@@ -199,7 +196,6 @@ info_panel 规则（**信息栏 = 所有信息类内容的唯一去处**，不�
 state_changes 规则：
 - state_changes 用于记录数据库需要持久化的状态变更。target="player" 时自动写回数据库，下一轮生效。
 - 通用类型与用法（当前世界观 system prompt 可能补充特有类型）：
-  - location_change：target="player", value="新位置" → 更新玩家位置
   - player_name_change：target="player", value="新名字" → 改名
   - item_added：target="player", value="物品名", description="描述" → 背包增加
   - item_removed：target="player", value="物品名" → 背包移除
@@ -992,12 +988,7 @@ class PromptBuilder:
             if pose_parts:
                 lines.append(f"表情/姿势/动作：{'，'.join(pose_parts)}")
 
-            location = p.location_hierarchy or p.location
-            if location:
-                lines.append(f"具体位置：{location}")
-            else:
-                # 位置未设定：第一轮由 LLM 根据世界观/角色/时间线决定玩家所在位置
-                lines.append("具体位置：未设定（由你根据角色身份与世界观决定本轮所在位置，并在 state_changes 中输出 location_change 确立）")
+            # 位置已移除：角色的位置不再由程序维护/注入，交给叙事与玩家输入自行交代
 
             # ── Travel log (last 3 entries for prompt, with world_time) ──
             if p.travel_log and isinstance(p.travel_log, list) and len(p.travel_log) > 0:
@@ -1037,7 +1028,6 @@ class PromptBuilder:
             lines.append(f"修为：{ctx.player_cultivation}")
         else:
             lines.append("能力等级：未设定（由你根据剧情与角色身份自主决定，确立后通过状态变更更新）")
-        lines.append(f"当前位置：{ctx.player_location}")
         if ctx.player_status:
             status_items = _format_status(ctx.player_status)
             lines.append(f"状态：{status_items}")
@@ -1108,11 +1098,10 @@ class PromptBuilder:
         if npc.personality:
             sec.append(f"\u6027\u683c\uff1a{npc.personality}")
 
-        # \u2500\u2500 \u4fee\u4e3a / \u8eab\u4efd / \u4f4d\u7f6e \u2500\u2500
+        # \u2500\u2500 \u4fee\u4e3a / \u8eab\u4efd \u2500\u2500\uff08\u4f4d\u7f6e\u5df2\u79fb\u9664\uff1a\u4e0d\u518d\u8f93\u51fa\u89d2\u8272\u4f4d\u7f6e\uff09
         sec.append(f"\u4fee\u4e3a\uff1a{npc.cultivation}")
         _default_id = "\u6563\u4fee"
         sec.append(f"\u8eab\u4efd\uff1a{npc.identity or _default_id}")
-        sec.append(f"\u4f4d\u7f6e\uff1a{npc.location}")
 
         # \u2500\u2500 \u5f53\u524d\u72b6\u6001 \u2500\u2500
         pose = []
@@ -1263,8 +1252,8 @@ class PromptBuilder:
             lines.append("穿着：")
             lines.extend(clothing_parts)
 
-        # Location / action / intent chain
-        loc_action_parts = [npc.location] if npc.location else []
+        # Action / intent chain（位置已移除：角色的位置不再由程序维护，交给叙事自行交代）
+        action_parts: list[str] = []
         intended = npc.intended_action or npc.behavior
         if intended:
             action_str = f"正在{intended}"
@@ -1275,10 +1264,10 @@ class PromptBuilder:
                     action_str += f"→（{npc.intended_timing}）"
             elif npc.intended_detail:
                 action_str += f"→{npc.intended_detail}"
-            loc_action_parts.append(action_str)
+            action_parts.append(action_str)
 
-        if loc_action_parts:
-            lines.append(f"位置/正在：{'｜'.join(loc_action_parts)}")
+        if action_parts:
+            lines.append(f"正在：{'｜'.join(action_parts)}")
 
         pose_parts = []
         if npc.current_pose:
@@ -1330,10 +1319,7 @@ class PromptBuilder:
         s = ctx.scene
         if s is not None:
             lines = ["【当前场景】"]
-            if s.location_hierarchy:
-                lines.append(f"位置层级：{s.location_hierarchy}")
-            if s.location_name:
-                lines.append(f"具体位置：{s.location_name}")
+            # 位置层级 / 具体位置已移除：角色的位置由叙事自行交代，不再注入
             if s.time_label:
                 lines.append(f"时间：{s.time_label}")
             if s.location_description:

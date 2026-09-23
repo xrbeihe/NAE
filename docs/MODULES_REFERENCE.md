@@ -150,13 +150,15 @@ get_context_constraints(player_cultivation, player_location, active_npc_names) -
 ### RetrievalEngine (`modules/retrieval_engine.py`)
 
 ```python
-get_active_set(db, session_id, player_location) -> ActiveSet
+get_active_set(db, session_id, player_location="", mentioned_text="", max_present=8) -> ActiveSet
 ```
 
-- 加载 core_npcs（is_core=True）+ 同位置 NPC（层级匹配：`player_loc_parts & npc_loc_parts`）
-- 位置层级上下文（从叶节点向上遍历父链，最多 5 层）
+- **在场判定不看位置**（位置已整体移除）：① 玩家标记的重要人物始终在场；② 名字出现在
+  `mentioned_text`（最近几轮对话 + 本轮玩家输入 + 上一轮信息栏）里的 NPC 在场，支持后缀简称
+  （`is_name_mentioned()`：「路飞」↔「蒙奇·D·路飞」，前缀不误伤）；③ 死亡的 NPC 一律不注入
+- 上限 `max_present`（默认 8）：重要人物优先，其余按序补足，超出记日志——保护 prompt 体积
+- 位置层级上下文仍会取（`world_manager.get_location_context`），但只作为场景参考，不决定谁在场
 - 检索 related_absent（通过 character-category Facts 内容关联 NPC 名探索，最多 5 个）
-- **不批量加载所有 NPC**，只加载与当前位置直接相关的
 
 ---
 

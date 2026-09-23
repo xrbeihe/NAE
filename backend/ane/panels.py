@@ -137,16 +137,23 @@ def _strip_echo_segments(line: str, panel_keys: set[str]) -> str:
     return " ｜ ".join(kept)
 
 
+# 已整体从角色数据里移除的字段：面板不再展示，但信息栏里出现就一律剥掉
+_ALWAYS_ECHO_KEYS = {"位置", "地点", "所在地", "location"}
+
+
 def strip_dynamic_field_echoes(text: str, panel_text: str) -> str:
     """把 info_panel 的【主角动态】段里"照抄权威面板字段"的片段删掉。
 
     只处理动态段（首个【…】段，或模型没写标题时最前面那几行裸写的动态行），
     后面的【交互人物】【附近人物】【推荐行动】等段落原样保留。
     整行删空则删该行；整段删空则连标题一起删。
+
+    除了"面板里已有的字段"，还有一份**固定剥离名单**（`_ALWAYS_ECHO_KEYS`）：
+    已经整体从角色数据里移除的字段（位置/地点）即便面板不再展示，也不该出现在信息栏里。
     """
-    if not text or not panel_text:
+    if not text:
         return text
-    panel_keys = _panel_field_keys(panel_text)
+    panel_keys = _panel_field_keys(panel_text or "") | _ALWAYS_ECHO_KEYS
     if not panel_keys:
         return text
 

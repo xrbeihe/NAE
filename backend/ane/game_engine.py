@@ -210,7 +210,6 @@ class GameEngine:
         if existing.scalar_one_or_none():
             return
         await npc_manager.create(db, session_id, name=name, npc_type="background", behavior=act)
-
     # ── Session lifecycle ──────────────────────────────────────
 
     async def create_session(self, db: AsyncSession, user_id: str, name: str = "未命名世界",
@@ -361,10 +360,10 @@ class GameEngine:
                     if db_npc:
                         db_npc.is_important = True
                     else:
-                        player_loc = player.location if player else "未知"
+                        # 位置已移除：新建 NPC 不再记录位置
                         await _npc_mgr.create(
                             db, session_id, name=npc_name,
-                            location=player_loc, is_important=True,
+                            is_important=True,
                         )
                 await db.flush()
                 logger.info(f"mark_important_npc (turn): {npc_name}")
@@ -390,9 +389,17 @@ class GameEngine:
         player_location = player.location if player else "未知"
         player_name = player.name if player else "无名修士"
 
-        # Step 6: Retrieve Active Set
+        # Step 6: Retrieve Active Set —— 在场判定不看位置：重要人物 + 被叙事提到的人
+        # 提到的来源：最近几轮对话 + 本轮玩家输入 + 上一轮信息栏（交互/附近人物都在里面）
+        prev_info_panel = await memory_manager.get_latest_info_panel(db, session_id)
+        recent_convs = await memory_manager.get_full_conversation(db, session_id)
+        mentioned_text = "\n".join(
+            [user_input]
+            + [m.content or "" for m in recent_convs[-3:]]
+            + ([prev_info_panel] if prev_info_panel else [])
+        )
         active_set = await retrieval_engine.get_active_set(
-            db, session_id, player_location,
+            db, session_id, player_location, mentioned_text=mentioned_text,
         )
 
         # Build NPC name list for constraints
@@ -791,16 +798,11 @@ class GameEngine:
                     logger.info(f"step15: {player.name} cultivation {player.cultivation}→{change_value}")
                     player.cultivation = change_value
 
-            # ── Player location ──
+            # ── Player location ──（位置已移除：程序不再跟踪任何角色的位置）
             elif change_type == "location_change":
                 if change_target == "player" and change_value:
-                    logger.info(f"step15: {player.name} location {player.location}→{change_value}")
-                    player.location = change_value
-                    # 同步 location_hierarchy，避免 prompt 里【用户扮演角色】块
-                    # 仍显示旧层级（与 /move 接口行为对齐）
-                    p_attrs = dict(player.attributes or {})
-                    p_attrs["location_hierarchy"] = change_value
-                    player.attributes = p_attrs
+                    # 旧输出/旧会话兼容：解析器仍认这个类型，但不再写回玩家位置
+                    logger.info(f"step15: location_change ignored (位置已移除): {change_value}")
 
             # ── Player inventory ──
             elif change_type == "item_added":
@@ -863,9 +865,13 @@ class GameEngine:
                     )
                     db_npc = npc_obj.scalar_one_or_none()
                     if db_npc:
-                        old = getattr(db_npc, change_field, "?")
-                        setattr(db_npc, change_field, change_value)
-                        logger.info(f"step15: npc {db_npc.name}/{change_field}: {old}→{change_value}")
+                        # 位置已移除：npc_status 里的 location 不再写回，其它字段照常
+                        if str(change_field).strip().lower() in ("location", "位置"):
+                            logger.info(f"step15: npc {db_npc.name} location change ignored (位置已移除)")
+                        else:
+                            old = getattr(db_npc, change_field, "?")
+                            setattr(db_npc, change_field, change_value)
+                            logger.info(f"step15: npc {db_npc.name}/{change_field}: {old}→{change_value}")
                     else:
                         logger.warning(f"step15: npc_status target '{change_target}' not found in DB")
 
@@ -951,7 +957,6 @@ class GameEngine:
             if not db_npc:
                 db_npc = await _npc_mgr.create(
                     db, session_id, name=rel_name,
-                    location=player_location,
                 )
             # Find existing edge (player → NPC)
             existing_r = await db.execute(

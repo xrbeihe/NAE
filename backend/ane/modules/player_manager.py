@@ -16,11 +16,10 @@ logger = logging.getLogger(__name__)
 
 
 def _pick_start_location(wv, timeline_id: str = "") -> str:
-    """Player starts with no fixed location — the first turn's LLM decides.
+    """位置已移除：玩家不再有固定位置，程序也不跟踪位置。
 
-    Returning "" means the player has no anchor until narrative sets one
-    (via location_change). This avoids mismatches like a 砂忍 character
-    being spawned in 木叶 by the template's first-city rule.
+    角色在哪由最近对话与玩家输入自然决定（叙事里交代即可）。这个函数保留
+    只是为了兼容旧调用点，恒返回空字符串；`player.location` 字段同理不再维护。
     """
     return ""
 

@@ -57,7 +57,7 @@ Token 有效期 7 天。前端存储在 `localStorage`，每次请求自动附�
 - `npc_names`: 核心 NPC 的姓名列表
 - `world_intro`: 世界简介文本（角色创建时生成，刷新后仍可查看）
 - `prompts`: 全量 Prompt 历史（`[{turn_number, content}]`，按 `memory_type="prompt"` 永久保留）
-- `player_location`: 玩家当前位置
+- `player_location`: 兼容字段（位置已整体移除，程序不再维护/注入；叙事里交代位置即可）
 
 ---
 
@@ -91,7 +91,7 @@ Token 有效期 7 天。前端存储在 `localStorage`，每次请求自动附�
   "shortmemory_summary": "llm_summary 结构化事实提取内容",
   "player_panel": "【主角面板】\n姓名：陆星河 ｜ 男 ｜ 14岁\n出身：家族旁支\n…",
   "important_npcs_panel": "【重要人物】\n（无）",
-  "info_panel": "【主角动态】\n陆星河：状态：灵力充盈 ｜位置：青云城\n\n【推荐行动】\n1. 去百草堂买药材\n…"
+  "info_panel": "【主角动态】\n陆星河：状态：灵力充盈 ｜当前行动：在百草堂挑药材\n\n【推荐行动】\n1. 去百草堂买药材\n…"
 }
 ```
 

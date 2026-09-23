@@ -31,12 +31,6 @@
       "default": "未知"
     },
     {
-      "label": "位置",
-      "key": "location",
-      "source": "player",
-      "default": "未知"
-    },
-    {
       "label": "衣物",
       "key": "clothing",
       "source": "attrs",

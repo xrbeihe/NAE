@@ -459,7 +459,7 @@ PANEL_TEXT = (
 
 @pytest.mark.asyncio
 async def test_turn_strips_location_echo_before_storing(db, client_a, mock_llm):
-    """端到端：LLM 在【主角动态】里照抄了「位置：」→ 落库的 info_panel 已剔除，权威面板保留位置。"""
+    """端到端：位置已整体移除——LLM 若仍写「位置：」，返回与落库的 info_panel 都会剔除，主角面板也不再有位置。"""
     from ane.game_engine import game_engine
     from ane.modules.memory_manager import memory_manager
     from ane.modules.model_adapter import ModelAdapter
@@ -492,8 +492,8 @@ async def test_turn_strips_location_echo_before_storing(db, client_a, mock_llm):
         # 落库版本同样干净（下一轮回喂的就是它）
         stored = await memory_manager.get_latest_info_panel(db, session_id)
         assert "位置：林之国·杉谷村口" not in stored
-        # 权威主角面板仍然是位置的唯一来源
-        assert "位置：" in body["player_panel"]
+        # 位置已整体移除：主角面板里也没有位置这一项
+        assert "位置：" not in body["player_panel"]
 
 
 
@@ -554,14 +554,99 @@ def test_prompt_nearby_section_has_no_person_type_quota():
         assert "背景npc路人npc不要输出" not in text
 
 
-def test_prompt_dynamic_section_example_has_no_location():
-    """提示词自身的示例不能再带「｜位置：」——这正是位置被反复抄进动态段的根因。"""
+def test_prompt_has_no_character_location_anywhere():
+    """位置已整体移除：提示词里不该再有角色的位置注入、位置示例或 location_change 指引。"""
     from ane.modules.prompt_builder import _EFFECTIVE_SYSTEM_PROMPT, NARRATIVE_KERNEL_PROMPT
 
     for name, text in (("system", _EFFECTIVE_SYSTEM_PROMPT), ("kernel", NARRATIVE_KERNEL_PROMPT)):
         assert "｜位置：" not in text, f"{name} prompt 的示例里仍带位置"
-        assert "示例里没有「位置：」" in text, f"{name} prompt 缺少『不要写位置』的显式说明"
-        assert "location_change" in text, f"{name} prompt 缺少位置写回指引"
+        assert "具体位置" not in text, f"{name} prompt 仍在注入具体位置"
+        assert "当前位置：" not in text, f"{name} prompt 仍在注入当前位置"
+        assert "位置层级" not in text, f"{name} prompt 仍在注入位置层级"
+        assert "location_change" not in text, f"{name} prompt 仍在教 location_change"
+        assert "位置不需要写" in text, f"{name} prompt 缺少『位置不需要写』的说明"
+
+
+def test_player_panel_specs_have_no_location_field():
+    """6 个包的 panel.json 都不再渲染「位置」。"""
+    import json
+    from pathlib import Path
+    from ane.worldview import list_worldviews, get as get_worldview
+
+    for wv in list_worldviews():
+        spec = get_worldview(wv["id"]).panel_spec or {}
+        keys = [f.get("key") for f in spec.get("fields", [])]
+        labels = [f.get("label") for f in spec.get("fields", [])]
+        assert "location" not in keys, f"{wv['id']} 的面板仍引用 location"
+        assert "位置" not in labels, f"{wv['id']} 的面板仍显示「位置」"
+        assert not any("location" in json.dumps(f, ensure_ascii=False) for f in spec.get("fields", [])), \
+            f"{wv['id']} 的面板仍含 location 引用"
+
+
+def test_built_prompt_has_no_location_lines():
+    """运行时拼出的 prompt 里也不能出现角色位置（玩家块/场景块都不再注入位置）。"""
+    from ane.modules.prompt_builder import (
+        prompt_builder, PromptContext, PlayerContext, AgenticContext,
+        WorldContext, SceneContext,
+    )
+    ctx = PromptContext(
+        world=WorldContext(name="测试世界"),
+        player=PlayerContext(
+            name="某人", cultivation="炼气期",
+            location="青云宗·山门", location_hierarchy="青云宗·山门",
+        ),
+        agentic=AgenticContext(),
+        scene=SceneContext(
+            location_name="山门", location_hierarchy="青云宗·山门",
+            location_description="云雾缭绕，石阶生苔",
+        ),
+        user_input="你好",
+    )
+    prompt = prompt_builder.build(ctx)
+    assert "具体位置" not in prompt
+    assert "当前位置" not in prompt
+    assert "位置层级" not in prompt
+    assert "位置：" not in prompt
+    assert "环境描写：云雾缭绕，石阶生苔" in prompt      # 场景氛围保留，只是不再声明"谁在哪"
+
+
+def test_active_set_ignores_location_and_uses_mentions(tmp_path):
+    """在场判定不再看位置：被提到的人在、没人提的（哪怕同地点）不在、重要人物始终在、死者不在。"""
+    import asyncio
+    from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+    from ane.database.models import Base, NPC
+    from ane.modules.retrieval_engine import retrieval_engine, is_name_mentioned
+
+    async def _run():
+        eng = create_async_engine("sqlite+aiosqlite://", echo=False)
+        async with eng.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        factory = async_sessionmaker(eng, class_=AsyncSession, expire_on_commit=False)
+        async with factory() as db:
+            db.add_all([
+                NPC(id="n1", session_id="s1", name="白", location="林之国·杉谷村", npc_type="named"),
+                NPC(id="n2", session_id="s1", name="米店老板娘", location="林之国·杉谷村", npc_type="background"),
+                NPC(id="n3", session_id="s1", name="蒙奇·D·路飞", location="东海·风车村", is_important=True),
+                NPC(id="n4", session_id="s1", name="死者", location="林之国·杉谷村", is_alive=False),
+                NPC(id="n5", session_id="s1", name="路人甲", location="", npc_type="background"),   # 空位置的路人
+            ])
+            await db.commit()
+            # 玩家在杉谷村，但只有「白」被叙事提到
+            active = await retrieval_engine.get_active_set(
+                db, "s1", "林之国·杉谷村", mentioned_text="白背着人在村口张望",
+            )
+            names = {n.name for n in active.present_npcs}
+            assert "白" in names                     # 被提到 → 在场
+            assert "米店老板娘" not in names          # 同地点但没被提到 → 不再自动在场
+            assert "路人甲" not in names              # 空位置的路人不再"永远在场"
+            assert "死者" not in names                # 死亡 NPC 不注入
+            assert "蒙奇·D·路飞" in names             # 重要人物始终在场
+        await eng.dispose()
+
+    asyncio.run(_run())
+    # 后缀简称也算提到
+    assert is_name_mentioned("蒙奇·D·路飞", "路飞笑了") is True
+    assert is_name_mentioned("林星如", "林星来了") is False
 
 
 

@@ -140,7 +140,8 @@ def _render_character_card(wv, player, attrs: dict) -> str:
                 tag = ""
             parts.append(f"{line.get('label', '金手指')}：{value}{' — ' + tag if tag else ''}")
         elif key == "location":
-            parts.append(f"{line.get('label', '初始位置')}：{value}")
+            # 位置已移除：老包若还在角色卡里配了 location 行，退化为一个中性标签
+            parts.append(f"{line.get('label', '信息')}：{value}")
         else:
             parts.append(f"{line.get('label', key)}：{value}")
 
@@ -847,9 +848,9 @@ async def npc_modeling_confirm(
     )
     db_npc = existing.scalar_one_or_none()
     if not db_npc:
-        # Create NPC now (deferred from pre-check step)
+        # Create NPC now (deferred from pre-check step)；位置已移除：不再记录 NPC 位置
         db_npc = await npc_mgr.create(
-            db, session_id, name=req.name, location=player_location,
+            db, session_id, name=req.name,
         )
         if not db_npc:
             raise HTTPException(status_code=500, detail=f"Failed to create NPC {req.name}")

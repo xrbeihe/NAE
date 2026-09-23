@@ -43,15 +43,16 @@
   │
   ▼
 ┌─ Step 5: Narrative Constraints ───────────────────────────────┐
-│ 基于 玩家修为 + 位置 + 活跃 NPC + intent 生成约束集            │
+│ 基于 玩家修为 + 活跃 NPC + intent 生成约束集                   │
 │ 结构: hard（不可违反）+ soft（建议遵守）+ triggers（条件触发）  │
 │ NSFW intent 时硬约束要求生成完整性爱场景 (>800字)             │
 └───────────────────────────────────────────────────────────────┘
   │
   ▼
 ┌─ Step 6: Retrieval Engine ────────────────────────────────────┐
-│ 构建 Active Set：核心 NPC + 同位置 NPC + 位置层级上下文        │
-│ 输出: ActiveSet(core_npcs, nearby_npcs, location_context)      │
+│ 构建 Active Set：重要人物 + 被叙事提到的 NPC（**不看位置**）    │
+│ 位置已整体移除；位置上下文仅作场景参考，不决定谁在场            │
+│ 输出: ActiveSet(present_npcs, location_context)                │
 └───────────────────────────────────────────────────────────────┘
   │
   ▼
@@ -348,7 +349,7 @@ for db_npc in all_db_npcs:
 1. System Prompt（固定）
 2. World Context（青云界）
 3. Player Panel（姓名/修为/灵根/金手指/衣物）
-4. Scene Context（当前位置/时间）
+4. Scene Context（时间/环境描写；位置已移除）
 5. Important NPCs（全量model_data）
 6. Interactive NPC（当前交互对象model_data）
 7. Narrative Constraints（硬约束+软约束）
@@ -466,9 +467,8 @@ class ValidationResult:
 ```python
 @dataclass
 class ActiveSet:
-    core_npcs: list[NPCModel]
-    nearby_npcs: list[NPCModel]
-    location_context: dict
+    present_npcs: list[NPCModel]   # 重要人物 + 被叙事提到的 NPC（位置已移除，不参与判定）
+    location_context: dict         # 仅作场景参考
 ```
 
 ### `TurnResult`（game_engine.py）
@@ -578,7 +578,7 @@ GameEngine 注册以下 handler（当前全部为日志级别，DB 写入在主�
 
 | 事件类型 | 效果 |
 |----------|------|
-| `location_change` | 日志记录（DB 由主管线直接写） |
+| `location_change` | **已忽略**（位置已整体移除；解析器仍认这个类型，只记日志不写库） |
 | `cultivation_change` | 日志记录 |
 | `status_change` | 日志记录 |
 | `item_added` | 日志记录 |

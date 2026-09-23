@@ -59,10 +59,6 @@
         "show_if": "truthy"
       },
       {
-        "label": "初始位置",
-        "key": "location"
-      },
-      {
         "label": "金手指",
         "composite": "金手指：{golden_finger_name}{tag}",
         "tag_field": "golden_finger_tagline"

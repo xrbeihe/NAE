@@ -30,12 +30,6 @@
       "default": "未知"
     },
     {
-      "label": "位置",
-      "key": "location",
-      "source": "player",
-      "default": "未知"
-    },
-    {
       "label": "灵根",
       "key": "spiritual_root",
       "source": "attrs",

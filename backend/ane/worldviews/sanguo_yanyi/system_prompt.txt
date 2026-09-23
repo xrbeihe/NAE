@@ -14,5 +14,4 @@
 【输出格式·本世界观特定】
 - recommendations 推荐内容多样化时涵盖结交、谋略、征战、游历等不同类型。
 - state_changes 各类型用法：
-  - location_change：target="player", value="新地名" → 更新玩家位置
   - npc_status / character_status：target=NPC名, field="任意字段", value="新值" → 更新NPC状态

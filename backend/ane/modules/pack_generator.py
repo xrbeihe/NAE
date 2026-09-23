@@ -146,7 +146,6 @@ def build_system_prompt(author: dict) -> str:
         "【输出格式·本世界观特定】",
         f"- recommendations 推荐内容多样化时涵盖{genre_cfg['rec_types']}等不同类型。",
         "- state_changes 各类型用法：",
-        "  - location_change：target=\"player\", value=\"新地名\" → 更新玩家位置",
         "  - npc_status / character_status：target=NPC名, field=\"任意字段\", value=\"新值\" → 更新NPC状态",
     ]
     if fields["has_power"]:
@@ -285,10 +284,9 @@ def _build_constraints(author: dict) -> dict:
     hard = [
         f"这是一个{name}世界。遵循该世界的物理规律与社会规则，不得混入其他世界观的力量体系。",
         "NPC的性格和行为必须与其设定一致。冷漠的人不会突然热情，高傲的人不会低声下气。",
-        "NPC只能在自身当前位置出现。在远方的NPC不能突然现身。",
-        (f"保持角色（包括玩家和NPC）的所有状态信息（{fields['cultivation_label']}、身份、位置）与数据库记录完全一致，不得随意修改或编造。前一回合的状态必须继承到当前回合。"
+        (f"保持角色（包括玩家和NPC）的所有状态信息（{fields['cultivation_label']}、身份）与数据库记录完全一致，不得随意修改或编造。前一回合的状态必须继承到当前回合。"
          if fields["has_power"] else
-         "保持角色（包括玩家和NPC）的所有状态信息（身份、位置）与数据库记录完全一致，不得随意修改或编造。前一回合的状态必须继承到当前回合。"),
+         "保持角色（包括玩家和NPC）的所有状态信息（身份）与数据库记录完全一致，不得随意修改或编造。前一回合的状态必须继承到当前回合。"),
         "禁止使用'洗得发白'这个短语来形容衣物——属于低质量模板化描写。如需描写旧衣物，请用更具体的手法（褪色的纹路、磨破的袖口、浆洗发硬的布料、颜色不均的补丁等）。",
     ]
     # World taboos → hard constraints in in-world phrasing
