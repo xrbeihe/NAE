@@ -439,19 +439,10 @@ class GameEngine:
                         f"{len(ctx.custom_post_prompts)} post"
                     )
 
-        # ── Info panel 持续化：把上一轮信息栏整块回喂，让 LLM 基于它持续更新 ──
+        # ── 上一轮的两块历史（先都取出来，才能互相做去重）──
+        # Info panel：把上一轮信息栏整块回喂，让 LLM 基于它持续更新
         prev_panel = await memory_manager.get_latest_info_panel(db, session_id)
-        if prev_panel:
-            # 历史数据兜底：旧版本存入的 info_panel 可能带着"照抄扩展栏目"的分节
-            from ane.panels import strip_extension_echo_sections
-            prev_panel = strip_extension_echo_sections(prev_panel, player)
-        if prev_panel:
-            ctx.custom_pre_prompts.append(
-                "【上一轮信息栏】按 info_panel 规则重新输出，仅保留主角动态状态（静态属性见权威主角面板，勿重复）、正在交互人物、玩家要求的栏目：\n" + prev_panel
-            )
-            logger.info("Info panel persisted: previous turn panel fed back to LLM")
-
-        # ── 主角信息持续化：上一轮主角面板（程序生成的权威状态）整块回喂 ──
+        # 主角信息：上一轮主角面板（程序生成的权威状态）整块回喂
         prev_player_panel = await memory_manager.get_latest_player_panel(db, session_id)
         if not prev_player_panel:
             # 第一轮（尚无存储）：现场渲染当前主角面板，确保每一轮都有主角信息
@@ -464,6 +455,18 @@ class GameEngine:
             except Exception as _e:
                 logger.warning(f"First-turn player panel render failed: {_e}")
                 prev_player_panel = ""
+
+        if prev_panel:
+            # 历史数据兜底：① 旧版本存入的 info_panel 可能带着"照抄扩展栏目"的分节；
+            # ② 可能带着照抄权威面板字段的片段（位置/身份/性格…）——都以面板为准剔掉
+            from ane.panels import strip_extension_echo_sections, strip_dynamic_field_echoes
+            prev_panel = strip_extension_echo_sections(prev_panel, player)
+            prev_panel = strip_dynamic_field_echoes(prev_panel, prev_player_panel)
+        if prev_panel:
+            ctx.custom_pre_prompts.append(
+                "【上一轮信息栏】按 info_panel 规则重新输出，仅保留主角动态状态（静态属性见权威主角面板，勿重复）、正在交互人物、玩家要求的栏目：\n" + prev_panel
+            )
+            logger.info("Info panel persisted: previous turn panel fed back to LLM")
         if prev_player_panel:
             ctx.custom_pre_prompts.append(
                 "【上一轮主角信息】程序生成的权威主角面板，以它为准保持主角状态前后一致：\n" + prev_player_panel
@@ -981,7 +984,7 @@ class GameEngine:
             logger.info(f"Player relationships added: {player_rels_added}")
 
         # Step 16: Build player and important NPC panels for frontend display
-        from ane.panels import render_player_panel, strip_extension_echo_sections
+        from ane.panels import render_player_panel, strip_extension_echo_sections, strip_dynamic_field_echoes
         from ane.worldview import get as get_worldview, DEFAULT_WORLDVIEW_ID
         _wv = get_worldview(worldview or DEFAULT_WORLDVIEW_ID)
         _panel_spec = _wv.panel_spec or {}
@@ -1015,9 +1018,11 @@ class GameEngine:
                     })
 
         # Step 17: Commit and return
-        # info_panel 去回声：LLM 常把主角面板「扩展：」里的栏目抄成自己的 【栏目名】分节，
-        # 而上一轮 info_panel 每轮原样回喂 → 这份重复会被固化并逐轮累积，这里统一剔除
+        # info_panel 去回声：① LLM 常把主角面板「扩展：」的栏目抄成自己的 【栏目名】分节；
+        # ② 常在【主角动态】里再写一遍权威面板已有的字段（位置/身份/性格…）。
+        # 上一轮 info_panel 每轮原样回喂 → 这两类重复都会被固化并逐轮累积，这里统一剔除
         parsed.info_panel = strip_extension_echo_sections(parsed.info_panel, player)
+        parsed.info_panel = strip_dynamic_field_echoes(parsed.info_panel, player_panel_str)
         # 持久化本轮 info_panel + player_panel（供下一轮回喂持续更新）
         await memory_manager.save_info_panel(db, session_id, turn_number, parsed.info_panel)
         await memory_manager.save_player_panel(db, session_id, turn_number, player_panel_str)

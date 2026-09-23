@@ -89,6 +89,111 @@ def strip_extension_echo_sections(text: str, player) -> str:
     return re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip()
 
 
+# ── 主角动态段里「照抄权威面板字段」的字段级回声剥离 ──────────────
+# 面板已经把 姓名/性别/年龄/身份/能力/性格/位置… 列成权威版本；但 LLM 常会在
+# 【主角动态】里再写一遍（例如「北荷茶光：查克拉消耗过半，精神紧绷 ｜位置：林之国·杉谷村口」）。
+# 上一轮信息栏是原样回喂的，于是这份回声逐轮固化。这里按**字段名**剥离：
+# 只删「字段：值」中字段已出现在权威面板里的片段，保留真正的动态内容（状态/当前行动…）。
+
+_DYN_KEY_RE = re.compile(r"^\s*(状态|当前状态|当前行动|行动|心情|伤势|身体|精神|位置)\s*[：:]")
+_DYN_ANY_RE = re.compile(r"[｜|\s](状态|当前状态|当前行动|行动|心情|伤势|身体|精神|位置)\s*[：:]")
+_NAMED_FIELD_RE = re.compile(r"^\s*([^：:｜|]{1,12})\s*[：:]\s*(状态|当前状态|当前行动|行动|心情|伤势|身体|精神|位置)\s*[：:]")
+
+
+def _is_dynamic_line(line: str) -> bool:
+    """这一行是不是「主角动态」的内容行（支持「状态：…」「主角名：状态：…」「名字：状态描述 ｜位置：…」）。"""
+    s = (line or "").strip()
+    if not s:
+        return False
+    return bool(_DYN_KEY_RE.match(s) or _DYN_ANY_RE.search(s) or _NAMED_FIELD_RE.match(s))
+
+
+def _panel_field_keys(panel_text: str) -> set[str]:
+    """从权威主角面板文本里取出所有「字段：」的字段名。"""
+    keys: set[str] = set()
+    for m in re.finditer(r"(?:^|[｜|\s、，,])\s*([^\s｜|：:]{1,12})\s*[：:]", panel_text or ""):
+        keys.add(m.group(1).strip())
+    return keys
+
+
+def _strip_echo_segments(line: str, panel_keys: set[str]) -> str:
+    """逐「｜」段丢掉字段已在面板里的片段；返回空串表示整行都是回声。"""
+    segs = [s.strip() for s in re.split(r"[｜|]", line) if s.strip()]
+    kept: list[str] = []
+    for i, seg in enumerate(segs):
+        m = re.match(r"^([^：:]{1,12})[：:](.*)$", seg)
+        key = m.group(1).strip() if m else ""
+        rest = m.group(2).strip() if m else ""
+        # 「主角名：状态：…」这种首段：名字不算字段名，看它后面那个真字段
+        if i == 0 and rest:
+            inner = re.match(r"^([^：:]{1,12})[：:](.*)$", rest)
+            if inner and inner.group(1).strip() in panel_keys:
+                continue                      # 整段就是回声（如「某人：位置：X」）
+            kept.append(seg)
+            continue
+        if key and key in panel_keys:
+            continue
+        kept.append(seg)
+    return " ｜ ".join(kept)
+
+
+def strip_dynamic_field_echoes(text: str, panel_text: str) -> str:
+    """把 info_panel 的【主角动态】段里"照抄权威面板字段"的片段删掉。
+
+    只处理动态段（首个【…】段，或模型没写标题时最前面那几行裸写的动态行），
+    后面的【交互人物】【附近人物】【推荐行动】等段落原样保留。
+    整行删空则删该行；整段删空则连标题一起删。
+    """
+    if not text or not panel_text:
+        return text
+    panel_keys = _panel_field_keys(panel_text)
+    if not panel_keys:
+        return text
+
+    lines = text.splitlines()
+    first = next((i for i, l in enumerate(lines) if l.strip()), -1)
+    if first < 0:
+        return text
+    head = _HEADING_RE.match(lines[first])
+    start, end = -1, len(lines)
+    if head:
+        j = first + 1
+        body: list[str] = []
+        while j < len(lines) and not _HEADING_RE.match(lines[j]):
+            body.append(lines[j]); j += 1
+        if head.group(1).replace(" ", "") == "主角动态" or any(_is_dynamic_line(l) for l in body):
+            start, end = first, j
+    elif _is_dynamic_line(lines[first]):
+        j = first + 1
+        while j < len(lines) and not _HEADING_RE.match(lines[j]):
+            j += 1
+        start, end = first, j
+    if start < 0:
+        return text
+
+    bare_start = start == first and not head        # 无标题形态：起始那行本身就是内容
+    out: list[str] = []
+    for idx in range(start, end):
+        line = lines[idx].strip()
+        if idx == start and head and not bare_start:
+            out.append(lines[idx])                  # 保留标题行
+            continue
+        if not line:
+            out.append("")                          # 段落内空行先留着，最后统一压缩
+            continue
+        stripped = _strip_echo_segments(line, panel_keys)
+        out.append(stripped)
+    # 标题行后若已无内容，连标题一起删
+    body_only = [l for l in (out[1:] if (head and not bare_start) else out) if l.strip()]
+    if head and not bare_start and not body_only:
+        out = []
+    merged = [l for l in out if l.strip()]
+    tail = lines[end:]
+    sep = [""] if (merged and any(l.strip() for l in tail)) else []
+    rest = lines[:start] + merged + sep + tail
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(rest)).strip()
+
+
 def render_player_panel(player, panel_spec: dict) -> str:
     """Render the player panel string per a worldview panel.json spec.
 

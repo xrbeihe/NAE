@@ -85,7 +85,7 @@ llmmain 输出中包含 offstage_npcs 数组
 **产生方式**（唯一入口）：
 
 ```
-llm_main 写进 info_panel 的【附近人物】段（3 位，1 男 2 女）
+llm_main 写进 info_panel 的【附近人物】段（有谁/几位由模型按场景自行决定；无人数与性别约束）
   → OutputParser 提取 info_panel
   → 落库保存（会话级单份，原样回喂下一轮）
   → 前端按纯文本渲染进「信息栏」卡片（无独立卡片、无点击交互）

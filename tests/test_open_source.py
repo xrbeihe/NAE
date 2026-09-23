@@ -117,6 +117,101 @@ async def test_ensure_is_idempotent(db):
 
 
 @pytest.mark.asyncio
+async def test_migration_then_publish_on_existing_db(tmp_path, monkeypatch):
+    """服务器升级路径：老库（worldview_shares 表**没有** is_official 列）→ init_db 迁移 → 自动发布。
+
+    线上库是"旧表 + 新代码"，这条路径必须能跑通：init_db 用 ALTER TABLE 补列，
+    随后 ensure_open_source_shares 才能写 is_official=True 的官方条目。
+    """
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+    import ane.database.engine as eng_mod
+
+    db_file = tmp_path / "old_server.db"
+    url = f"sqlite+aiosqlite:///{db_file}"
+
+    old = create_async_engine(url)
+    async with old.begin() as conn:
+        # 旧版建的表：worldview_shares 无 is_official；users 里已有历史账号
+        await conn.execute(text(
+            "CREATE TABLE users (id VARCHAR PRIMARY KEY, username VARCHAR UNIQUE NOT NULL, "
+            "password_hash VARCHAR NOT NULL, display_name VARCHAR, is_adult BOOLEAN, "
+            "created_at DATETIME, is_active BOOLEAN)"
+        ))
+        await conn.execute(text(
+            "CREATE TABLE worldview_shares (id VARCHAR PRIMARY KEY, user_id VARCHAR NOT NULL, "
+            "worldview_id VARCHAR NOT NULL, title VARCHAR NOT NULL, description TEXT, tags JSON, "
+            "version VARCHAR, created_at DATETIME, updated_at DATETIME)"
+        ))
+        await conn.execute(text(
+            "INSERT INTO users (id, username, password_hash, display_name, created_at) "
+            "VALUES ('old_admin','old_admin','x','老管理员','2026-01-01 00:00:00')"
+        ))
+    await old.dispose()
+
+    # 让 init_db 作用在这个临时库上（它读模块级 engine / DATABASE_URL）
+    tmp_engine = create_async_engine(url)
+    monkeypatch.setattr(eng_mod, "engine", tmp_engine)
+    monkeypatch.setattr(eng_mod, "DATABASE_URL", url)
+    await eng_mod.init_db()
+
+    async with tmp_engine.begin() as conn:
+        cols = await conn.execute(text("PRAGMA table_info(worldview_shares)"))
+        assert "is_official" in {row[1] for row in cols.fetchall()}, "迁移没补上 is_official 列"
+
+    factory = async_sessionmaker(tmp_engine, class_=AsyncSession, expire_on_commit=False)
+    async with factory() as session:
+        added = await ensure_open_source_shares(session)
+        assert set(BUILTIN) <= set(added), "老库上没能自动发布内置开源包"
+        rows = (await session.execute(select(WorldviewShare))).scalars().all()
+        assert {r.worldview_id for r in rows} >= set(BUILTIN)
+        assert all(r.is_official for r in rows)
+        assert all(r.user_id == "old_admin" for r in rows)   # 挂到库里已有的老账号
+    await tmp_engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_plaza_explains_when_no_user_exists(db):
+    """库里没有用户时不会抛错，但必须把原因带出去（否则前端只看到空广场、无从排查）。"""
+    import httpx
+
+    async def _db_override():
+        yield db
+    app.dependency_overrides[get_db] = _db_override
+    try:
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as c:
+            r = await c.get("/worldviews/shared")
+            assert r.status_code == 200
+            body = r.json()
+            assert body["worldviews"] == []
+            assert "没有任何用户账号" in body["publish_error"]
+            assert set(BUILTIN) <= set(body["declared_open_source"])
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.mark.asyncio
+async def test_plaza_reports_publish_error_and_status_endpoint(db, make_client):
+    """广场接口带回 publish_error 与声明列表；诊断接口给出 declared/published/missing。"""
+    client = await make_client(USER_OPEN)
+    r = await client.get("/worldviews/shared")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["publish_error"] == ""                       # 正常情况没有错误
+    assert set(BUILTIN) <= set(body["declared_open_source"])  # 声明开源
+    assert len(body["worldviews"]) >= len(BUILTIN)            # 自愈后条目齐全
+
+    r = await client.get("/worldviews/open-source")
+    assert r.status_code == 200
+    st = r.json()
+    assert st["error"] == ""
+    assert set(BUILTIN) <= set(st["declared"])
+    assert st["missing"] == []
+    assert set(BUILTIN) <= set(st["published"])
+
+
+@pytest.mark.asyncio
 async def test_ensure_skips_when_no_user_exists(db):
     """数据库里一个用户都没有时跳过（等有账号后再补），不抛异常。"""
     assert await ensure_open_source_shares(db) == []

@@ -448,6 +448,123 @@ def test_strip_extension_echo_sections_unit():
     assert strip_extension_echo_sections("", _P()) == ""
 
 
+# ── info_panel 去回声 ②：主角动态段里照抄权威面板字段（位置/身份/性格…）──
+
+PANEL_TEXT = (
+    "【主角面板】\n"
+    "姓名：北荷茶光 ｜ 男 ｜ 15岁 ｜ 血继限界/能力：粘遁 ｜ 性格：热情友善 ｜ "
+    "身份：曾经是水忍中忍 ｜ 位置：林之国·杉谷村"
+)
+
+
+@pytest.mark.asyncio
+async def test_turn_strips_location_echo_before_storing(db, client_a, mock_llm):
+    """端到端：LLM 在【主角动态】里照抄了「位置：」→ 落库的 info_panel 已剔除，权威面板保留位置。"""
+    from ane.game_engine import game_engine
+    from ane.modules.memory_manager import memory_manager
+    from ane.modules.model_adapter import ModelAdapter
+    from unittest.mock import AsyncMock, patch
+
+    info = await game_engine.create_session(db, user_id=USER_A, name="去回声")
+    session_id = info["session_id"]
+
+    async def _fake(prompt, model=None, **kwargs):
+        if kwargs.get("label") == "llm_main":
+            return json.dumps({
+                "narrative": "他背着白走进杉谷村。",
+                "state_changes": [],
+                "info_panel": (
+                    "北荷茶光：查克拉消耗过半，精神紧绷 ｜位置：林之国·杉谷村口\n\n"
+                    "【交互人物】\n白｜雾隐叛忍｜昏迷中\n\n"
+                    "【推荐行动】\n1. 接受米店老板娘邀请"
+                ),
+            }, ensure_ascii=False)
+        return json.dumps({"narrative": "x", "state_changes": []}, ensure_ascii=False)
+
+    with patch.object(ModelAdapter, "generate", new_callable=AsyncMock, side_effect=_fake):
+        r = await client_a.post(f"/sessions/{session_id}/turn", json={"input": "进村"})
+        assert r.status_code == 200, r.text
+        body = r.json()
+        # 返回给前端的 info_panel：位置回声已去掉，动态状态与其余段落都在
+        assert "｜位置：" not in body["info_panel"]
+        assert "查克拉消耗过半，精神紧绷" in body["info_panel"]
+        assert "【交互人物】" in body["info_panel"] and "【推荐行动】" in body["info_panel"]
+        # 落库版本同样干净（下一轮回喂的就是它）
+        stored = await memory_manager.get_latest_info_panel(db, session_id)
+        assert "位置：林之国·杉谷村口" not in stored
+        # 权威主角面板仍然是位置的唯一来源
+        assert "位置：" in body["player_panel"]
+
+
+
+def test_strip_dynamic_field_echoes_unit():
+    """动态段里字段已在权威面板中 → 只删该字段片段，动态内容保留；其余段落不动。"""
+    from ane.panels import strip_dynamic_field_echoes
+
+    # ① 用户实际形态：无标题 + 名字前缀 + ｜位置（位置与面板重复）
+    out = strip_dynamic_field_echoes(
+        "北荷茶光：查克拉消耗过半，精神紧绷 ｜位置：林之国·杉谷村口\n\n【推荐行动】\n1. 接受邀请",
+        PANEL_TEXT,
+    )
+    assert "位置：" not in out                                   # 与面板重复的位置被删
+    assert "北荷茶光：查克拉消耗过半，精神紧绷" in out            # 动态状态保留
+    assert "【推荐行动】" in out and "1. 接受邀请" in out
+
+    # ② 有【主角动态】标题 + 多字段回声（位置/身份/性格 都该被删）
+    out2 = strip_dynamic_field_echoes(
+        "【主角动态】\n状态：精神紧绷 ｜ 位置：村口 ｜ 身份：水忍中忍 ｜ 性格：热情友善 ｜ 当前行动：赶路\n\n【交互人物】\n白｜昏迷中",
+        PANEL_TEXT,
+    )
+    assert "位置：" not in out2 and "身份：" not in out2 and "性格：" not in out2
+    assert "状态：精神紧绷" in out2 and "当前行动：赶路" in out2
+    assert "【交互人物】" in out2 and "白｜昏迷中" in out2
+
+    # ③ 整行只有回声 → 整段消失
+    out3 = strip_dynamic_field_echoes("北荷茶光：位置：林之国·杉谷村口\n\n【推荐行动】\n1. x", PANEL_TEXT)
+    assert "位置：" not in out3 and "【主角动态】" not in out3
+    assert out3.startswith("【推荐行动】")
+
+    # ④ 交互人物/附近人物段里 NPC 自己的「位置/状态」不受影响（只处理动态段）
+    text4 = "【主角动态】\n状态：平稳\n\n【交互人物】\n白｜雾隐叛忍｜状态：昏迷中｜位置：身边\n"
+    out4 = strip_dynamic_field_echoes(text4, PANEL_TEXT)
+    assert "状态：昏迷中" in out4 and "位置：身边" in out4
+
+    # ⑤ 没有面板文本 / 空文本 → 原样返回
+    assert strip_dynamic_field_echoes("状态：x", "") == "状态：x"
+    assert strip_dynamic_field_echoes("", PANEL_TEXT) == ""
+
+
+def test_prompt_nearby_section_has_no_person_type_quota():
+    """【附近人物】不做人数/性别等人物类型约束——由模型按场景自行决定谁在场。"""
+    from ane.modules.prompt_builder import _EFFECTIVE_SYSTEM_PROMPT, NARRATIVE_KERNEL_PROMPT
+
+    for name, text in (("system", _EFFECTIVE_SYSTEM_PROMPT), ("kernel", NARRATIVE_KERNEL_PROMPT)):
+        assert "【附近人物】" in text, f"{name} prompt 缺少附近人物段"
+        # 旧约束（人数/性别配额）不应再出现
+        assert "1 男 2 女" not in text, f"{name} prompt 仍有性别配额"
+        assert "3 位场景路人" not in text, f"{name} prompt 仍写死 3 位"
+        assert "1-3 位" not in text, f"{name} prompt 仍有人数上限"
+        # 明确交给模型自行决定
+        assert "由你按当前场景自行决定" in text, f"{name} prompt 缺少「自行决定」的说明"
+        assert "不做人数或性别限制" in text, f"{name} prompt 缺少「无限制」的说明"
+        # 格式与必须列入的规则保留
+        assert "姓名｜身份｜外貌｜正在做什么" in text
+        # player_relationships 那条不再用含糊的「路人不要输出」，而是明确指路到【附近人物】段
+        assert "只写在 info_panel 的【附近人物】段" in text
+        assert "背景npc路人npc不要输出" not in text
+
+
+def test_prompt_dynamic_section_example_has_no_location():
+    """提示词自身的示例不能再带「｜位置：」——这正是位置被反复抄进动态段的根因。"""
+    from ane.modules.prompt_builder import _EFFECTIVE_SYSTEM_PROMPT, NARRATIVE_KERNEL_PROMPT
+
+    for name, text in (("system", _EFFECTIVE_SYSTEM_PROMPT), ("kernel", NARRATIVE_KERNEL_PROMPT)):
+        assert "｜位置：" not in text, f"{name} prompt 的示例里仍带位置"
+        assert "示例里没有「位置：」" in text, f"{name} prompt 缺少『不要写位置』的显式说明"
+        assert "location_change" in text, f"{name} prompt 缺少位置写回指引"
+
+
+
 @pytest.mark.asyncio
 async def test_extension_echo_stripped_from_info_panel(db, client_a):
     """LLM 把主角面板「扩展：」栏目抄进 info_panel → 存库/返回前剔除；

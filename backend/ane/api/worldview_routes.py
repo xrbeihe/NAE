@@ -682,13 +682,25 @@ async def list_shared_worldviews(
     """
     from sqlalchemy import select, func
     from ane.database.models import WorldviewShare, WorldviewRating, User
-    from ane.open_source import ensure_open_source_shares, OFFICIAL_AUTHOR
+    from ane.open_source import ensure_open_source_shares, OFFICIAL_AUTHOR, open_source_ids
+    publish_error = ""
     try:
         await ensure_open_source_shares(db)
-    except Exception as exc:  # noqa: BLE001 — 自动发布失败不应影响广场浏览
+    except Exception as exc:  # noqa: BLE001 — 自动发布失败不应影响广场浏览，但原因要带出去（前端会显示）
         logger.warning("Open-source publish on list failed: %s", exc)
+        publish_error = f"{type(exc).__name__}: {exc}"
     result = await db.execute(select(WorldviewShare).order_by(WorldviewShare.updated_at.desc()))
     shares = result.scalars().all()
+
+    declared_now = open_source_ids()
+    if not publish_error and declared_now and not shares:
+        # 不抛异常但一条都没发布的情况（最常见：库里没有可挂靠的用户账号）
+        user_count = (await db.execute(select(func.count(User.id)))).scalar_one()
+        publish_error = (
+            "库里还没有任何用户账号：官方开源条目需要挂在一个真实用户上，注册/登录一次即可自动补上"
+            if not user_count else
+            "声明开源的包没有产生任何条目（可在服务端访问 /worldviews/open-source 查看详情）"
+        )
 
     # Batch-load author names (avoid SQLAlchemy lazy-load in async — would raise MissingGreenlet).
     author_ids = {s.user_id for s in shares}
@@ -747,7 +759,38 @@ async def list_shared_worldviews(
             "mine": user is not None and s.user_id == user.id,
             "my_rating": s.worldview_id in my_ratings,
         })
-    return {"worldviews": items}
+    return {
+        "worldviews": items,
+        # 自愈发布失败时的原因（前端在空广场上直接显示，方便一眼定位，不用翻服务器日志）
+        "publish_error": publish_error,
+        # 声明开源但库里还没有条目的包（正常情况下应为空）
+        "declared_open_source": open_source_ids(),
+    }
+
+
+@router.get("/open-source")
+async def open_source_status(db: AsyncSession = Depends(get_db)):
+    """诊断用：内置包「默认开源」的声明 / 已发布 / 缺失情况（含失败原因）。"""
+    from sqlalchemy import select
+    from ane.database.models import WorldviewShare
+    from ane.open_source import ensure_open_source_shares, open_source_ids
+
+    declared = open_source_ids()
+    error = ""
+    added: list[str] = []
+    try:
+        added = await ensure_open_source_shares(db)
+    except Exception as exc:  # noqa: BLE001
+        error = f"{type(exc).__name__}: {exc}"
+    rows = await db.execute(select(WorldviewShare.worldview_id))
+    published = {r[0] for r in rows.all()}
+    return {
+        "declared": declared,
+        "published": sorted(published),
+        "missing": [w for w in declared if w not in published],
+        "just_added": added,
+        "error": error,
+    }
 
 
 @router.post("/shared/{worldview_id}/rate")

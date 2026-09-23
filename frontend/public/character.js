@@ -24,7 +24,8 @@ var worldviewState = {
   currentId: 'xianxia_v1',
   currentName: '修仙世界',
   ui: null,           // ui.json for current worldview
-  loaded: false
+  loaded: false,
+  error: ''           // 最近一次加载失败的原因（慢网时给用户一句明确提示）
 };
 
 function _wvFind(id) {
@@ -43,20 +44,31 @@ function _wvRestore() {
 }
 
 async function loadWorldviews(force) {
-  try {
-    var res = await apiFetch('/worldviews');
-    if (!res.ok) return;
-    var data = await res.json();
-    worldviewState.list = (data.worldviews || []).map(function (w) {
-      return { id: w.id, name: w.name, description: w.description || '' };
-    });
-    worldviewState.loaded = true;
-    // Restore last selection if still available
-    var last = _wvRestore();
-    if (last && _wvFind(last)) worldviewState.currentId = last;
-    var cur = _wvFind(worldviewState.currentId);
-    if (cur) worldviewState.currentName = cur.name;
-  } catch (e) { frontendLog('WARN', 'loadWorldviews failed: ' + e.message); }
+  if (worldviewState.loaded && worldviewState.list.length && !force) return;   // 已有列表就不重复请求
+  var errMsg = '';
+  for (var attempt = 1; attempt <= 2; attempt++) {
+    try {
+      var res = await apiFetch('/worldviews');
+      if (res.ok) {
+        var data = await res.json();
+        worldviewState.list = (data.worldviews || []).map(function (w) {
+          return { id: w.id, name: w.name, description: w.description || '' };
+        });
+        worldviewState.loaded = true;
+        worldviewState.error = '';
+        // Restore last selection if still available
+        var last = _wvRestore();
+        if (last && _wvFind(last)) worldviewState.currentId = last;
+        var cur = _wvFind(worldviewState.currentId);
+        if (cur) worldviewState.currentName = cur.name;
+        return;
+      }
+      errMsg = 'HTTP ' + res.status;
+    } catch (e) { errMsg = e.message || '网络错误'; }
+    if (attempt === 1) await new Promise(function (r) { setTimeout(r, 1200); });   // 慢网抖动自动重试一次
+  }
+  worldviewState.error = errMsg;
+  frontendLog('WARN', 'loadWorldviews failed: ' + errMsg);
 }
 
 function getCurrentWorldviewId() { return worldviewState.currentId; }
@@ -68,13 +80,20 @@ function getWorldviewUi() {
 
 function fillWorldviewSelect(selectEl) {
   if (!selectEl) return;
-  if (!worldviewState.loaded) return;
+  if (!worldviewState.loaded) {
+    // 加载失败/还没回来时给一句明确的话，别留下一个空下拉让人以为"没有世界观"
+    selectEl.innerHTML = '<option value="">'
+      + (worldviewState.error ? '（世界观列表加载失败，重开本窗口重试）' : '（正在加载世界观…）')
+      + '</option>';
+    return;
+  }
   var opts = [];
   for (var i = 0; i < worldviewState.list.length; i++) {
     var w = worldviewState.list[i];
     var sel = (w.id === worldviewState.currentId) ? ' selected' : '';
     opts.push('<option value="' + escAttr(w.id) + '"' + sel + '>' + escHtml(w.name) + '</option>');
   }
+  if (!opts.length) opts.push('<option value="">（没有可用的世界观包）</option>');
   selectEl.innerHTML = opts.join('');
 }
 
