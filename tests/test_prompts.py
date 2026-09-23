@@ -544,6 +544,78 @@ def test_strip_dynamic_field_echoes_unit():
     assert strip_dynamic_field_echoes("状态：x", "") == "状态：x"
     assert strip_dynamic_field_echoes("", PANEL_TEXT) == ""
 
+    # ⑥ 模型把标题和内容挤在同一行 → 标题残留被剥掉（这一行会被并进主角面板）
+    out6 = strip_dynamic_field_echoes(
+        "【主角动态】北荷茶光：状态：平稳 ｜位置：林之国·杉谷村口\n\n【推荐行动】\n1. x",
+        PANEL_TEXT,
+    )
+    assert "【主角动态】" not in out6
+    assert out6.startswith("北荷茶光：状态：平稳")
+
+
+def test_normalize_section_headings_unit():
+    """四段标题必须各自独占一行（模型写「【交互人物】白 ｜ 身份：…」时自动断开）。"""
+    from ane.panels import normalize_section_headings, strip_glued_dynamic_heading
+
+    glued = (
+        "名字：状态：平稳\n\n"
+        "【交互人物】白 ｜ 身份：随从 ｜ 性格：温柔\n"
+        "【附近人物】甲 ｜ 身份：路人\n"
+        "【推荐行动】1. 走\n2. 留"
+    )
+    out = normalize_section_headings(glued)
+    assert "【交互人物】\n白 ｜ 身份：随从" in out
+    assert "【附近人物】\n甲 ｜ 身份：路人" in out
+    assert "【推荐行动】\n1. 走" in out
+    assert "\n\n\n" not in out
+
+    # 标题独占一行 / 空文本 → 不动
+    assert normalize_section_headings("") == ""
+    already = "【推荐行动】\n1. 走"
+    assert normalize_section_headings(already) == already
+
+    # 挤在一行的「【主角动态】」标题被单独剥掉
+    assert strip_glued_dynamic_heading("【主角动态】名字：状态：平稳") == "名字：状态：平稳"
+    assert strip_glued_dynamic_heading("【主角动态】 ｜状态：平稳") == "状态：平稳"
+    assert strip_glued_dynamic_heading("【主角动态】") == ""
+    assert strip_glued_dynamic_heading("名字：状态：平稳") == "名字：状态：平稳"
+
+
+@pytest.mark.asyncio
+async def test_glued_headings_normalized_before_storing(db, client_a, mock_llm):
+    """端到端：模型把段标题和内容挤在同一行 → 落库的 info_panel 已断开，
+    且【主角动态】标题被并进主角面板消化掉（不再作为独立标题出现）。"""
+    from ane.game_engine import game_engine
+    from ane.modules.memory_manager import memory_manager
+    from ane.modules.model_adapter import ModelAdapter
+    from unittest.mock import AsyncMock, patch
+
+    info = await game_engine.create_session(db, user_id=USER_A, name="标题挤一行")
+    session_id = info["session_id"]
+
+    async def _fake(prompt, model=None, **kwargs):
+        if kwargs.get("label") == "llm_main":
+            return json.dumps({
+                "narrative": "他在小屋里生火。",
+                "state_changes": [],
+                "info_panel": (
+                    "【主角动态】北荷茶光：状态：平稳 ｜位置：林之国·守林人小屋\n"
+                    "【交互人物】白 ｜ 身份：雾隐叛忍随从 ｜ 性格：温柔顺从\n"
+                    "【推荐行动】1. 等白醒来\n2. 去村里看看"
+                ),
+            }, ensure_ascii=False)
+        return json.dumps({"narrative": "x", "state_changes": []}, ensure_ascii=False)
+
+    with patch.object(ModelAdapter, "generate", new_callable=AsyncMock, side_effect=_fake):
+        r = await client_a.post(f"/sessions/{session_id}/turn", json={"input": "生火"})
+        assert r.status_code == 200, r.text
+        stored = await memory_manager.get_latest_info_panel(db, session_id)
+
+    assert "【主角动态】北荷茶光" not in stored                # 标题不再和内容挤在一行
+    assert stored.startswith("【主角动态】\n北荷茶光：状态：平稳")  # 标题独占一行
+    assert "【交互人物】\n白 ｜ 身份：雾隐叛忍随从 ｜ 性格：温柔顺从" in stored  # 段内字段未被误删
+    assert "【推荐行动】\n1. 等白醒来" in stored
+
 
 def test_prompt_nearby_section_has_no_person_type_quota():
     """【附近人物】不做人数/性别等人物类型约束——由模型按场景自行决定谁在场。"""
@@ -558,11 +630,24 @@ def test_prompt_nearby_section_has_no_person_type_quota():
         # 明确交给模型自行决定
         assert "由你按当前场景自行决定" in text, f"{name} prompt 缺少「自行决定」的说明"
         assert "不做人数或性别限制" in text, f"{name} prompt 缺少「无限制」的说明"
-        # 格式与必须列入的规则保留
-        assert "姓名｜身份｜外貌｜正在做什么" in text
+        # 格式与必须列入的规则保留（且每位都带字段名）
+        assert "姓名 ｜ 身份：… ｜ 外貌：… ｜ 正在做什么：…" in text, f"{name} prompt 的附近人物格式缺字段名"
+        assert "每个维度都要带字段名" in text, f"{name} prompt 未要求附近人物写字段名"
         # player_relationships 那条不再用含糊的「路人不要输出」，而是明确指路到【附近人物】段
         assert "只写在 info_panel 的【附近人物】段" in text
         assert "背景npc路人npc不要输出" not in text
+
+
+def test_prompt_interacting_person_requires_field_labels():
+    """【交互人物】必须带字段名（不能是一串无标签描述），且段标题必须独占一行。"""
+    from ane.modules.prompt_builder import _EFFECTIVE_SYSTEM_PROMPT, NARRATIVE_KERNEL_PROMPT
+
+    for name, text in (("system", _EFFECTIVE_SYSTEM_PROMPT), ("kernel", NARRATIVE_KERNEL_PROMPT)):
+        assert "每一个维度都必须带字段名" in text, f"{name} prompt 未要求交互人物写字段名"
+        assert "无标签的一串描述=不合格" in text, f"{name} prompt 缺少反例说明"
+        assert "身份：… ｜ 性格：… ｜ 外貌：…" in text, f"{name} prompt 缺少带标签的字段格式"
+        assert "各 2-3 句具体特征" in text, f"{name} prompt 未要求建模角色写足外貌/性格"
+        assert "标题必须独占一行" in text, f"{name} prompt 未要求段标题独占一行"
 
 
 def test_prompt_position_only_in_info_panel():

@@ -1924,8 +1924,13 @@ function _isDynamicLine(line) {
   return /[｜|\s](状态|当前状态|当前行动|行动|心情|伤势|身体|精神|位置)[：:]/.test(s)
       || /^[^｜|：:]{1,12}[：:]\s*(状态|当前状态|当前行动|行动|心情|伤势|身体|精神|位置)[：:]/.test(s);
 }
+// 模型偶发把段标题挤在内容同一行（「【主角动态】名字：状态：…」）——
+// 这一行会被并进主角面板，标题残留就是噪音，显示前先剥掉。
+function _stripDynHead(s) {
+  return (s || '').replace(/^\s*【\s*主角动态\s*】\s*[｜|]?\s*/, '').trim();
+}
 function _mergePlayerDynamic(panel, infoText) {
-  panel = panel || ''; infoText = infoText || '';
+  panel = panel || ''; infoText = _normalizeInfoHeadings(infoText || '');
   if (!panel) return infoText;
   if (!infoText) return panel;
   var isHead = /^【([^】]+)】\s*$/;
@@ -1941,15 +1946,15 @@ function _mergePlayerDynamic(panel, infoText) {
       // 有【…】标题：标题是「主角动态」或正文像动态行 → 认作动态段
       if (head[1].replace(/\s/g, '') === '主角动态' || body.some(_isDynamicLine)) { start = firstBody; end = j; }
     } else {
-      // 没有标题（模型有时直接裸写一行）：首行像动态行就认作动态段
+      // 没有独立标题（模型有时把标题和内容挤一行，或直接裸写一行）：首行像动态行就认作动态段
       while (j < lines.length && !isHead.test(lines[j].trim())) { body.push(lines[j]); j++; }
-      if (_isDynamicLine(lines[firstBody])) { start = firstBody; end = j; }
+      if (_isDynamicLine(_stripDynHead(lines[firstBody]))) { start = firstBody; end = j; }
     }
   }
   if (start < 0) return panel + '\n\n' + infoText;   // 没有动态段：维持原样拼接
   var dyn = [];
   lines.slice(start + 1, end).forEach(function(raw) {
-    var line = raw.trim();
+    var line = _stripDynHead(raw.trim());
     if (!line) return;
     if (panel.indexOf(line) >= 0) return;            // 整行与面板重复
     var stripped = _stripPanelEcho(line, panel);      // 字段级去重
@@ -1957,15 +1962,25 @@ function _mergePlayerDynamic(panel, infoText) {
   });
   // 无标题形态：首行本身也是动态行内容
   if (start === firstBody && !isHead.test(lines[firstBody].trim())) {
-    var stripped0 = _stripPanelEcho(lines[firstBody].trim(), panel);
-    if (stripped0 && panel.indexOf(lines[firstBody].trim()) < 0) dyn.unshift(stripped0);
+    var first0 = _stripDynHead(lines[firstBody].trim());
+    var stripped0 = _stripPanelEcho(first0, panel);
+    if (stripped0 && panel.indexOf(first0) < 0) dyn.unshift(stripped0);
   }
   var rest = lines.slice(end).join('\n').replace(/^\n+/, '');
   return panel + (dyn.length ? '\n' + dyn.join('\n') : '') + (rest ? '\n\n' + rest : '');
 }
 
+// 四段标题各自独占一行（模型偶发把标题和内容挤在同一行）
+function _normalizeInfoHeadings(text) {
+  return (text || '')
+    .replace(/([^\n])([ \t]*)(【(?:主角动态|交互人物|附近人物|推荐行动)】)/g, '$1\n\n$3')
+    .replace(/(【(?:主角动态|交互人物|附近人物|推荐行动)】)[ \t]*([^\n])/g, '$1\n$2')
+    .replace(/\n{3,}/g, '\n\n').replace(/^\n+/, '').replace(/\s+$/, '');
+}
+
 function addInfoPanel(text) {
   if (!text || !text.trim()) return;
+  text = _normalizeInfoHeadings(text);
   var container = document.createElement('div');
   container.className = 'info-panel-wrap';
   container.style.cssText = 'align-self:stretch;margin-top:4px;max-width:100%;';

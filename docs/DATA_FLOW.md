@@ -529,15 +529,23 @@ class TurnResult:
 ### 存储与回流
 
 ```python
-# game_engine.py：解析后
-parsed.info_panel = strip_extension_echo_sections(parsed.info_panel, player)  # 剔除扩展栏目回声
-await save_info_panel(db, session_id, parsed.info_panel)                      # 落库
-# 下一轮 Prompt：把上一轮信息栏（清洗过的版本）回喂
-prev_panel = strip_extension_echo_sections(prev_panel, player)
+# game_engine.py：解析后（顺序要紧：先规整标题，再剥回声）
+parsed.info_panel = panels.normalize_section_headings(parsed.info_panel)       # 四段标题各自独占一行
+parsed.info_panel = strip_extension_echo_sections(parsed.info_panel, player)   # 剔除扩展栏目回声
+parsed.info_panel = panels.strip_dynamic_field_echoes(parsed.info_panel, player_panel_str)
+await save_info_panel(db, session_id, parsed.info_panel)                       # 落库
+# 下一轮 Prompt：把上一轮信息栏（同样清洗过的版本）回喂
 ```
 
 关键细节：
+- **段标题必须独占一行**：模型偶发写「【交互人物】白 ｜ 身份：…」「【主角动态】名字：状态：…」。
+  `normalize_section_headings()` 把标题前后的内容断开，**必须在回声剥离之前跑**——
+  否则挤在一行的「【交互人物】…」会被当成主角动态段的一部分，段内 `身份：`/`性格：` 被误删
+  （这条路径有测试锁定：`test_glued_headings_normalized_before_storing`）
 - `info_panel` 落库前与回喂前都过 `panels.strip_extension_echo_sections()`——标题与主角面板 `_extensions` 栏目名相同的分节会被剔除
+- `panels.strip_dynamic_field_echoes()` 只按**面板里真实存在的字段**去重；位置不在面板里，所以保留
+- 【交互人物】与【附近人物】每位都**必须带字段名**：【交互人物】= `姓名 ｜ 身份：… ｜ 性格：… ｜ 外貌：… ｜ 行为：… ｜ 状态：… ｜ 装备：…`，
+  【附近人物】= `姓名 ｜ 身份：… ｜ 外貌：… ｜ 正在做什么：…`（一群人同行算一位）；提示词里给了正例与反例
 - 短记忆（llm_summary）不包含信息栏内容
 - 信息栏规则内嵌在 System Prompt 与 NARRATIVE_KERNEL 两份提示词里（`shell+kernel` 包走 kernel 那份）
 

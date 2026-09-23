@@ -466,7 +466,13 @@ class GameEngine:
         if prev_panel:
             # 历史数据兜底：① 旧版本存入的 info_panel 可能带着"照抄扩展栏目"的分节；
             # ② 可能带着照抄权威面板字段的片段（位置/身份/性格…）——都以面板为准剔掉
-            from ane.panels import strip_extension_echo_sections, strip_dynamic_field_echoes
+            from ane.panels import (
+                strip_extension_echo_sections, strip_dynamic_field_echoes,
+                normalize_section_headings,
+            )
+            # 先规整段标题（挤在一行的标题先断开），再做回声剥离——否则挤在一行的
+            # 「【交互人物】白 ｜ 身份：…」会被当成主角动态段的一部分，字段被误删
+            prev_panel = normalize_section_headings(prev_panel)
             prev_panel = strip_extension_echo_sections(prev_panel, player)
             prev_panel = strip_dynamic_field_echoes(prev_panel, prev_player_panel)
         if prev_panel:
@@ -989,7 +995,10 @@ class GameEngine:
             logger.info(f"Player relationships added: {player_rels_added}")
 
         # Step 16: Build player and important NPC panels for frontend display
-        from ane.panels import render_player_panel, strip_extension_echo_sections, strip_dynamic_field_echoes
+        from ane.panels import (
+            render_player_panel, strip_extension_echo_sections, strip_dynamic_field_echoes,
+            normalize_section_headings,
+        )
         from ane.worldview import get as get_worldview, DEFAULT_WORLDVIEW_ID
         _wv = get_worldview(worldview or DEFAULT_WORLDVIEW_ID)
         _panel_spec = _wv.panel_spec or {}
@@ -1022,9 +1031,13 @@ class GameEngine:
                     })
 
         # Step 17: Commit and return
-        # info_panel 去回声：① LLM 常把主角面板「扩展：」的栏目抄成自己的 【栏目名】分节；
-        # ② 常在【主角动态】里再写一遍权威面板已有的字段（位置/身份/性格…）。
-        # 上一轮 info_panel 每轮原样回喂 → 这两类重复都会被固化并逐轮累积，这里统一剔除
+        # info_panel 规整 + 去回声：① 段标题必须独占一行（模型偶发把标题和内容挤一行）；
+        # ② LLM 常把主角面板「扩展：」的栏目抄成自己的 【栏目名】分节；
+        # ③ 常在【主角动态】里再写一遍权威面板已有的字段（身份/性格…）。
+        # 上一轮 info_panel 每轮原样回喂 → 这些毛病都会被固化并逐轮累积，这里统一规整。
+        # 顺序要紧：先断开挤在一行的标题，再剥回声——否则「【交互人物】白 ｜ 身份：…」
+        # 会被当成主角动态段的一部分，字段被误删
+        parsed.info_panel = normalize_section_headings(parsed.info_panel)
         parsed.info_panel = strip_extension_echo_sections(parsed.info_panel, player)
         parsed.info_panel = strip_dynamic_field_echoes(parsed.info_panel, player_panel_str)
         # 持久化本轮 info_panel + player_panel（供下一轮回喂持续更新）

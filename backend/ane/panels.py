@@ -109,6 +109,32 @@ def _is_dynamic_line(line: str) -> bool:
     return bool(_DYN_KEY_RE.match(s) or _DYN_ANY_RE.search(s) or _NAMED_FIELD_RE.match(s))
 
 
+# 模型偶发把段标题和内容挤在同一行：「【主角动态】名字：状态：…」。
+# 这一行会被前端并进主角面板，标题残留就成了噪音（面板里会多出一个「【主角动态】」）。
+_GLUED_DYN_HEAD_RE = re.compile(r"^\s*【\s*主角动态\s*】\s*[｜|]?\s*")
+
+
+def strip_glued_dynamic_heading(line: str) -> str:
+    """「【主角动态】名字：状态：…」→「名字：状态：…」（标题独占一行时不受影响）。"""
+    return _GLUED_DYN_HEAD_RE.sub("", line or "", count=1).strip()
+
+
+# 四段标题必须独占一行：模型偶发写「【交互人物】白 ｜ 身份：…」（标题和内容挤一行），
+# 落库后下一轮照抄，越抄越乱。存库前/回喂前统一断开。
+_SECTION_HEAD = r"【(?:主角动态|交互人物|附近人物|推荐行动)】"
+_HEAD_GLUE_RE = re.compile(r"([^\n])([ \t]*)(" + _SECTION_HEAD + r")")
+_HEAD_TAIL_RE = re.compile(r"(" + _SECTION_HEAD + r")[ \t]*([^\n])")
+
+
+def normalize_section_headings(text: str) -> str:
+    """让【主角动态】【交互人物】【附近人物】【推荐行动】四个标题各自独占一行。"""
+    if not text:
+        return text
+    t = _HEAD_GLUE_RE.sub(r"\1\n\n\3", text)
+    t = _HEAD_TAIL_RE.sub(r"\1\n\2", t)
+    return re.sub(r"\n{3,}", "\n\n", t).strip()
+
+
 def _panel_field_keys(panel_text: str) -> set[str]:
     """从权威主角面板文本里取出所有「字段：」的字段名。"""
     keys: set[str] = set()
@@ -189,6 +215,7 @@ def strip_dynamic_field_echoes(text: str, panel_text: str) -> str:
         if idx == start and head and not bare_start:
             out.append(lines[idx])                  # 保留标题行
             continue
+        line = strip_glued_dynamic_heading(line)    # 「【主角动态】名字：状态：…」→ 去掉挤在同一行的标题
         if not line:
             out.append("")                          # 段落内空行先留着，最后统一压缩
             continue
