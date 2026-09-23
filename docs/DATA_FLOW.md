@@ -51,7 +51,8 @@
   ▼
 ┌─ Step 6: Retrieval Engine ────────────────────────────────────┐
 │ 构建 Active Set：重要人物 + 被叙事提到的 NPC（**不看位置**）    │
-│ 位置已整体移除；位置上下文仅作场景参考，不决定谁在场            │
+│ 位置不进代码层：不写库、不注入、不参与在场判定                   │
+│ （主角位置由模型写在信息栏【主角动态】段，随 info_panel 回喂）    │
 │ 输出: ActiveSet(present_npcs, location_context)                │
 └───────────────────────────────────────────────────────────────┘
   │
@@ -349,7 +350,7 @@ for db_npc in all_db_npcs:
 1. System Prompt（固定）
 2. World Context（青云界）
 3. Player Panel（姓名/修为/灵根/金手指/衣物）
-4. Scene Context（时间/环境描写；位置已移除）
+4. Scene Context（时间/环境描写；位置行已移除）
 5. Important NPCs（全量model_data）
 6. Interactive NPC（当前交互对象model_data）
 7. Narrative Constraints（硬约束+软约束）
@@ -467,8 +468,8 @@ class ValidationResult:
 ```python
 @dataclass
 class ActiveSet:
-    present_npcs: list[NPCModel]   # 重要人物 + 被叙事提到的 NPC（位置已移除，不参与判定）
-    location_context: dict         # 仅作场景参考
+    present_npcs: list[NPCModel]   # 重要人物 + 被叙事提到的 NPC（位置不进代码层，不参与判定）
+    location_context: dict         # 仅作场景参考（老会话残留位置才有值）
 ```
 
 ### `TurnResult`（game_engine.py）
@@ -512,6 +513,18 @@ class TurnResult:
 1. **一次渲染**：原先推荐行动/附近人物各自独立渲染，同一批信息在聊天流里被拆成多块、与正文交错，玩家要来回找；合并进一栏后信息聚合、位置固定。
 2. **不给模型额外负担**：独立的 `nearby_characters` 结构化字段要求模型额外产出一份 JSON 数组，却永远不回流（纯装饰）；改为写进信息栏文本，模型只维护一份人类可读的内容。
 3. **防回声**：主角面板已由程序渲染出权威版本，信息栏规则明确禁止复述（姓名/身份/能力/技能/栏目），避免每轮上下文翻倍。
+   —— **位置是例外**：位置不进代码层（不写库、不注入、不参与在场判定），所以权威面板里没有它，
+   【主角动态】段里的「位置：…」是唯一的位置来源，必须每轮写上（前端/后端都不会把它当回声剥掉）。
+
+### 位置的归属（叙事层，不进代码层）
+
+| 层 | 是否持有位置 | 说明 |
+|----|-------------|------|
+| DB（`players.location` / `NPC.location` / `attributes.location_hierarchy`） | 保留列但**不再读写** | 老会话残留数据无害 |
+| Prompt 注入（玩家块/场景块/NPC 渲染） | **无** | 只有「位置写在信息栏【主角动态】段」这条写作要求 |
+| state_changes（`location_change`） | **不写回** | 解析器仍认这个类型（老输出不报错），只记日志 |
+| 在场判定（Active Set） | **不参与** | 只看"重要人物 + 名字被提到 + 存活" |
+| 信息栏 `info_panel`【主角动态】 | **有**（每轮由模型写，原样回喂） | 玩家看到的位置就是这里 |
 
 ### 存储与回流
 
@@ -543,7 +556,8 @@ function _withRecs(text, recs) {           // 推荐行动并入信息栏；模�
   return t ? (t + '\n\n' + r) : r;
 }
 function _mergePlayerDynamic(panel, info) { // 主角面板 + info_panel 的【主角动态】段合并成一个块
-  // 面板静态行在下接动态状态行；与面板重复的行（如已含的「位置：…」）丢弃；其余段落后接
+  // 面板静态行在下接动态状态行；与面板字段重复的片段（身份/性格/能力…）按字段丢弃；
+  // 「位置」不在面板里（不进代码层），所以动态行里的位置会被保留；其余段落后接
 }
 addInfoPanel(text)            // 纯文本卡片（textContent，防 XSS）；只接收 info_panel 文本
 updateInfoPanel(playerPanel)  // 把主角面板与信息栏文本合并渲染（调用 _mergePlayerDynamic）
@@ -578,7 +592,7 @@ GameEngine 注册以下 handler（当前全部为日志级别，DB 写入在主�
 
 | 事件类型 | 效果 |
 |----------|------|
-| `location_change` | **已忽略**（位置已整体移除；解析器仍认这个类型，只记日志不写库） |
+| `location_change` | **已忽略**（位置不进代码层；解析器仍认这个类型，只记日志不写库。主角位置由模型写在信息栏【主角动态】段） |
 | `cultivation_change` | 日志记录 |
 | `status_change` | 日志记录 |
 | `item_added` | 日志记录 |
@@ -617,7 +631,7 @@ GameEngine 注册以下 handler（当前全部为日志级别，DB 写入在主�
 
 | 命令 | 功能 | 备注 |
 |------|------|------|
-| `/status` | 查看角色状态 | 含位置/修为/物品/标记NPC数 |
+| `/status` | 查看角色状态 | 含修为（位置不进代码层，已在信息栏里显示，这里不报） |
 | `/help` | 显示帮助 | 静态文本 |
 | `描述这个世界` | 世界概况 | 精确匹配触发 |
 

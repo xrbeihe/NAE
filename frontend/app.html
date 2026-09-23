@@ -1884,13 +1884,11 @@ function _withRecs(text, recs) {
 
 // 主角面板 + info_panel 的【主角动态】段合并成一块：
 // 面板（程序渲染的权威静态信息）在下接动态状态行；**按字段去重**——动态行里凡是
-// 面板已有的字段（位置/身份/能力/性格/宗门…）整段丢掉，剩下的（状态/当前行动…）才显示。
+// 面板已有的字段（身份/能力/性格/宗门…）整段丢掉，剩下的（状态/当前行动/位置…）才显示。
+// 注意：「位置」不在去重名单里——位置是主角的基本信息，程序不跟踪它，只写在信息栏里。
 // info_panel 其余段（交互人物/附近人物/推荐行动）照旧接在后面。
-// 已整体从角色数据里移除的字段：面板不再展示，但信息栏里出现就一律剥掉
-var _ALWAYS_ECHO_KEYS = ['位置', '地点', '所在地', 'location'];
 function _panelHasField(panel, key) {
   if (!key) return false;
-  if (_ALWAYS_ECHO_KEYS.indexOf(key) >= 0) return true;
   var k = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return new RegExp('(^|[｜|/\\s、，,])' + k + '[：:]').test(panel);
 }

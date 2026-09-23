@@ -1002,7 +1002,6 @@ class GameEngine:
                 p_attrs = dict(player.attributes or {}) if isinstance(player.attributes, dict) else {}
                 player_panel_str += " ｜ ".join([
                     f"姓名：{player.name}",
-                    f"位置：{player.location or '未知'}",
                 ])
             else:
                 player_panel_str += "（无玩家数据）\n"
@@ -1102,7 +1101,7 @@ class GameEngine:
                     "你是一个场景摘要和行动顾问。输出给玩家看的场景记忆摘要，同时给下一轮叙事引擎提供上下文。\n\n"
                     "输出格式（纯文本，不要JSON标记）：\n"
                     "当前地点：地名/场所 | 时间\n"
-                    "行动/目标：一句话概括玩家位置和当前意图。注意对比上一轮，体现进展（若延续上轮行动，写明'继续/推进'而非重复描述）\n"
+                    "行动/目标：一句话概括玩家当前意图与正在做的事。注意对比上一轮，体现进展（若延续上轮行动，写明'继续/推进'而非重复描述）\n"
                     "推荐行动：\n1.\n2.\n3.\n\n"
                     "注意：各字段之间不要留空行，紧凑排列。\n\n"
                     + prev_block
@@ -1838,13 +1837,13 @@ class GameEngine:
             from ane.worldview import get as get_worldview, DEFAULT_WORLDVIEW_ID
             player = await pm.get_by_session(db, session_id)
             name = player.name if player else "未知"
-            loc = player.location if player else "未知"
             cult = player.cultivation if player else "未知"
             wv = get_worldview(worldview or DEFAULT_WORLDVIEW_ID)
             status_label = (wv.player_defaults or {}).get("status_label", "修士")
             return TurnResult(
                 is_system_command=True,
-                system_response=f"{status_label}：{name} | 位置：{loc} | 修为：{cult}",
+                # 位置不进程序：主角位置只写在信息栏的【主角动态】里，这里不报（旧字段已不再维护）
+                system_response=f"{status_label}：{name} | 修为：{cult}",
             )
         return TurnResult(
             is_system_command=True,

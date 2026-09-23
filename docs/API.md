@@ -57,7 +57,8 @@ Token 有效期 7 天。前端存储在 `localStorage`，每次请求自动附�
 - `npc_names`: 核心 NPC 的姓名列表
 - `world_intro`: 世界简介文本（角色创建时生成，刷新后仍可查看）
 - `prompts`: 全量 Prompt 历史（`[{turn_number, content}]`，按 `memory_type="prompt"` 永久保留）
-- `player_location`: 兼容字段（位置已整体移除，程序不再维护/注入；叙事里交代位置即可）
+- `player_location`: 兼容字段（位置不进代码层，程序不维护/不注入；老会话残留值，新会话为空。
+  主角位置由模型写在信息栏【主角动态】段）
 
 ---
 

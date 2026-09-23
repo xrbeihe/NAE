@@ -49,7 +49,7 @@
 │       │   ├── input_validator.py # 安全检查 + 意图分类 + 中文数字解析
 │       │   ├── time_manager.py    # 时间推进 + Phase 1 内联 Scheduler
 │       │   ├── narrative_constraints.py
-│       │   ├── retrieval_engine.py # Active Set 构建（NPC + 位置层级）
+│       │   ├── retrieval_engine.py # Active Set 构建（重要人物 + 名字被提到；不看位置）
 │       │   ├── memory_manager.py   # 三层记忆（Conversation/Shortmemory/Longmemory）
 │       │   ├── prompt_builder.py   # 唯一允许生成 Prompt 的模块
 │       │   ├── model_adapter.py    # 6 个 LLM 适配器（deepseek, gemini, openai, claude, sensenova, ollama）

@@ -448,31 +448,37 @@ def test_strip_extension_echo_sections_unit():
     assert strip_extension_echo_sections("", _P()) == ""
 
 
-# ── info_panel 去回声 ②：主角动态段里照抄权威面板字段（位置/身份/性格…）──
+# ── info_panel 去回声 ②：主角动态段里照抄权威面板字段（身份/性格…）──
+# 注意：位置**不在**剥离范围内——位置是主角的基本信息，只写在信息栏里（不进代码层，
+# 所以权威面板也不再渲染它），信息栏里的「位置：…」必须保留。
 
 PANEL_TEXT = (
     "【主角面板】\n"
     "姓名：北荷茶光 ｜ 男 ｜ 15岁 ｜ 血继限界/能力：粘遁 ｜ 性格：热情友善 ｜ "
-    "身份：曾经是水忍中忍 ｜ 位置：林之国·杉谷村"
+    "身份：曾经是水忍中忍 ｜ 伤势：无"
 )
 
 
 @pytest.mark.asyncio
-async def test_turn_strips_location_echo_before_storing(db, client_a, mock_llm):
-    """端到端：位置已整体移除——LLM 若仍写「位置：」，返回与落库的 info_panel 都会剔除，主角面板也不再有位置。"""
+async def test_position_kept_in_info_panel_but_not_code_layer(db, client_a, mock_llm):
+    """位置归信息栏：LLM 写在【主角动态】里的位置原样返回并落库，
+    主角面板不渲染它，且 state_changes 里的 location_change 不写回数据库。"""
     from ane.game_engine import game_engine
     from ane.modules.memory_manager import memory_manager
+    from ane.modules.player_manager import player_manager
     from ane.modules.model_adapter import ModelAdapter
     from unittest.mock import AsyncMock, patch
 
-    info = await game_engine.create_session(db, user_id=USER_A, name="去回声")
+    info = await game_engine.create_session(db, user_id=USER_A, name="位置归信息栏")
     session_id = info["session_id"]
 
     async def _fake(prompt, model=None, **kwargs):
         if kwargs.get("label") == "llm_main":
             return json.dumps({
                 "narrative": "他背着白走进杉谷村。",
-                "state_changes": [],
+                "state_changes": [
+                    {"type": "location_change", "target": "player", "value": "林之国·杉谷村口"},
+                ],
                 "info_panel": (
                     "北荷茶光：查克拉消耗过半，精神紧绷 ｜位置：林之国·杉谷村口\n\n"
                     "【交互人物】\n白｜雾隐叛忍｜昏迷中\n\n"
@@ -485,43 +491,48 @@ async def test_turn_strips_location_echo_before_storing(db, client_a, mock_llm):
         r = await client_a.post(f"/sessions/{session_id}/turn", json={"input": "进村"})
         assert r.status_code == 200, r.text
         body = r.json()
-        # 返回给前端的 info_panel：位置回声已去掉，动态状态与其余段落都在
-        assert "｜位置：" not in body["info_panel"]
+        # 信息栏：位置完整保留（这是主角基本信息），动态状态与其余段落也在
+        assert "位置：林之国·杉谷村口" in body["info_panel"]
         assert "查克拉消耗过半，精神紧绷" in body["info_panel"]
         assert "【交互人物】" in body["info_panel"] and "【推荐行动】" in body["info_panel"]
-        # 落库版本同样干净（下一轮回喂的就是它）
+        # 落库版本同样保留（下一轮回喂的就是它）
         stored = await memory_manager.get_latest_info_panel(db, session_id)
-        assert "位置：林之国·杉谷村口" not in stored
-        # 位置已整体移除：主角面板里也没有位置这一项
-        assert "位置：" not in body["player_panel"]
-
+        assert "位置：林之国·杉谷村口" in stored
+        # 代码层：权威主角面板不渲染位置
+        assert "位置" not in body["player_panel"]
+        # 代码层：location_change 不写回（player.location 保持未设定）
+        player = await player_manager.get_by_session(db, session_id)
+        assert (player.location or "") == ""
 
 
 def test_strip_dynamic_field_echoes_unit():
-    """动态段里字段已在权威面板中 → 只删该字段片段，动态内容保留；其余段落不动。"""
-    from ane.panels import strip_dynamic_field_echoes
+    """动态段里字段已在权威面板中 → 只删该字段片段，动态内容与位置保留；其余段落不动。"""
+    from ane.panels import strip_dynamic_field_echoes, _ALWAYS_ECHO_KEYS
 
-    # ① 用户实际形态：无标题 + 名字前缀 + ｜位置（位置与面板重复）
+    # 固定剥离名单里不能有位置（回归锁：位置属于信息栏该写的内容）
+    assert "位置" not in _ALWAYS_ECHO_KEYS and "地点" not in _ALWAYS_ECHO_KEYS
+
+    # ① 用户实际形态：无标题 + 名字前缀 + ｜位置（位置保留，动态状态保留）
     out = strip_dynamic_field_echoes(
         "北荷茶光：查克拉消耗过半，精神紧绷 ｜位置：林之国·杉谷村口\n\n【推荐行动】\n1. 接受邀请",
         PANEL_TEXT,
     )
-    assert "位置：" not in out                                   # 与面板重复的位置被删
+    assert "位置：林之国·杉谷村口" in out                        # 位置是有效信息 → 保留
     assert "北荷茶光：查克拉消耗过半，精神紧绷" in out            # 动态状态保留
     assert "【推荐行动】" in out and "1. 接受邀请" in out
 
-    # ② 有【主角动态】标题 + 多字段回声（位置/身份/性格 都该被删）
+    # ② 有【主角动态】标题 + 多字段：面板已有的身份/性格被删，位置与动态内容保留
     out2 = strip_dynamic_field_echoes(
         "【主角动态】\n状态：精神紧绷 ｜ 位置：村口 ｜ 身份：水忍中忍 ｜ 性格：热情友善 ｜ 当前行动：赶路\n\n【交互人物】\n白｜昏迷中",
         PANEL_TEXT,
     )
-    assert "位置：" not in out2 and "身份：" not in out2 and "性格：" not in out2
-    assert "状态：精神紧绷" in out2 and "当前行动：赶路" in out2
+    assert "身份：" not in out2 and "性格：" not in out2
+    assert "状态：精神紧绷" in out2 and "当前行动：赶路" in out2 and "位置：村口" in out2
     assert "【交互人物】" in out2 and "白｜昏迷中" in out2
 
-    # ③ 整行只有回声 → 整段消失
-    out3 = strip_dynamic_field_echoes("北荷茶光：位置：林之国·杉谷村口\n\n【推荐行动】\n1. x", PANEL_TEXT)
-    assert "位置：" not in out3 and "【主角动态】" not in out3
+    # ③ 整行只有回声（面板里真实存在的字段）→ 整段消失
+    out3 = strip_dynamic_field_echoes("北荷茶光：伤势：无\n\n【推荐行动】\n1. x", PANEL_TEXT)
+    assert "伤势：" not in out3 and "【主角动态】" not in out3
     assert out3.startswith("【推荐行动】")
 
     # ④ 交互人物/附近人物段里 NPC 自己的「位置/状态」不受影响（只处理动态段）
@@ -554,21 +565,24 @@ def test_prompt_nearby_section_has_no_person_type_quota():
         assert "背景npc路人npc不要输出" not in text
 
 
-def test_prompt_has_no_character_location_anywhere():
-    """位置已整体移除：提示词里不该再有角色的位置注入、位置示例或 location_change 指引。"""
+def test_prompt_position_only_in_info_panel():
+    """位置退出代码层，但仍是主角基本信息：提示词里不再有位置注入 / location_change 指引，
+    只保留「位置写在信息栏【主角动态】段」这一条叙事层要求。"""
     from ane.modules.prompt_builder import _EFFECTIVE_SYSTEM_PROMPT, NARRATIVE_KERNEL_PROMPT
 
     for name, text in (("system", _EFFECTIVE_SYSTEM_PROMPT), ("kernel", NARRATIVE_KERNEL_PROMPT)):
-        assert "｜位置：" not in text, f"{name} prompt 的示例里仍带位置"
         assert "具体位置" not in text, f"{name} prompt 仍在注入具体位置"
         assert "当前位置：" not in text, f"{name} prompt 仍在注入当前位置"
         assert "位置层级" not in text, f"{name} prompt 仍在注入位置层级"
         assert "location_change" not in text, f"{name} prompt 仍在教 location_change"
-        assert "位置不需要写" in text, f"{name} prompt 缺少『位置不需要写』的说明"
+        # 位置仍要写：写在信息栏【主角动态】段里（含格式示例）
+        assert "位置是主角的基本信息" in text, f"{name} prompt 缺少『位置是主角的基本信息』说明"
+        assert "｜位置：" in text, f"{name} prompt 的【主角动态】示例里缺少位置"
+        assert "不进程序" in text, f"{name} prompt 未说明位置不进程序（别用 state_changes 写它）"
 
 
 def test_player_panel_specs_have_no_location_field():
-    """6 个包的 panel.json 都不再渲染「位置」。"""
+    """6 个包的 panel.json 都不再渲染「位置」（位置只在信息栏里由模型写，权威面板不管它）。"""
     import json
     from pathlib import Path
     from ane.worldview import list_worldviews, get as get_worldview
@@ -584,7 +598,8 @@ def test_player_panel_specs_have_no_location_field():
 
 
 def test_built_prompt_has_no_location_lines():
-    """运行时拼出的 prompt 里也不能出现角色位置（玩家块/场景块都不再注入位置）。"""
+    """运行时拼出的 prompt 里不再注入角色位置（玩家块/场景块都没有位置行），
+    只有 info_panel 规则里「位置写在【主角动态】」那条叙事层要求会出现「位置」二字。"""
     from ane.modules.prompt_builder import (
         prompt_builder, PromptContext, PlayerContext, AgenticContext,
         WorldContext, SceneContext,
@@ -606,8 +621,9 @@ def test_built_prompt_has_no_location_lines():
     assert "具体位置" not in prompt
     assert "当前位置" not in prompt
     assert "位置层级" not in prompt
-    assert "位置：" not in prompt
+    assert "青云宗·山门" not in prompt                  # 旧位置字段的值也不再被渲染
     assert "环境描写：云雾缭绕，石阶生苔" in prompt      # 场景氛围保留，只是不再声明"谁在哪"
+    assert "位置是主角的基本信息" in prompt              # 位置只作为信息栏写作要求出现
 
 
 def test_active_set_ignores_location_and_uses_mentions(tmp_path):

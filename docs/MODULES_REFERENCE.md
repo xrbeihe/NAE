@@ -136,7 +136,7 @@ get_context_constraints(player_cultivation, player_location, active_npc_names) -
 - **硬约束（Htem 格式）**：
   - 修为限制："筑基期修士不可能击败元婴期修士"
   - NPC 性格一致性
-  - 位置限制（闭关 NPC 不能现身）
+  - 位置限制（闭关 NPC 不能现身）——**已移除**：位置不进代码层，约束里不再有位置条款
   - 世界观限定（无魔法/科技）
   - 凡人与修士比例
   - 状态继承规则
@@ -153,11 +153,12 @@ get_context_constraints(player_cultivation, player_location, active_npc_names) -
 get_active_set(db, session_id, player_location="", mentioned_text="", max_present=8) -> ActiveSet
 ```
 
-- **在场判定不看位置**（位置已整体移除）：① 玩家标记的重要人物始终在场；② 名字出现在
+- **在场判定不看位置**（位置不进代码层）：① 玩家标记的重要人物始终在场；② 名字出现在
   `mentioned_text`（最近几轮对话 + 本轮玩家输入 + 上一轮信息栏）里的 NPC 在场，支持后缀简称
   （`is_name_mentioned()`：「路飞」↔「蒙奇·D·路飞」，前缀不误伤）；③ 死亡的 NPC 一律不注入
 - 上限 `max_present`（默认 8）：重要人物优先，其余按序补足，超出记日志——保护 prompt 体积
-- 位置层级上下文仍会取（`world_manager.get_location_context`），但只作为场景参考，不决定谁在场
+- 位置层级上下文仍会取（`world_manager.get_location_context`），但只作为场景参考（新会话为空，
+  老会话残留位置才有值），不决定谁在场；主角位置由模型写在信息栏【主角动态】段
 - 检索 related_absent（通过 character-category Facts 内容关联 NPC 名探索，最多 5 个）
 
 ---
@@ -280,8 +281,7 @@ get_templates() -> dict
 - `attributes` 存储出身(`background`)、性别(`gender`)、身份(`identity`)、灵根(`spiritual_root`)、宗门(`sect`)、金手指(`golden_finger_*`) 等全部角色属性
 - 自定义身份时 `identity="custom"`，身份描述写入 `identity_custom`
 - 自定义金手指 `golden_finger_id="custom"`，描述写入 `golden_finger_custom`
-- 角色初始随机位置从 `_START_LOCATIONS` 列表选取（20 个城市名，来自 world_templates.json）
-- 若创建角色时选了宗门（`chosen_sect` 非空），后端在 `routes.py` 中覆盖随机位置，改为从系统数据库随机分配一个以"城"结尾的城市
+- 角色**不再有初始位置**（`_pick_start_location` 恒返回空）：位置不进代码层，开局位置由模型按身份/世界观/叙事自行决定，写在信息栏【主角动态】段；老会话残留的 `player.location` 只用于场景氛围查询
 
 ---
 
@@ -367,12 +367,9 @@ portrait_data() -> dict  # 惰性加载 portrait_templates.json
       → 写 Player.attributes JSON（age, gender, background, identity, clothing,
         monthly_income, spiritual_root, talent_note, golden_finger_* 等）
     → 若请求带了 chosen_sect：
-      → 从世界模板随机选一个城市
-      → 设置 player.location = 随机城市
       → 设置 attrs["sect"] = chosen_sect
-      → 设置 attrs["location_hierarchy"] = "宗门 → 城市"
   → 前端收到响应，输出角色信息卡到聊天区
-  → 前端更新位置显示
+  （位置不进代码层：创建时不再分配初始位置，也不再写 location_hierarchy）
 ```
 
 ### `ApplyCharacterRequest` 新增字段
@@ -380,7 +377,7 @@ portrait_data() -> dict  # 惰性加载 portrait_templates.json
 - `chosen_sect: str` — 选择的初始宗门（"无宗门"时为 ""）
 
 ### 响应新增字段
-- `location` — 玩家初始位置（城市名）
+- `location` — 兼容字段（位置不进代码层，恒为空；位置由模型写在信息栏）
 - `sect` — 所选宗门
 - `gender`, `age`, `personality`, `identity_desc`, `background_summary`, `spiritual_root`, `clothing`, `monthly_income`
 - `golden_finger_name`, `golden_finger_tagline`
@@ -393,7 +390,7 @@ portrait_data() -> dict  # 惰性加载 portrait_templates.json
 - 衣物、经济、道具
 - 金手指（名称 + 印象 + 设定）
 - 最近行程
-- 具体位置
+（位置不在这里：不在代码层，由模型写在信息栏【主角动态】段）
 
 ---
 

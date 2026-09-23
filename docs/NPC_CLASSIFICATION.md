@@ -11,8 +11,8 @@ ANE 的 NPC 分为三个互斥的类型，生命周期和数据流向各不相�
 | `is_important` | `True` |
 | `npc_type` | —（无用，不判断） |
 | 数据持久化 | DB，`long_term_state["model"]` 含完整 90+ 字段档案 |
-| 位置追踪 | 每次 state_changes 中的 `npc_status` / `character_status` 更新位置 |
-| Active Set | 按位置层级匹配纳入当前轮 |
+| 位置追踪 | **无**（位置不进代码层：`npc_status` 里的 location 字段被忽略，NPC 位置不写库） |
+| Active Set | 重要人物**始终在场**（不看位置） |
 
 **产生方式**（唯一入口）：
 
@@ -35,9 +35,9 @@ ANE 的 NPC 分为三个互斥的类型，生命周期和数据流向各不相�
 |------|-----|
 | `is_important` | `False` |
 | `is_alive` | `True` |
-| 数据持久化 | DB，基础字段（name / identity / cultivation / gender / location） |
+| 数据持久化 | DB，基础字段（name / identity / cultivation / gender；**位置不再写库**） |
 | 关系网 | `NPC.relations` 中 `entries[].target = 玩家`，由 llmmain 的 `relationship_change` 维护 |
-| Active Set | 按位置层级匹配纳入当前轮 |
+| Active Set | 名字被叙事提到时纳入当前轮（不看位置） |
 
 **产生方式**（唯一入口）：
 
@@ -68,7 +68,7 @@ llmmain 输出中包含 offstage_npcs 数组
 - 任意 llmmain 输出的 `relationship_change` 都会触发一次后台关系处理
 
 **Prompt 渲染**：
-- 同位置时进入 `[重要人物]` 块（通过 `is_important` 过滤——非重要 NPC `is_important=False`，**不进入** `[重要人物]` 块）
+- 被提到的 NPC 进入在场集合（通过 `is_important` 过滤——非重要 NPC `is_important=False`，**不进入** `[重要人物]` 块）
 - 当前轮次中按列表 `ctx.core_npcs`（即 `active_set.present_npcs`）全部传入 Prompt
 - 但是 `_build_important_npcs_block()` 只渲染 `is_important=True` 的 NPC，所以非重要的 offstage NPC **不会以完整 detail 格式出现在 Prompt 中**
 
@@ -79,7 +79,7 @@ llmmain 输出中包含 offstage_npcs 数组
 | 属性 | 值 |
 |------|-----|
 | 数据持久化 | **不入 DB** |
-| 位置追踪 | 无 |
+| 位置追踪 | 无（位置不进代码层） |
 | Active Set | **不参与** |
 
 **产生方式**（唯一入口）：
@@ -114,12 +114,13 @@ llm_main 输出
 ```
 RetrievalEngine.get_active_set()
   → 查全部 NPC（DB 中 session 下所有 NPC）
-  → 按玩家位置做层级匹配（精确匹配 + 分词交集）
+  → 重要人物全部在场 + 名字出现在「本轮输入 / 最近 3 轮对话 / 上一轮信息栏」的 NPC 在场
+  → 跳过死亡 NPC；上限 8（重要人物优先）
   → 返回 List[NPC] (present_npcs) + location_context + related_absent
 ```
 
 - **不再区分** `core_npcs` 和 `nearby_npcs`（原 `is_core` 列已删除）
-- 所有 DB 中的 NPC 平等参与位置匹配
+- **位置不进代码层**：任何 NPC 都不再按位置匹配（空位置路人"永远在场"、同村即在场、死者仍被注入这三个老问题一并修掉）
 - `related_absent` 从 Fact 表反向查找：查 character 类别的 Fact → 提取 NPC 名称 → 排除已在 present 的 → 返回最多 5 个
 
 ---
